@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   LeavesIcon, 
   TasksIcon, 
@@ -20,7 +21,8 @@ import ConfigureLeavesTab from '@/components/ConfigureLeavesTab';
 // Removed static LEAVE_ALLOWANCES and LEAVE_TYPES
 
 function LeavesContent() {
-  const { currentUser, hasPermission, leaveTypes } = useApp();
+  const { currentUser, hasPermission } = useApp();
+  const [leaveTypes, setLeaveTypes] = useState([]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -64,8 +66,6 @@ function LeavesContent() {
   const [hoveredExhaustedType, setHoveredExhaustedType] = useState('');
   const [clickedExhaustedMsg, setClickedExhaustedMsg] = useState('');
 
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
-
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
     return {
@@ -101,7 +101,7 @@ function LeavesContent() {
     }
   };
 
-  // Sync session & cached employees on mount
+  // Sync session & fetch dependencies on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('cubelogs_access_token');
@@ -109,16 +109,21 @@ function LeavesContent() {
         router.push('/login');
         return;
       }
-
-      const cachedEmployeesStr = localStorage.getItem('cubelogs_employees');
-      if (cachedEmployeesStr) {
-        try {
-          setCachedEmployees(JSON.parse(cachedEmployeesStr));
-        } catch (e) {
-          console.warn('Failed to parse cached employees');
-        }
-      }
     }
+
+    const loadDependencies = async () => {
+      try {
+        const [ltData, empData] = await Promise.all([
+          apiFetch('/leave-types/'),
+          apiFetch('/employees/')
+        ]);
+        setLeaveTypes(ltData.map(lt => ({ ...lt, id: String(lt.id) })));
+        setCachedEmployees(empData.map(emp => ({ ...emp, id: String(emp.id) })));
+      } catch (err) {
+        console.error('Failed to load leaves dependencies:', err);
+      }
+    };
+    loadDependencies();
   }, [router]);
 
   // Re-fetch leaves when statusFilter or employeeFilter changes

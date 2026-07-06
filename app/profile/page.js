@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
@@ -16,18 +16,41 @@ import {
   WarningIcon,
   CameraIcon
 } from '@/components/Icons';
+import { apiFetch } from '@/lib/api';
 
 export default function PersonalProfile() {
   const { 
     currentUser, 
-    tasks, 
-    leaves, 
-    attendanceLogs, 
-    schedules, 
-    employeePhotos, 
-    saveEmployee, 
     showAlert 
   } = useApp();
+
+  const [tasks, setTasks] = useState([]);
+  const [leaves, setLeaves] = useState([]);
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        const [tasksData, leavesData, attendanceData, schedulesData] = await Promise.all([
+          apiFetch('/tasks/'),
+          apiFetch('/leaves/'),
+          apiFetch('/attendance/'),
+          apiFetch('/schedules/')
+        ]);
+        setTasks(tasksData.map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) })));
+        setLeaves(leavesData.map(l => ({ ...l, id: String(l.id), employeeId: String(l.employee), leaveTypeId: String(l.leaveType), leaveType: l.leaveTypeName })));
+        setAttendanceLogs(attendanceData.map(log => ({ ...log, id: String(log.id), employeeId: String(log.employee) })));
+        setSchedules(schedulesData.map(s => ({ ...s, id: String(s.id) })));
+      } catch (err) {
+        console.error('Failed to load profile data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfileData();
+  }, []);
 
   const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_attendance_enabled;
@@ -84,13 +107,19 @@ export default function PersonalProfile() {
     e.target.value = '';
     try {
       const compressed = await compressImage(file);
-      // Save the compressed photo via saveEmployee
-      // Note: saveEmployee takes numeric or string fields, we map current info
-      await saveEmployee({
-        ...currentUser,
-        profilePhoto: compressed,
+      const response = await apiFetch(`/employees/${currentUser.id}/`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...currentUser,
+          profilePhoto: compressed,
+        }),
       });
+      const updatedUser = { ...currentUser, profilePhoto: response.profilePhoto };
+      localStorage.setItem('cubelogs_active_user', JSON.stringify(updatedUser));
       showAlert('Profile picture updated successfully!', 'Success', 'success');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (err) {
       showAlert('Could not update profile picture. Please try again.', 'Upload Failed', 'error');
     }

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { API_BASE_URL } from '@/lib/api';
 import { 
   HolidaysIcon, 
   BrandLogo, 
@@ -39,8 +40,6 @@ function HolidaysContent() {
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null });
 
   const fileInputRef = useRef(null);
-
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;

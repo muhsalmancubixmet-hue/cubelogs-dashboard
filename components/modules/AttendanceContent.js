@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PageWrapper from '@/components/PageWrapper';
 import { useApp } from '@/context/AppContext';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   ClockIcon, 
   HolidaysIcon, 
@@ -23,7 +24,8 @@ import {
 function AttendanceContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { showAlert, officeLocations } = useApp();
+  const { showAlert } = useApp();
+  const [officeLocations, setOfficeLocations] = useState([]);
 
   // Local state for attendance data
   const [currentUser, setCurrentUser] = useState(null);
@@ -55,8 +57,6 @@ function AttendanceContent() {
 
   // Lock to prevent double-firing Clock-In API
   const clockingInProgress = useRef(false);
-
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
@@ -225,22 +225,23 @@ function AttendanceContent() {
           console.warn('Failed to parse active user');
         }
       }
-
-      const cachedEmps = localStorage.getItem('cubelogs_employees');
-      if (cachedEmps) {
-        try {
-          setCachedEmployees(JSON.parse(cachedEmps));
-        } catch (e) {}
-      }
-
-      const cachedScheds = localStorage.getItem('cubelogs_schedules');
-      if (cachedScheds) {
-        try {
-          setSchedules(JSON.parse(cachedScheds));
-        } catch (e) {}
-      }
-
     }
+
+    const loadDependencies = async () => {
+      try {
+        const [locsData, empsData, schedsData] = await Promise.all([
+          apiFetch('/locations/'),
+          apiFetch('/employees/'),
+          apiFetch('/schedules/')
+        ]);
+        setOfficeLocations(locsData.map(loc => ({ ...loc, id: String(loc.id) })));
+        setCachedEmployees(empsData.map(emp => ({ ...emp, id: String(emp.id) })));
+        setSchedules(schedsData.map(sched => ({ ...sched, id: String(sched.id) })));
+      } catch (err) {
+        console.error('Failed to load attendance dependencies:', err);
+      }
+    };
+    loadDependencies();
   }, [router]);
 
   // Re-fetch attendance when selectedMonth, selectedYear, or currentUser changes

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useApp } from '@/context/AppContext';
 import { 
   EditIcon, 
   DeleteIcon, 
@@ -10,9 +9,60 @@ import {
   CloseIcon 
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
+import { apiFetch } from '@/lib/api';
 
 export default function ConfigureLeavesTab() {
-  const { leaveTypes, saveLeaveType, deleteLeaveType } = useApp();
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchLeaveTypes = async () => {
+    try {
+      const data = await apiFetch('/leave-types/');
+      setLeaveTypes(data.map(lt => ({ ...lt, id: String(lt.id) })));
+    } catch (e) {
+      console.error('Error fetching leave types:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaveTypes();
+  }, []);
+
+  const saveLeaveType = async (leaveType) => {
+    try {
+      let saved;
+      if (leaveType.id) {
+        saved = await apiFetch(`/leave-types/${leaveType.id}/`, {
+          method: 'PUT',
+          body: JSON.stringify(leaveType),
+        });
+        setLeaveTypes(prev => prev.map(lt => lt.id === leaveType.id ? { ...saved, id: String(saved.id) } : lt));
+      } else {
+        saved = await apiFetch('/leave-types/', {
+          method: 'POST',
+          body: JSON.stringify(leaveType),
+        });
+        setLeaveTypes(prev => [...prev, { ...saved, id: String(saved.id) }]);
+      }
+    } catch (e) {
+      console.error('Error saving leave type:', e);
+      setErrorMsg(e.message || 'Error occurred while saving leave type.');
+      setTimeout(() => setErrorMsg(''), 4000);
+    }
+  };
+
+  const deleteLeaveType = async (id) => {
+    try {
+      await apiFetch(`/leave-types/${id}/`, { method: 'DELETE' });
+      setLeaveTypes(prev => prev.filter(lt => lt.id !== id));
+    } catch (e) {
+      console.error('Error deleting leave type:', e);
+      setErrorMsg(e.message || 'Error occurred while deleting leave type.');
+      setTimeout(() => setErrorMsg(''), 4000);
+    }
+  };
 
   // Form states
   const [editingType, setEditingType] = useState(null);

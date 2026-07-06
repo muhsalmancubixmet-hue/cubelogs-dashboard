@@ -101,11 +101,6 @@ import ConfirmModal from '@/components/ConfirmModal';
 function SettingsHubContent() {
   const {
     currentUser,
-    templates,
-    saveTemplate,
-    deleteTemplate,
-    officeLocations,
-    saveOfficeLocations,
     brandLogo,
     saveBrandLogo,
     companyName,
@@ -117,6 +112,82 @@ function SettingsHubContent() {
     showAlert,
     updateAuthSession
   } = useApp();
+
+  const [templates, setTemplates] = useState([]);
+  const [officeLocations, setOfficeLocations] = useState([]);
+
+  const fetchSettingsData = async () => {
+    try {
+      const [templatesData, locationsData] = await Promise.all([
+        apiFetch('/templates/'),
+        apiFetch('/locations/')
+      ]);
+      setTemplates(templatesData.map(t => ({ ...t, id: String(t.id) })));
+      setOfficeLocations(locationsData.map(loc => ({ ...loc, id: String(loc.id) })));
+    } catch (err) {
+      console.error('Failed to load settings dependency data:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchSettingsData();
+  }, []);
+
+  const saveTemplate = async (template) => {
+    try {
+      let saved;
+      if (template.id) {
+        saved = await apiFetch(`/templates/${template.id}/`, {
+          method: 'PUT',
+          body: JSON.stringify(template),
+        });
+        setTemplates(prev => prev.map(t => t.id === template.id ? { ...saved, id: String(saved.id) } : t));
+      } else {
+        saved = await apiFetch('/templates/', {
+          method: 'POST',
+          body: JSON.stringify(template),
+        });
+        setTemplates(prev => [...prev, { ...saved, id: String(saved.id) }]);
+      }
+    } catch (e) {
+      console.error('Error saving template:', e);
+      showAlert('Error occurred while saving template.', 'Error', 'error');
+    }
+  };
+
+  const deleteTemplate = async (id) => {
+    try {
+      await apiFetch(`/templates/${id}/`, { method: 'DELETE' });
+      setTemplates(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error('Error deleting template:', e);
+      showAlert('Error occurred while deleting template.', 'Error', 'error');
+    }
+  };
+
+  const saveOfficeLocations = async (locations) => {
+    try {
+      const current = await apiFetch('/locations/');
+      for (const loc of current) {
+        await apiFetch(`/locations/${loc.id}/`, { method: 'DELETE' });
+      }
+
+      const created = [];
+      for (const loc of locations) {
+        const { id, ...locData } = loc; // strip local id
+        const newLoc = await apiFetch('/locations/', {
+          method: 'POST',
+          body: JSON.stringify(locData),
+        });
+        created.push({ ...newLoc, id: String(newLoc.id) });
+      }
+      setOfficeLocations(created);
+      showAlert('Office locations updated successfully!', 'Success', 'success');
+    } catch (e) {
+      console.error('Error saving locations:', e);
+      showAlert('Error occurred while saving office locations.', 'Error', 'error');
+    }
+  };
 
   const searchParams = useSearchParams();
   const router = useRouter();

@@ -20,7 +20,7 @@ import {
 } from './Icons';
 
 export default function Sidebar() {
-  const { currentUser, hasPermission, logout, sidebarOpen, setSidebarOpen, employeePhotos, companyName, permissionsRegistry } = useApp();
+  const { currentUser, hasPermission, logout, sidebarOpen, setSidebarOpen, companyName, permissionsRegistry } = useApp();
   console.log("permissionsRegistry", permissionsRegistry)
   const pathname = usePathname();
   const router = useRouter();

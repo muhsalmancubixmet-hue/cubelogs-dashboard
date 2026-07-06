@@ -1,7 +1,7 @@
 'use client';
-import React, { useMemo, useState } from 'react';
-import { useApp } from '@/context/AppContext';
+import React, { useMemo, useState, useEffect } from 'react';
 import { HolidaysIcon } from './Icons';
+import { apiFetch } from '@/lib/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -9,7 +9,22 @@ const MONTH_NAMES = [
 ];
 
 const HolidaySlider = () => {
-  const { holidays } = useApp();
+  const [holidays, setHolidays] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHolidays = async () => {
+      try {
+        const data = await apiFetch('/holidays/');
+        setHolidays(data.map(h => ({ ...h, id: String(h.id) })));
+      } catch (err) {
+        console.error('Failed to fetch holidays in slider:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHolidays();
+  }, []);
 
   // Group holidays by "YYYY-MM" key, sorted ascending
   const grouped = useMemo(() => {

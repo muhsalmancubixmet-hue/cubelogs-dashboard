@@ -4,6 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/api';
 import { 
   EmployeesIcon, 
   TasksIcon, 
@@ -49,8 +50,6 @@ function TasksContent() {
   const [isEditing, setIsEditing] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null });
-
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;

@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { BACKEND_BASE_URL } from '@/lib/api';
 
 function RevokeContent() {
   const searchParams = useSearchParams();
@@ -18,8 +19,7 @@ function RevokeContent() {
 
     const revokeRegistration = async () => {
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-        const res = await fetch(`${API_BASE}/api/employees/revoke/`, {
+        const res = await fetch(`${BACKEND_BASE_URL}/api/employees/revoke/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

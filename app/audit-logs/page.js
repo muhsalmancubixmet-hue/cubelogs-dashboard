@@ -10,10 +10,11 @@ import { SearchIcon, CloseIcon, AuditIcon } from '@/components/Icons';
 function AuditLogsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { currentUser, employees } = useApp();
+  const { currentUser } = useApp();
 
   // States
   const [logs, setLogs] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -25,6 +26,18 @@ function AuditLogsContent() {
   
   // Pagination
   const [visibleCount, setVisibleCount] = useState(25);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const data = await apiFetch('/employees/');
+        setEmployees(data.map(emp => ({ ...emp, id: String(emp.id) })));
+      } catch (err) {
+        console.error('Failed to load employees for audit logs:', err);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   // Fetch logs whenever filters change
   const fetchLogs = async () => {

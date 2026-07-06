@@ -5,6 +5,7 @@ import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { API_BASE_URL } from '@/lib/api';
 import { 
   EmployeesIcon, 
   BackIcon, 
@@ -90,8 +91,6 @@ function EmployeeCreateContent() {
       return true;
     });
   }, [isProjectEnabled, isAttendanceEnabled]);
-
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;

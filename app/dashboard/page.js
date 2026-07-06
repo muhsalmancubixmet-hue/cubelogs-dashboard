@@ -5,6 +5,7 @@ import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
+import { API_BASE_URL } from '@/lib/api';
 import { 
   EmployeesIcon, 
   LeavesIcon, 
@@ -39,8 +40,6 @@ export default function Dashboard() {
 
   // Live local system clock state
   const [currentTime, setCurrentTime] = useState(null);
-
-  const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api';
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;

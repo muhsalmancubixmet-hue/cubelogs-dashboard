@@ -9,7 +9,7 @@ import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 
 export default function Header({ title }) {
-  const { currentUser, logout, setSidebarOpen, subscriptionDays, employeePhotos } = useApp();
+  const { currentUser, logout, setSidebarOpen, subscriptionDays } = useApp();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -119,9 +119,9 @@ export default function Header({ title }) {
 
         <Link href="/profile" style={{ textDecoration: 'none' }}>
           <div className="avatar-circle">
-            {employeePhotos[currentUser.id] ? (
+            {currentUser.profilePhoto ? (
               <img
-                src={employeePhotos[currentUser.id]}
+                src={currentUser.profilePhoto}
                 alt={currentUser.name}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
               />

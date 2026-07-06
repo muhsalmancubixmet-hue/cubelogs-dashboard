@@ -79,20 +79,11 @@ const mapLocation = (loc) => ({
 
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [templates, setTemplates] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [attendanceLogs, setAttendanceLogs] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [leaves, setLeaves] = useState([]);
-  const [holidays, setHolidays] = useState([]);
-  const [leaveTypes, setLeaveTypes] = useState([]);
-  const [schedules, setSchedules] = useState([]);
   const [officePremises, setOfficePremises] = useState({ lat: 11.1143, lon: 76.2274 });
   const [officeLocations, setOfficeLocations] = useState([]);
   const [brandLogo, setBrandLogo] = useState(null);
   const [companyName, setCompanyName] = useState('');
   const [subscriptionDays, setSubscriptionDays] = useState(12);
-  const [employeePhotos, setEmployeePhotos] = useState({});
   const [isInitialized, setIsInitialized] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [permissionsRegistry, setPermissionsRegistry] = useState(null);
@@ -115,39 +106,15 @@ export function AppProvider({ children }) {
       const orgQuery = orgId ? `?organization=${orgId}` : '';
 
       const [
-        templatesData,
-        employeesData,
-        attendanceData,
-        tasksData,
-        leaveTypesData,
-        leavesData,
-        holidaysData,
-        schedulesData,
         locationsData,
         settingsData,
         permissionsConfigData
       ] = await Promise.all([
-        apiFetch(`/templates/${orgQuery}`),
-        apiFetch(`/employees/${orgQuery}`),
-        apiFetch(`/attendance/${orgQuery}`),
-        apiFetch(`/tasks/${orgQuery}`),
-        apiFetch(`/leave-types/${orgQuery}`),
-        apiFetch(`/leaves/${orgQuery}`),
-        apiFetch(`/holidays/${orgQuery}`),
-        apiFetch(`/schedules/${orgQuery}`),
         apiFetch(`/locations/${orgQuery}`),
         apiFetch(`/settings/current/${orgQuery}`),
         apiFetch(`/permissions/config/?t=${Date.now()}`),
       ]);
 
-      setTemplates(templatesData.map(mapTemplate));
-      setEmployees(employeesData.map(mapEmployee));
-      setAttendanceLogs(attendanceData.map(mapAttendance));
-      setTasks(tasksData.map(mapTask));
-      setLeaveTypes(leaveTypesData.map(mapLeaveType));
-      setLeaves(leavesData.map(mapLeave));
-      setHolidays(holidaysData.map(mapHoliday));
-      setSchedules(schedulesData.map(mapSchedule));
       setOfficeLocations(locationsData.map(mapLocation));
 
       if (locationsData.length > 0) {
@@ -159,16 +126,6 @@ export function AppProvider({ children }) {
       setCompanyName(settingsData.companyName || '');
       setSubscriptionDays(settingsData.subscriptionDays);
       setPermissionsRegistry(permissionsConfigData);
-      console.log(" permissionsConfigData base", permissionsConfigData)
-      console.log(" permissionsRegistry base", permissionsRegistry)
-      // Cache profile photos mapping locally
-      const photoMap = {};
-      employeesData.forEach(emp => {
-        if (emp.profilePhoto) {
-          photoMap[String(emp.id)] = emp.profilePhoto;
-        }
-      });
-      setEmployeePhotos(photoMap);
     } catch (e) {
       console.warn('Failed to fetch platform records:', e);
     }
@@ -313,298 +270,7 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Templates CRUD
-  const saveTemplate = async (template) => {
-    try {
-      let saved;
-      if (template.id) {
-        saved = await apiFetch(`/templates/${template.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(template),
-        });
-        setTemplates(prev => prev.map(t => t.id === template.id ? mapTemplate(saved) : t));
-      } else {
-        saved = await apiFetch('/templates/', {
-          method: 'POST',
-          body: JSON.stringify(template),
-        });
-        setTemplates(prev => [...prev, mapTemplate(saved)]);
-      }
-      const freshEmployees = await apiFetch('/employees/');
-      setEmployees(freshEmployees.map(mapEmployee));
-    } catch (e) {
-      console.error('Error saving template:', e);
-    }
-  };
-
-  const deleteTemplate = async (id) => {
-    try {
-      await apiFetch(`/templates/${id}/`, { method: 'DELETE' });
-      setTemplates(prev => prev.filter(t => t.id !== id));
-    } catch (e) {
-      console.error('Error deleting template:', e);
-    }
-  };
-
-  // Employees CRUD
-  const saveEmployee = async (employee) => {
-    try {
-      let saved;
-      if (employee.id) {
-        saved = await apiFetch(`/employees/${employee.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(employee),
-        });
-        setEmployees(prev => prev.map(emp => emp.id === employee.id ? mapEmployee(saved) : emp));
-      } else {
-        const requestData = {
-          ...employee,
-          password: employee.password || (employee.email.split('@')[0] + '123'),
-        };
-        saved = await apiFetch('/employees/', {
-          method: 'POST',
-          body: JSON.stringify(requestData),
-        });
-        setEmployees(prev => [...prev, mapEmployee(saved)]);
-      }
-
-      const mappedSaved = mapEmployee(saved);
-      if (mappedSaved.profilePhoto) {
-        setEmployeePhotos(prev => ({ ...prev, [mappedSaved.id]: mappedSaved.profilePhoto }));
-      } else {
-        setEmployeePhotos(prev => {
-          const next = { ...prev };
-          delete next[mappedSaved.id];
-          return next;
-        });
-      }
-
-      if (currentUser && currentUser.id === mappedSaved.id) {
-        setCurrentUser(mappedSaved);
-        localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedSaved));
-      }
-    } catch (e) {
-      console.error('Error saving employee:', e);
-      throw e;
-    }
-  };
-
-  const deleteEmployee = async (id) => {
-    try {
-      await apiFetch(`/employees/${id}/`, { method: 'DELETE' });
-      setEmployees(prev => prev.filter(emp => emp.id !== id));
-      setEmployeePhotos(prev => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-    } catch (e) {
-      console.error('Error deleting employee:', e);
-    }
-  };
-
-  // Attendance Clocking
-  const clockIn = async (employeeId, verificationData = null) => {
-    try {
-      const response = await apiFetch('/attendance/clock-in/', {
-        method: 'POST',
-        body: JSON.stringify({ employeeId: parseInt(employeeId), verificationData }),
-      });
-      setAttendanceLogs(prev => [mapAttendance(response), ...prev]);
-    } catch (e) {
-      console.error('Clock-in failed:', e);
-      showAlert(e.message || 'Clock-in failed.', 'Clock-In Blocked', 'error');
-    }
-  };
-
-  const clockOut = async (employeeId) => {
-    try {
-      const response = await apiFetch('/attendance/clock-out/', {
-        method: 'POST',
-        body: JSON.stringify({ employeeId: parseInt(employeeId) }),
-      });
-      setAttendanceLogs(prev => prev.map(log => (log.employeeId === employeeId && !log.clockOut) ? mapAttendance(response) : log));
-    } catch (e) {
-      console.error('Clock-out failed:', e);
-      showAlert(e.message || 'Clock-out failed.', 'Clock-Out Blocked', 'error');
-    }
-  };
-
-  const adjustAttendance = async (logId, changes) => {
-    try {
-      const response = await apiFetch(`/attendance/${logId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify(changes),
-      });
-      setAttendanceLogs(prev => prev.map(log => log.id === logId ? mapAttendance(response) : log));
-    } catch (e) {
-      console.error('Error adjusting attendance:', e);
-    }
-  };
-
-  // Tasks CRUD
-  const saveTask = async (task) => {
-    try {
-      const payload = {
-        title: task.title,
-        description: task.description,
-        assignedTo: parseInt(task.assignedTo),
-        assignedName: task.assignedName,
-        dueDate: task.dueDate,
-        status: task.status,
-      };
-
-      let saved;
-      if (task.id) {
-        saved = await apiFetch(`/tasks/${task.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
-        });
-        setTasks(prev => prev.map(t => t.id === task.id ? mapTask(saved) : t));
-      } else {
-        saved = await apiFetch('/tasks/', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        setTasks(prev => [mapTask(saved), ...prev]);
-      }
-    } catch (e) {
-      console.error('Error saving task:', e);
-    }
-  };
-
-  const deleteTask = async (id) => {
-    try {
-      await apiFetch(`/tasks/${id}/`, { method: 'DELETE' });
-      setTasks(prev => prev.filter(t => t.id !== id));
-    } catch (e) {
-      console.error('Error deleting task:', e);
-    }
-  };
-
-  // Leaves CRUD
-  const applyLeave = async (leave) => {
-    try {
-      const ltObj = leaveTypes.find(lt => lt.id === leave.leaveType || lt.name === leave.leaveType);
-
-      const payload = {
-        employee: parseInt(leave.employeeId),
-        employeeName: employees.find(e => e.id === leave.employeeId)?.name || 'Employee',
-        leaveType: ltObj ? parseInt(ltObj.id) : null,
-        leaveTypeName: ltObj ? ltObj.name : leave.leaveType,
-        startDate: leave.startDate,
-        endDate: leave.endDate || leave.startDate,
-        dayType: leave.dayType,
-        reason: leave.reason,
-        duration: leave.dayType === 'Half Day' ? 0.5 : 1.0,
-      };
-
-      const response = await apiFetch('/leaves/', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      setLeaves(prev => [mapLeave(response), ...prev]);
-    } catch (e) {
-      console.error('Error applying leave:', e);
-    }
-  };
-
-  const updateLeaveStatus = async (id, status) => {
-    try {
-      const response = await apiFetch(`/leaves/${id}/status/`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      });
-      setLeaves(prev => prev.map(l => l.id === id ? mapLeave(response) : l));
-    } catch (e) {
-      console.error('Error updating leave status:', e);
-    }
-  };
-
-  // Holidays CRUD
-  const saveHoliday = async (holiday) => {
-    try {
-      let saved;
-      if (holiday.id) {
-        saved = await apiFetch(`/holidays/${holiday.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(holiday),
-        });
-        setHolidays(prev => prev.map(h => h.id === holiday.id ? mapHoliday(saved) : h));
-      } else {
-        saved = await apiFetch('/holidays/', {
-          method: 'POST',
-          body: JSON.stringify(holiday),
-        });
-        setHolidays(prev => [...prev, mapHoliday(saved)]);
-      }
-    } catch (e) {
-      console.error('Error saving holiday:', e);
-    }
-  };
-
-  const deleteHoliday = async (id) => {
-    try {
-      await apiFetch(`/holidays/${id}/`, { method: 'DELETE' });
-      setHolidays(prev => prev.filter(h => h.id !== id));
-    } catch (e) {
-      console.error('Error deleting holiday:', e);
-    }
-  };
-
-  // Leave Types CRUD
-  const saveLeaveType = async (leaveType) => {
-    try {
-      let saved;
-      if (leaveType.id) {
-        saved = await apiFetch(`/leave-types/${leaveType.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(leaveType),
-        });
-        setLeaveTypes(prev => prev.map(lt => lt.id === leaveType.id ? mapLeaveType(saved) : lt));
-      } else {
-        saved = await apiFetch('/leave-types/', {
-          method: 'POST',
-          body: JSON.stringify(leaveType),
-        });
-        setLeaveTypes(prev => [...prev, mapLeaveType(saved)]);
-      }
-    } catch (e) {
-      console.error('Error saving leave type:', e);
-    }
-  };
-
-  const deleteLeaveType = async (id) => {
-    try {
-      await apiFetch(`/leave-types/${id}/`, { method: 'DELETE' });
-      setLeaveTypes(prev => prev.filter(lt => lt.id !== id));
-    } catch (e) {
-      console.error('Error deleting leave type:', e);
-    }
-  };
-
-  // Schedules CRUD
-  const saveSchedule = async (scheduleData) => {
-    try {
-      const exists = schedules.find(s => s.designation === scheduleData.designation);
-      let saved;
-      if (exists) {
-        saved = await apiFetch(`/schedules/${exists.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(scheduleData),
-        });
-        setSchedules(prev => prev.map(s => s.designation === scheduleData.designation ? mapSchedule(saved) : s));
-      } else {
-        saved = await apiFetch('/schedules/', {
-          method: 'POST',
-          body: JSON.stringify(scheduleData),
-        });
-        setSchedules(prev => [...prev, mapSchedule(saved)]);
-      }
-    } catch (e) {
-      console.error('Error saving schedule:', e);
-    }
-  };
+  // CRUD operations moved to their respective component pages
 
   // Locations CRUD
   const saveOfficePremises = (premises) => {
@@ -767,12 +433,6 @@ export function AppProvider({ children }) {
     <AppContext.Provider
       value={{
         currentUser,
-        templates,
-        employees,
-        attendanceLogs,
-        tasks,
-        leaves,
-        holidays,
         isInitialized,
         login,
         magicLogin,
@@ -780,24 +440,6 @@ export function AppProvider({ children }) {
         requestPasswordReset,
         validateResetToken,
         confirmPasswordReset,
-        saveTemplate,
-        deleteTemplate,
-        saveEmployee,
-        deleteEmployee,
-        clockIn,
-        clockOut,
-        adjustAttendance,
-        saveTask,
-        deleteTask,
-        applyLeave,
-        updateLeaveStatus,
-        saveHoliday,
-        deleteHoliday,
-        leaveTypes,
-        saveLeaveType,
-        deleteLeaveType,
-        schedules,
-        saveSchedule,
         hasPermission,
         isFeatureUnlocked,
         sidebarOpen,
@@ -814,7 +456,6 @@ export function AppProvider({ children }) {
         renewSubscription,
         completeOnboarding,
         confirmSubscription,
-        employeePhotos,
         alertModal,
         showAlert,
         closeAlert,
