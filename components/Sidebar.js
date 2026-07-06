@@ -279,9 +279,9 @@ export default function Sidebar() {
         <Link href="/profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, textDecoration: 'none' }}>
           <div className="profile-details">
             <div className="avatar">
-              {employeePhotos[currentUser.id] ? (
+              {currentUser.profilePhoto ? (
                 <img
-                  src={employeePhotos[currentUser.id]}
+                  src={currentUser.profilePhoto}
                   alt={currentUser.name}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
                 />

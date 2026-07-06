@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   EmployeesIcon, 
   TasksIcon, 
@@ -36,6 +36,13 @@ function TasksContent() {
       ...derivedEmployees.map(e => [e.id, e])
     ]).values()
   );
+
+  const employeePhotos = {};
+  employees.forEach(emp => {
+    if (emp.profilePhoto) {
+      employeePhotos[emp.id] = emp.profilePhoto;
+    }
+  });
 
   // Tab State
   const activeTab = searchParams.get('tab') || 'my';
@@ -119,6 +126,16 @@ function TasksContent() {
         }
       }
     }
+
+    const loadEmployees = async () => {
+      try {
+        const empData = await apiFetch('/employees/');
+        setCachedEmployees(empData.map(emp => ({ ...emp, id: String(emp.id) })));
+      } catch (err) {
+        console.error('Failed to load tasks employees:', err);
+      }
+    };
+    loadEmployees();
   }, [router]);
 
   // Redirect if project management is not purchased
@@ -527,12 +544,21 @@ function TasksContent() {
                   ) : (
                     tasks.map(task => (
                       <div className="task-admin-card-row" key={task.id} style={{ padding: '12px 14px' }}>
-                        <div className="row-details">
-                          <h4 style={{ fontSize: '0.88rem' }}>{task.title}</h4>
-                          <div className="meta-details" style={{ fontSize: '0.75rem' }}>
-                            <span className="assignee">Assignee: <strong>{task.assignedName}</strong></span>
-                            <span className="sep">•</span>
-                            <span className="due">Due: {task.dueDate}</span>
+                        <div className="row-details" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                          <div style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', overflow: 'hidden', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
+                            {employeePhotos[task.assignedTo] ? (
+                              <img src={employeePhotos[task.assignedTo]} alt={task.assignedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              task.assignedName ? task.assignedName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'
+                            )}
+                          </div>
+                          <div>
+                            <h4 style={{ fontSize: '0.88rem', margin: 0 }}>{task.title}</h4>
+                            <div className="meta-details" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                              <span className="assignee">Assignee: <strong>{task.assignedName}</strong></span>
+                              <span className="sep">•</span>
+                              <span className="due">Due: {task.dueDate}</span>
+                            </div>
                           </div>
                         </div>
                         
@@ -651,9 +677,18 @@ function TasksContent() {
                       </div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: 'auto' }}>
-                        <div className="meta-details" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span className="assignee" style={{ fontSize: '0.78rem' }}>Assignee: <strong>{task.assignedName}</strong></span>
-                          <span className="due" style={{ fontSize: '0.72rem' }}>Due: {task.dueDate}</span>
+                        <div className="meta-details" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', overflow: 'hidden', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
+                            {employeePhotos[task.assignedTo] ? (
+                              <img src={employeePhotos[task.assignedTo]} alt={task.assignedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              task.assignedName ? task.assignedName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span className="assignee" style={{ fontSize: '0.78rem' }}>Assignee: <strong>{task.assignedName}</strong></span>
+                            <span className="due" style={{ fontSize: '0.72rem' }}>Due: {task.dueDate}</span>
+                          </div>
                         </div>
                         
                         <div className="btn-group-horizontal" style={{ display: 'flex', gap: '6px' }}>

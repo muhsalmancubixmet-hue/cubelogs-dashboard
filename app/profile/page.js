@@ -186,9 +186,9 @@ export default function PersonalProfile() {
               title="Click to change profile photo"
             >
               <div className="avatar-large">
-                {employeePhotos[currentUser.id] ? (
+                {currentUser.profilePhoto ? (
                   <img
-                    src={employeePhotos[currentUser.id]}
+                    src={currentUser.profilePhoto}
                     alt={currentUser.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
                   />
