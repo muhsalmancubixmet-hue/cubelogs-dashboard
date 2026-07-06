@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CubeLogs Functional Specification</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm 15mm;
+            @bottom-right {
+                content: counter(page);
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 9pt;
+                color: #64748b;
+            }
+        }
+        
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 11pt;
+            line-height: 1.6;
+            color: #334155;
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+        }
+
+        h1 {
+            font-size: 22pt;
+            color: #0f172a;
+            margin-top: 0;
+            margin-bottom: 5px;
+            font-weight: 700;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 8px;
+            text-align: center;
+        }
+
+        .subtitle {
+            font-size: 11.5pt;
+            color: #64748b;
+            margin-bottom: 30px;
+            text-align: center;
+            font-style: italic;
+        }
+
+        h2 {
+            font-size: 15pt;
+            color: #0369a1;
+            margin-top: 25px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            page-break-after: avoid;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+
+        h3 {
+            font-size: 12.5pt;
+            color: #0f172a;
+            margin-top: 18px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            page-break-after: avoid;
+        }
+
+        p {
+            margin-top: 0;
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+
+        ul {
+            margin-top: 0;
+            margin-bottom: 14px;
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        strong {
+            color: #0f172a;
+        }
+
+        .example-box {
+            background-color: #f0fdf4;
+            border-left: 4px solid #16a34a;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        th, td {
+            padding: 12px 14px;
+            text-align: left;
+            font-size: 10.5pt;
+            border: 1px solid #e2e8f0;
+        }
+
+        th {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>CubeLogs — Project Core Specifications</h1>
+    <div class="subtitle">Simplified Functional Requirements Documentation</div>
+
+    <h2>1. Unified Login Screen</h2>
+    <p>The application implements a single, unified login screen shared by the Super Admin and all regular employees.</p>
+    <ul>
+        <li><strong>Login Flow:</strong> When a user enters their email and password, the system checks their role. If the user is the Super Admin, they are redirected to a dashboard with full system controls. Regular employees are redirected to their assigned workspace layout.</li>
+        <li><strong>Super Admin Privilege:</strong> The Super Admin has absolute access to every page, feature, and sub-menu option in the entire system.</li>
+    </ul>
+
+    <h2>2. Master Role Template Engine</h2>
+    <p>To keep configuration quick and efficient, the Super Admin can pre-define standard baseline permissions for different organizational titles before onboarding individual employees.</p>
+    <ul>
+        <li><strong>Core Mechanisms:</strong> When creating a new role template (e.g., HR, Developer, Cleaning Staff), the Admin selects which specific pages they can view. A master global checkbox toggle (<strong>"Select All"</strong>) is included to instantly check or uncheck all permission flags with a single click.</li>
+    </ul>
+
+    <h2>3. Employee Creation & Custom Overrides</h2>
+    <p>When the Super Admin onboards a new worker under <code>/admin/employees/create</code>, the setup is processed in two clean steps on the same screen:</p>
+    
+    <h3>Step 1: Core Personal Data & Designation</h3>
+    <p>The Admin populates basic identification records: Full Name, Email, Phone Number, and selects the exact <strong>Designation</strong> from a dropdown list (which directly links to the Master Role Templates).</p>
+
+    <h3>Step 2: Default Template or Live Custom Override</h3>
+    <p>Selecting a Designation instantly loads its preset template permissions right on the screen. Below this configuration, an active checkbox handles the authorization logic:</p>
+    <ul>
+        <li><strong>"Use default page permissions for this profile" Checkbox:</strong> This option is checked by default. If left checked, the nested checkboxes remain read-only, allowing the Admin to save the profile in under 5 seconds.</li>
+        <li><strong>The Custom Override Option:</strong> If the Admin unchecks this box, the permission matrix instantly unlocks on the exact same screen. The Admin can freely customize, add, or remove page access for this specific user without altering the original master role template rules.</li>
+    </ul>
+
+    <div class="example-box">
+        <strong>A Simple Real-World Example:</strong><br/>
+        1. The Admin selects Designation: <strong>"Cleaning Staff"</strong>. The system automatically selects only the Clock-In/Out page as active, leaving all other features turned off.<br/>
+        2. <strong>For Standard Staff:</strong> The Admin leaves the default permissions checkbox ticked and saves the profile immediately.<br/>
+        3. <strong>For a Special Case Staff:</strong> If a specific cleaning staff member also needs access to view the Holiday Calendar, the Admin simply unticks the default checkbox. The permission checklist unlocks instantly on the spot, allowing the Admin to check the Holiday Calendar page just for this individual.
+    </div>
+
+    <h2>4. Hierarchical Sidebar Structure (Dropdown Menus)</h2>
+    <p>To keep the interface clean and structured, the sidebar utilizes an expandable dynamic accordion/dropdown menu architecture. Clicking on a primary category expands a nested tree of sub-pages based on user permissions. The Super Admin uniquely views all existing nested items simultaneously.</p>
+
+    <h3>4.1 Tasks Dropdown Module</h3>
+    <p>Clicking the primary "Tasks" category triggers a dynamic dropdown containing two separate operational sub-pages:</p>
+    <ul>
+        <li><strong>Add Task Workspace:</strong> Dedicated space for the Super Admin, Human Resources, or Senior Staff to create, schedule, and assign new tasks to specific developers or teams.</li>
+        <li><strong>My Tasks View:</strong> A personal workspace interface for regular developers and staff members to track their individually assigned project objectives.</li>
+        <li><em>Role Restriction: Super Admin simultaneously views and operates both sub-pages within their dropdown workspace. Developers only see and access the "My Tasks View" node.</em></li>
+    </ul>
+
+    <h3>4.2 Leave Management Dropdown Module</h3>
+    <p>Clicking the primary "Leaves" category opens an expandable dynamic sub-menu containing two operational nodes:</p>
+    <ul>
+        <li><strong>Apply Leave Form:</strong> A self-service interface dedicated to developers, cleaning staff, and regular employees to file new time-off requests.</li>
+        <li><strong>Leave Approval Portal:</strong> A management control dashboard utilized by HR and upper administration to review, approve, or reject active employee leave requests.</li>
+        <li><em>Role Restriction: The Super Admin retains structural visibility of both sub-menus simultaneously. Standard staff are strictly confined to the "Apply Leave Form" sub-page.</em></li>
+    </ul>
+
+    <h3>4.3 Holiday Calendar Dropdown Module</h3>
+    <p>Clicking the primary "Holidays" category expands into structural sub-directories based on user permission matrices:</p>
+    <ul>
+        <li><strong>Configure System Holidays:</strong> A full CRUD workspace enabling administration to provision, edit, or remove national or corporate calendar closures.</li>
+        <li><strong>View Holiday Calendar:</strong> An interactive, read-only calendar framework displaying upcoming corporate events for regular developers and workforce staff.</li>
+        <li><em>Role Restriction: The Super Admin views and handles both operational pages concurrently. Regular staff view the calendar only.</em></li>
+    </ul>
+
+    <h3>4.4 Attendance & Clocking Monitor</h3>
+    <ul>
+        <li><strong>Staff View:</strong> If permitted, employees see clear actions for <strong>Clock-In, Clock-Out, Break Start, and Break End</strong>. Their total active shift duration updates and renders live on their screen.</li>
+        <li><strong>Admin View:</strong> A live synchronized table maps the active punch-in status of all personnel. Clicking on a name triggers an overlay showing their profile summary, full log history, and assigned tasks. The Admin holds master override credentials to manually adjust time logs.</li>
+    </ul>
+
+    <hr />
+
+    <h2>5. Dynamic Sidebar Layout Matrix</h2>
+    <p>Post-login, the navigation matrix resolves available sidebar pathways and nested accordion sub-menus depending entirely on the user's explicit page permission flags:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Super Admin Panel (Full Access)</th>
+                <th>Custom Role Profile (e.g., Developer)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>📊 Dashboard Overview</strong></td>
+                <td> My Dashboard Analytics</td>
+            </tr>
+            <tr>
+                <td><strong>👥 Add New Employees / Set Roles</strong></td>
+                <td><em>(Hidden / Restricted)</em></td>
+            </tr>
+            <tr>
+                <td><strong>🛠️ Manage Employees & Update Permissions</strong></td>
+                <td><em>(Hidden / Restricted)</em></td>
+            </tr>
+            <tr>
+                <td>⏱️ Real-time Global Attendance Monitor</td>
+                <td>⏱️ Clock-In / Clock-Out Dashboard <em>(If Permitted)</em></td>
+            </tr>
+            <tr>
+                <td>
+                    <strong>📅 Leaves (Dropdown Expanded)</strong><br/>
+                    ├── 📝 Apply Leave Form<br/>
+                    └── 📋 Leave Approval Portal
+                </td>
+                <td>
+                    <strong>📅 Leaves (Restricted/Filtered View)</strong><br/>
+                    └── 📝 Apply Leave Form <em>(If Permitted)</em>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <strong>📆 Holidays (Dropdown Expanded)</strong><br/>
+                    ├── 🛠️ Configure System Holidays<br/>
+                    └── 🗓️ View Holiday Calendar
+                </td>
+                <td>
+                    <strong>📆 Holidays (Restricted/Filtered View)</strong><br/>
+                    └── 🗓️ View Holiday Calendar <em>(If Permitted)</em>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <strong>📋 Tasks (Dropdown Expanded)</strong><br/>
+                    ├── ➕ Add Task Workspace<br/>
+                    └── 👥 My Tasks View
+                </td>
+                <td>
+                    <strong>📋 Tasks (Restricted/Filtered View)</strong><br/>
+                    └── 👥 My Tasks View <em>(If Permitted)</em>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
