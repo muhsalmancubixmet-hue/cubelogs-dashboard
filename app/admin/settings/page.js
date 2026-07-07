@@ -200,18 +200,26 @@ function SettingsHubContent() {
   // Active Tab State (templates, locations, branding, billing)
   const currentTab = searchParams.get('tab') || 'templates';
 
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+
   // Permission Checks per Tab
-  const hasTemplatesPerm = hasPermission('admin:templates');
-  const hasLocationsPerm = hasPermission('locations:manage');
-  const hasBrandingPerm = hasPermission('settings:branding');
+  const hasTemplatesPerm = !isUnpaid && hasPermission('admin:templates');
+  const hasLocationsPerm = !isUnpaid && hasPermission('locations:manage');
+  const hasBrandingPerm = !isUnpaid && hasPermission('settings:branding');
   const hasBillingPerm = hasPermission('settings:billing');
-  const hasAttendanceConfigPerm = hasPermission('attendance:management_portal');
+  const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
 
   const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_attendance_enabled;
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
+    if (isUnpaid) {
+      if (currentTab !== 'billing') {
+        router.replace('/admin/settings?tab=billing');
+      }
+      return;
+    }
     if (currentTab === 'templates' && !hasTemplatesPerm) {
       redirectToFirstAuthorized();
     } else if (currentTab === 'locations' && (!hasLocationsPerm || !isAttendanceEnabled)) {
@@ -223,7 +231,7 @@ function SettingsHubContent() {
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
     }
-  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router]);
+  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router, isUnpaid]);
 
   const redirectToFirstAuthorized = () => {
     if (hasTemplatesPerm) router.replace('/admin/settings?tab=templates');
@@ -854,7 +862,7 @@ function SettingsHubContent() {
           'success'
         );
       } catch (err) {
-        console.error(err);
+        console.warn("Module toggle failed:", err.message);
         showAlert(
           err.message || 'Failed to update module. Please make sure you have enough wallet balance.',
           'Action Failed',

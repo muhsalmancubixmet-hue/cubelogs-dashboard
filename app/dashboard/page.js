@@ -23,7 +23,7 @@ import DashboardCalendar from '@/components/DashboardCalendar';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser: globalCurrentUser } = useApp();
+  const { currentUser: globalCurrentUser, permissionsRegistry } = useApp();
 
   // Local state for dashboard data
   const [currentUser, setCurrentUser] = useState(null);
@@ -302,6 +302,52 @@ export default function Dashboard() {
 
   if (!currentUser) return null;
 
+  const isUnpaid = (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Unpaid';
+
+  if (isUnpaid) {
+    return (
+      <PageWrapper title="Billing Action Required" requiredPermission="dashboard">
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '60px 20px',
+          textAlign: 'center',
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          maxWidth: '600px',
+          margin: '40px auto',
+          boxShadow: 'var(--shadow-md)'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            color: 'var(--danger)',
+            marginBottom: '24px'
+          }}>
+            <WarningIcon size={32} />
+          </div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '12px' }}>
+            Workspace Restricted
+          </h2>
+          <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '28px', maxWidth: '460px' }}>
+            Access to all dashboard modules and workspace tools is temporarily disabled because of an unpaid monthly invoice. Please update your payment status to restore full access.
+          </p>
+          <Link href="/admin/settings?tab=billing" className="btn btn-danger btn-lg" style={{ textDecoration: 'none', padding: '12px 32px', fontWeight: '600' }}>
+            Go to Billing & Payments
+          </Link>
+        </div>
+      </PageWrapper>
+    );
+  }
+
   return (
     <PageWrapper title="Dashboard Analytics" requiredPermission="dashboard">
       
@@ -332,8 +378,8 @@ export default function Dashboard() {
         </div>
       )}
       
-      {/* 1. Metrics Grid */}
-      <div className="metrics-grid">
+      {/* Consolidated Metrics Grid at the top below navbar */}
+      <div className="metrics-grid" style={{ marginBottom: '32px' }}>
         {isAdminView ? (
           <>
             <Link href="/admin/employees" className="metric-card">
@@ -404,256 +450,488 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* 2. Primary Control Row (Attendance Punch Clock & Visual Calendar) */}
-      <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
-        <div className="dashboard-control-col-left" style={{ display: 'flex', flexDirection: 'column' }}>
-          {isAttendanceEnabled && hasPermission('attendance:staff') && (
-            <div className="panel clocking-card-panel" style={{ marginBottom: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
-                <span>Attendance Control Center</span>
-              </h3>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '5px 0 20px', width: '100%' }}>
-                Register shifts live.
-              </p>
+      {/* Group Dashboard Layout Section-Wise */}
+      {(() => {
+        // Fallback modules config in case permissionsRegistry is not loaded
+        const modulesList = permissionsRegistry?.modules || [
+          {
+            id: 'attendance',
+            metadata: {
+              name: 'Attendance Management',
+              icon: 'AttendanceIcon',
+              required_subscription_flag: 'is_attendance_enabled'
+            },
+            functional_capabilities: [
+              { id: 'attendance:staff', label: 'Attendance & Clocking', path: '/attendance', tab: '' },
+              { id: 'leaves:apply', label: 'Apply Leave Form', path: '/attendance', tab: 'leaves-apply' },
+              { id: 'leaves:approve', label: 'Leave Approval Portal', path: '/attendance', tab: 'leaves-approve' },
+              { id: 'leaves:manage', label: 'Configure Leave Types', path: '/attendance', tab: 'leaves-manage' },
+              { id: 'holidays:manage', label: 'Configure Holidays', path: '/attendance', tab: 'holidays-manage' },
+              { id: 'holidays:view', label: 'View Holiday Calendar', path: '/attendance', tab: 'holidays-view' },
+              { id: 'attendance:management_portal', label: 'Attendance Management Portal', path: '/attendance/management-portal', tab: '' }
+            ]
+          },
+          {
+            id: 'tasks',
+            metadata: {
+              name: 'Project Management',
+              icon: 'TasksIcon',
+              required_subscription_flag: 'is_project_enabled'
+            },
+            functional_capabilities: [
+              { id: 'tasks:create', label: 'Add Task Workspace', path: '/tasks', tab: 'add' },
+              { id: 'tasks:view', label: 'My Tasks View', path: '/tasks', tab: 'my' }
+            ]
+          }
+        ];
 
-              <div className="realtime-clock-display">
-                <ClockIcon size={16} />
-                <span>Live System Time:</span>
-                <span className="clock-time-val">
-                  {formatLocalTime(currentTime) || 'Loading...'}
-                </span>
-              </div>
+        // Filter active modules based on subscription and user permissions
+        const activeModules = modulesList.filter(module => {
+          const reqFlag = module.metadata?.required_subscription_flag;
+          const hasAddon = reqFlag 
+            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag]) 
+            : true;
 
-              {/* Clock timers */}
-              {isClockedIn ? (
-                <div className="timer-display-group">
-                  <div className="timer-circle work-active">
-                    <span className="timer-label">Work Session</span>
-                    <span className="timer-val">{formatTime(workSeconds)}</span>
+          if (!hasAddon) return false;
+
+          const userCapabilities = currentUser?.isSuperAdmin
+            ? module.functional_capabilities
+            : module.functional_capabilities?.filter(cap => hasPermission(cap.id)) || [];
+
+          return userCapabilities.length > 0;
+        });
+
+        // 1. Platform Overview Section (Core User Directory & Settings Templates)
+        const showOverviewSection = canOnboard || canManageTemplates;
+
+        return (
+          <>
+            {showOverviewSection && (
+              <div className="dashboard-module-section" style={{ marginBottom: '40px' }}>
+                {/* Modern header banner with a soft background gradient */}
+                <div className="platform-overview-header" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '16px 24px',
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%)',
+                  border: '1px solid rgba(37, 99, 235, 0.15)',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--primary-light)',
+                    color: 'var(--primary)',
+                    boxShadow: '0 0 12px rgba(37, 99, 235, 0.2)'
+                  }}>
+                    <BrandLogo size={20} />
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.02em' }}>Platform Administration</h2>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-light)', fontWeight: '500' }}>Manage system directory, permission profiles, and templates</span>
                   </div>
                 </div>
-              ) : (
-                <div className="timer-display-group">
-                  <div className="timer-circle inactive">
-                    <span className="timer-label">Shift Inactive</span>
-                    <span className="timer-val">00:00:00</span>
-                  </div>
-                </div>
-              )}
 
-              <div className="clock-actions-row" style={{ marginTop: 'auto', paddingTop: '20px' }}>
-                {!isClockedIn ? (
-                  <button className="btn btn-primary btn-lg full-width" onClick={() => router.push('/attendance?triggerClockIn=true')}>
-                    Clock In
-                  </button>
-                ) : (
-                  <button className="btn btn-danger full-width" onClick={() => handleClockOut(currentUser.id)}>
-                    Clock Out
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column' }}>
-          <DashboardCalendar holidays={holidays} />
-        </div>
-      </div>
-
-      {/* 3. Secondary Summary Row (Tasks & Leave Requests Summary) */}
-      <div className="dashboard-row">
-        {/* Left Column: Tasks Summary & Holiday Slider */}
-        <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {isProjectEnabled && (
-            <div className="panel" style={{ marginBottom: 0 }}>
-              <div className="panel-header">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <TasksIcon size={20} style={{ color: 'var(--primary)' }} />
-                  <span>My Task Objectives</span>
-                </h3>
-                <Link href="/tasks" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                  View All
-                </Link>
-              </div>
-
-              <div className="task-summary-list" style={{ marginTop: '15px' }}>
-                {myTasks.length === 0 ? (
-                  <p className="no-data-text">You have no tasks assigned currently.</p>
-                ) : (
-                  myTasks.slice(0, 3).map(t => (
-                    <div className="task-summary-card" key={t.id}>
-                      <div className="task-sum-title">
-                        <strong>{t.title}</strong>
-                        <span className={`badge ${t.status === 'Completed' ? 'badge-success' : t.status === 'In Progress' ? 'badge-info' : 'badge-pending'}`}>
-                          {t.status}
+                {/* Workspace Quick Navigation Grid */}
+                <div className="overview-actions-grid" style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '20px'
+                }}>
+                  {canOnboard && (
+                    <Link 
+                      href="/admin/employees" 
+                      className="overview-action-card"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '16px',
+                        padding: '20px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--surface)',
+                        textDecoration: 'none',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div className="action-card-icon-wrapper" style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        color: 'var(--primary)',
+                        flexShrink: 0,
+                        transition: 'all 0.25s ease'
+                      }}>
+                        <EmployeesIcon size={22} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <h3 className="action-card-title" style={{ fontSize: '0.98rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                          Onboard Employees
+                        </h3>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: '1.4' }}>
+                          Add new staff profiles, customize details, and configure roles.
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: '700', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Launch Directory <span>→</span>
                         </span>
                       </div>
-                      <p className="task-sum-desc">{t.description}</p>
-                      <span className="task-sum-date">Due: {t.dueDate}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+                    </Link>
+                  )}
 
-          {isAttendanceEnabled && <HolidaySlider />}
-        </div>
-
-        {/* Right Column: Recent Leave Requests Summary & Quick Navigation Panel */}
-        <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-
-          {/* Recent Leave Requests Summary */}
-          {isAttendanceEnabled && (
-            <div className="panel" style={{ marginBottom: 0 }}>
-              <div className="panel-header">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <LeavesIcon size={20} style={{ color: 'var(--primary)' }} />
-                  <span>{isAdminView ? 'Recent Leave Activity' : 'My Leave Requests'}</span>
-                </h3>
-                <Link href="/leaves" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                  View All
-                </Link>
-              </div>
-
-              <div className="leave-summary-list" style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {displayLeaves.length === 0 ? (
-                  <p className="no-data-text">{isAdminView ? 'No leave activity recorded.' : 'You have no leave requests filed.'}</p>
-                ) : (
-                  displayLeaves.map(l => {
-                    const empName = isAdminView ? (employees.find(e => e.id === l.employeeId)?.name || 'Unknown Staff') : null;
-                    return (
-                      <div className="leave-summary-card" key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '14px', transition: 'var(--transition-fast)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {isAdminView && <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{empName}</strong>}
-                          <span style={{ fontSize: '0.85rem', color: isAdminView ? 'var(--text-muted)' : 'var(--text-main)', fontWeight: isAdminView ? 'normal' : '600' }}>
-                            {l.leaveType} ({l.dayType})
-                          </span>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-                            {l.startDate === l.endDate ? l.startDate : `${l.startDate} to ${l.endDate}`}
-                          </span>
-                        </div>
-                        <LeaveStatusBadge status={l.status} />
+                  {canManageTemplates && (
+                    <Link 
+                      href="/admin/templates" 
+                      className="overview-action-card"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '16px',
+                        padding: '20px',
+                        borderRadius: 'var(--radius-lg)',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--surface)',
+                        textDecoration: 'none',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div className="action-card-icon-wrapper" style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '12px',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        color: 'rgb(99, 102, 241)',
+                        flexShrink: 0,
+                        transition: 'all 0.25s ease'
+                      }}>
+                        <BrandLogo size={22} />
                       </div>
-                    );
-                  })
-                )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <h3 className="action-card-title" style={{ fontSize: '0.98rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                          Permission Matrices
+                        </h3>
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', lineHeight: '1.4' }}>
+                          Create baseline role templates and manage granular access keys.
+                        </span>
+                        <span style={{ fontSize: '0.72rem', color: 'rgb(99, 102, 241)', fontWeight: '700', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          Configure Templates <span>→</span>
+                        </span>
+                      </div>
+                    </Link>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Quick Actions Shortcuts (Permission-Based) */}
-          {showQuickNavigation && (
-            <div className="panel text-center justify-center" style={{ marginBottom: 0 }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                <BrandLogo size={20} style={{ color: 'var(--primary)' }} />
-                <span>Quick Navigation Panel</span>
-              </h3>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '8px 0 20px' }}>
-                Jump to management centers:
-              </p>
-              <div className="quick-actions-list">
-                {canOnboard && (
-                  <Link href="/admin/employees" className="btn btn-primary full-width">
-                    Onboard Employees
-                  </Link>
-                )}
-                {canManageTemplates && (
-                  <Link href="/admin/templates" className="btn btn-secondary full-width">
-                    Permission Matrices
-                  </Link>
-                )}
-                {canAssignTasks && (
-                  <Link href="/tasks?tab=add" className="btn btn-secondary full-width">
-                    Assign System Tasks
-                  </Link>
-                )}
-                {isAttendanceEnabled && canApproveLeaves && (
-                  <Link href="/leaves?tab=approve" className="btn btn-secondary full-width">
-                    Approve Leave Requests
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+            {/* Active Module Sections */}
+            {activeModules.map(module => {
+              if (module.id === 'attendance') {
+                return (
+                  <div key={module.id} className="dashboard-module-section" style={{ marginBottom: '48px' }}>
+                    <div className="module-section-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid var(--border)', paddingBottom: '10px', marginBottom: '20px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--primary)' }}><ClockIcon size={22} /></span>
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Attendance & Time Tracking</h2>
+                    </div>
 
-      {/* 3. Global Attendance Monitor Dashboard Section */}
-      {isAttendanceEnabled && hasPermission('attendance:admin') && (
-        <div className="dashboard-row admin-only-row" style={{ marginTop: '24px' }}>
-          {/* Global Attendance Status Grid */}
-          <div className="panel col-12" style={{ marginBottom: 0 }}>
-            <div className="panel-header">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <EmployeesIcon size={20} style={{ color: 'var(--primary)' }} />
-                <span>Real-time Global Attendance Monitor</span>
-              </h3>
-              <Link href="/attendance" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                Manage Attendance
-              </Link>
-            </div>
+                    <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                      <div className="dashboard-control-col-left" style={{ display: 'flex', flexDirection: 'column' }}>
+                        {hasPermission('attendance:staff') && (
+                          <div className="panel clocking-card-panel" style={{ marginBottom: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                              <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
+                              <span>Attendance Control Center</span>
+                            </h3>
+                            <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', margin: '5px 0 20px', width: '100%' }}>
+                              Register shifts live.
+                            </p>
 
-            {/* Interactive Search Bar */}
-            <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Search employees by name or role..."
-                value={dashboardSearchQuery}
-                onChange={(e) => setDashboardSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
-              />
-            </div>
-            
-            <div className="table-container" style={{ marginTop: '15px' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Employee Name</th>
-                    <th>Role</th>
-                    <th>Today's Clock-in</th>
-                    <th>Status Badge</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees
-                    .filter(emp => {
-                      if (!dashboardSearchQuery) return true;
-                      const term = dashboardSearchQuery.toLowerCase();
-                      const matchName = emp.name && emp.name.toLowerCase().includes(term);
-                      const matchRole = emp.designation && emp.designation.toLowerCase().includes(term);
-                      return matchName || matchRole;
-                    })
-                    .map(emp => {
-                    const d = new Date();
-                    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    const log = attendanceLogs.find(l => l.employeeId === emp.id && l.date === today);
-                    const isWorking = log && !log.clockOut;
+                            <div className="realtime-clock-display">
+                              <ClockIcon size={16} />
+                              <span>Live System Time:</span>
+                              <span className="clock-time-val">
+                                {formatLocalTime(currentTime) || 'Loading...'}
+                              </span>
+                            </div>
 
-                    return (
-                      <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
-                        <td><strong>{emp.name}</strong></td>
-                        <td>{emp.isSuperAdmin ? 'Super Admin' : emp.designation}</td>
-                        <td>{log ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                        <td>
-                          {isWorking ? (
-                            <span className="status-dot online"></span>
-                          ) : (
-                            <span className="status-dot offline"></span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
+                            {isClockedIn ? (
+                              <div className="timer-display-group">
+                                <div className="timer-circle work-active">
+                                  <span className="timer-label">Work Session</span>
+                                  <span className="timer-val">{formatTime(workSeconds)}</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="timer-display-group">
+                                <div className="timer-circle inactive">
+                                  <span className="timer-label">Shift Inactive</span>
+                                  <span className="timer-val">00:00:00</span>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="clock-actions-row" style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                              {!isClockedIn ? (
+                                <button className="btn btn-primary btn-lg full-width" onClick={() => router.push('/attendance?triggerClockIn=true')}>
+                                  Clock In
+                                </button>
+                              ) : (
+                                <button className="btn btn-danger full-width" onClick={() => handleClockOut(currentUser.id)}>
+                                  Clock Out
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column' }}>
+                        <DashboardCalendar holidays={holidays} />
+                      </div>
+                    </div>
+
+                    <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                      <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <HolidaySlider />
+                      </div>
+                      <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div className="panel" style={{ marginBottom: 0 }}>
+                          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <LeavesIcon size={20} style={{ color: 'var(--primary)' }} />
+                              <span>{isAdminView ? 'Recent Leave Activity' : 'My Leave Requests'}</span>
+                            </h3>
+                            <Link href="/leaves" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
+                              View All
+                            </Link>
+                          </div>
+
+                          <div className="leave-summary-list" style={{ marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {displayLeaves.length === 0 ? (
+                              <p className="no-data-text">{isAdminView ? 'No leave activity recorded.' : 'You have no leave requests filed.'}</p>
+                            ) : (
+                              displayLeaves.map(l => {
+                                const empName = isAdminView ? (employees.find(e => e.id === l.employeeId)?.name || 'Unknown Staff') : null;
+                                return (
+                                  <div className="leave-summary-card" key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                      {isAdminView && <strong style={{ fontSize: '0.9rem', color: 'var(--text-main)' }}>{empName}</strong>}
+                                      <span style={{ fontSize: '0.85rem', color: isAdminView ? 'var(--text-muted)' : 'var(--text-main)', fontWeight: isAdminView ? 'normal' : '600' }}>
+                                        {l.leaveType} ({l.dayType})
+                                      </span>
+                                      <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
+                                        {l.startDate === l.endDate ? l.startDate : `${l.startDate} to ${l.endDate}`}
+                                      </span>
+                                    </div>
+                                    <LeaveStatusBadge status={l.status} />
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </div>
+
+                        {canApproveLeaves && (
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <Link href="/leaves?tab=approve" className="btn btn-secondary full-width" style={{ textAlign: 'center', textDecoration: 'none' }}>
+                              Approve Leave Requests
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {hasPermission('attendance:admin') && (
+                      <div className="dashboard-row admin-only-row" style={{ marginTop: '24px' }}>
+                        <div className="panel col-12" style={{ marginBottom: 0 }}>
+                          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <EmployeesIcon size={20} style={{ color: 'var(--primary)' }} />
+                              <span>Real-time Global Attendance Monitor</span>
+                            </h3>
+                            <Link href="/attendance" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
+                              Manage Attendance
+                            </Link>
+                          </div>
+
+                          <div style={{ marginTop: '16px', display: 'flex', gap: '12px' }}>
+                            <input
+                              type="text"
+                              className="form-input"
+                              placeholder="Search employees by name or role..."
+                              value={dashboardSearchQuery}
+                              onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                              style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
+                            />
+                          </div>
+                          
+                          <div className="table-container" style={{ marginTop: '15px' }}>
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  <th>Employee Name</th>
+                                  <th>Role</th>
+                                  <th>Today's Clock-in</th>
+                                  <th>Status Badge</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {employees
+                                  .filter(emp => {
+                                    if (!dashboardSearchQuery) return true;
+                                    const term = dashboardSearchQuery.toLowerCase();
+                                    const matchName = emp.name && emp.name.toLowerCase().includes(term);
+                                    const matchRole = emp.designation && emp.designation.toLowerCase().includes(term);
+                                    return matchName || matchRole;
+                                  })
+                                  .map(emp => {
+                                  const d = new Date();
+                                  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                  const log = attendanceLogs.find(l => l.employeeId === emp.id && l.date === today);
+                                  const isWorking = log && !log.clockOut;
+
+                                  return (
+                                    <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
+                                      <td><strong>{emp.name}</strong></td>
+                                      <td>{emp.isSuperAdmin ? 'Super Admin' : emp.designation}</td>
+                                      <td>{log ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                      <td>
+                                        {isWorking ? (
+                                          <span className="status-dot online"></span>
+                                        ) : (
+                                          <span className="status-dot offline"></span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (module.id === 'tasks') {
+                return (
+                  <div key={module.id} className="dashboard-module-section" style={{ marginBottom: '48px' }}>
+                    <div className="module-section-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid var(--border)', paddingBottom: '10px', marginBottom: '20px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--primary)' }}><TasksIcon size={22} /></span>
+                      <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Project Management</h2>
+                    </div>
+
+
+                    <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                      <div className="col-12">
+                        <div className="panel" style={{ marginBottom: 0 }}>
+                          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <TasksIcon size={20} style={{ color: 'var(--primary)' }} />
+                              <span>My Task Objectives</span>
+                            </h3>
+                            <Link href="/tasks" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
+                              View All
+                            </Link>
+                          </div>
+
+                          <div className="task-summary-list" style={{ marginTop: '15px' }}>
+                            {myTasks.length === 0 ? (
+                              <p className="no-data-text">You have no tasks assigned currently.</p>
+                            ) : (
+                              myTasks.slice(0, 3).map(t => (
+                                <div className="task-summary-card" key={t.id}>
+                                  <div className="task-sum-title">
+                                    <strong>{t.title}</strong>
+                                    <span className={`badge ${t.status === 'Completed' ? 'badge-success' : t.status === 'In Progress' ? 'badge-info' : 'badge-pending'}`}>
+                                      {t.status}
+                                    </span>
+                                  </div>
+                                  <p className="task-sum-desc">{t.description}</p>
+                                  <span className="task-sum-date">Due: {t.dueDate}</span>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {canAssignTasks && (
+                        <div className="col-12" style={{ marginTop: '16px' }}>
+                          <Link href="/tasks?tab=add" className="btn btn-secondary full-width" style={{ textAlign: 'center', textDecoration: 'none' }}>
+                            Assign System Tasks
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Dynamic capability grid view for newly added modules from permissions.json
+              const userCaps = currentUser?.isSuperAdmin
+                ? module.functional_capabilities
+                : module.functional_capabilities?.filter(cap => hasPermission(cap.id)) || [];
+
+              return (
+                <div key={module.id} className="dashboard-module-section" style={{ marginBottom: '48px' }}>
+                  <div className="module-section-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid var(--border)', paddingBottom: '10px', marginBottom: '20px' }}>
+                    <BrandLogo size={22} style={{ color: 'var(--primary)' }} />
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>
+                      {module.metadata?.name || 'Additional Module'}
+                    </h2>
+                  </div>
+
+                  <div className="panel" style={{ padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                      Access services for {module.metadata?.name || 'this module'}:
+                    </p>
+                    
+                    <div className="dynamic-capabilities-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
+                      {userCaps.map(cap => (
+                        <Link 
+                          key={cap.id} 
+                          href={`${cap.path}${cap.tab ? `?tab=${cap.tab}` : ''}`}
+                          className="capability-card"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            padding: '16px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border)',
+                            backgroundColor: 'var(--bg-app)',
+                            textDecoration: 'none',
+                            transition: 'all 0.2s ease-in-out',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <strong style={{ fontSize: '0.92rem', color: 'var(--text-main)', marginBottom: '4px' }}>{cap.label}</strong>
+                          <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>Open Portal workspace ↗</span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        );
+      })()}
+
 
       <style jsx>{`
         :global(a.metric-card) {
@@ -669,6 +947,27 @@ export default function Dashboard() {
         }
         :global(.data-table tbody tr:hover) {
           background-color: rgba(37, 99, 235, 0.05);
+        }
+
+        :global(.capability-card) {
+          transition: all 0.2s ease-in-out;
+        }
+
+        :global(.capability-card:hover) {
+          border-color: var(--primary) !important;
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-sm);
+        }
+
+        :global(.overview-action-card:hover) {
+          border-color: var(--primary) !important;
+          transform: translateY(-4px);
+          box-shadow: var(--shadow-md);
+        }
+
+        :global(.overview-action-card:hover .action-card-icon-wrapper) {
+          transform: scale(1.08);
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
         }
 
         .panel-header {

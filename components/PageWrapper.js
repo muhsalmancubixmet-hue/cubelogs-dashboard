@@ -12,11 +12,27 @@ export default function PageWrapper({ children, title, requiredPermission }) {
   const { currentUser, isInitialized, hasPermission, sidebarOpen, setSidebarOpen, brandLogo, officeLocations } = useApp();
   const router = useRouter();
 
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+
+  const isAllowedPathForUnpaid = () => {
+    if (typeof window === 'undefined') return true;
+    const path = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    const tab = searchParams.get('tab');
+    if (path === '/dashboard') return true;
+    if (path === '/admin/settings' && tab === 'billing') return true;
+    return false;
+  };
+
   useEffect(() => {
     if (isInitialized && !currentUser) {
       router.push('/login');
+      return;
     }
-  }, [currentUser, isInitialized, router]);
+    if (isInitialized && currentUser && isUnpaid && !isAllowedPathForUnpaid()) {
+      router.replace('/dashboard');
+    }
+  }, [currentUser, isInitialized, isUnpaid, router]);
 
   if (!isInitialized) {
     return (

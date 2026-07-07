@@ -66,11 +66,13 @@ export default function Sidebar() {
   const isActive = (path) => pathname === path;
 
 
-  const hasSettingsTemplates = hasPermission('admin:templates');
-  const hasSettingsLocations = hasPermission('locations:manage');
-  const hasSettingsBranding = hasPermission('settings:branding');
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+
+  const hasSettingsTemplates = !isUnpaid && hasPermission('admin:templates');
+  const hasSettingsLocations = !isUnpaid && hasPermission('locations:manage');
+  const hasSettingsBranding = !isUnpaid && hasPermission('settings:branding');
   const hasSettingsBilling = hasPermission('settings:billing');
-  const hasAttendanceConfig = hasPermission('attendance:management_portal');
+  const hasAttendanceConfig = !isUnpaid && hasPermission('attendance:management_portal');
   const showSettingsSection = hasSettingsTemplates || hasSettingsLocations || hasSettingsBranding || hasSettingsBilling || hasAttendanceConfig;
 
   // Initials helper
@@ -106,7 +108,7 @@ export default function Sidebar() {
         )}
 
         {/* Employee management link */}
-        {hasPermission('admin:employees') && (
+        {!isUnpaid && hasPermission('admin:employees') && (
           <Link
             href="/admin/employees"
             className={`nav-link ${isActive('/admin/employees') ? 'active' : ''}`}
@@ -193,19 +195,22 @@ export default function Sidebar() {
         )}
 
         {/* Audit Logs Link */}
-        <Link
-          href="/audit-logs"
-          className={`nav-link ${isActive('/audit-logs') ? 'active' : ''}`}
-          onClick={handleNavLinkClick}
-        >
-          <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
-            <AuditIcon size={18} />
-          </span>
-          <span className="nav-text">System Audit Logs</span>
-        </Link>
+        {!isUnpaid && (
+          <Link
+            href="/audit-logs"
+            className={`nav-link ${isActive('/audit-logs') ? 'active' : ''}`}
+            onClick={handleNavLinkClick}
+          >
+            <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
+              <AuditIcon size={18} />
+            </span>
+            <span className="nav-text">System Audit Logs</span>
+          </Link>
+        )}
 
         {/* --- Dropdown Modules (Accordions) dynamically populated --- */}
         {permissionsRegistry?.modules?.map(module => {
+          if (isUnpaid) return null;
           // 1. Subscription Check (Is the module enabled for the whole organization?)
           const reqFlag = module.metadata.required_subscription_flag;
           const hasAddon = reqFlag 

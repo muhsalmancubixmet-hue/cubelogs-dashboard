@@ -177,7 +177,7 @@ export function AppProvider({ children }) {
       } catch (e) {
         console.warn('Periodic profile fetch failed:', e);
       }
-    }, 4000);
+    }, 60000);
 
     return () => clearInterval(interval);
   }, [currentUser]);
