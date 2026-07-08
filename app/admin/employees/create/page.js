@@ -5,7 +5,7 @@ import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   EmployeesIcon, 
   BackIcon, 
@@ -104,20 +104,12 @@ function EmployeeCreateContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const [userRes, employeesRes, templatesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/auth/me/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/employees/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/templates/`, { headers: getAuthHeaders() }),
+      const [userData, employeesData, templatesData] = await Promise.all([
+        apiFetch('/auth/me/'),
+        apiFetch('/employees/'),
+        apiFetch('/templates/'),
       ]);
-
-      if (!userRes.ok || !employeesRes.ok || !templatesRes.ok) {
-        throw new Error('Failed to fetch platform records');
-      }
-
-      const userData = await userRes.json();
-      const employeesData = await employeesRes.json();
-      const templatesData = await templatesRes.json();
-
+      
       const mappedUser = { ...userData, id: String(userData.id) };
       const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
       const mappedTemplates = templatesData.map(t => ({ ...t, id: String(t.id) }));
@@ -296,40 +288,18 @@ function EmployeeCreateContent() {
     try {
       let saved;
       if (employee.id) {
-        const res = await fetch(`${API_BASE_URL}/employees/${employee.id}/`, {
+        saved = await apiFetch(`/employees/${employee.id}/`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
           body: JSON.stringify(employee),
         });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          let errorMessage = errData.detail || errData.message;
-          if (!errorMessage) {
-             const fields = Object.values(errData).filter(v => Array.isArray(v)).flat();
-             if (fields.length > 0) errorMessage = fields.join(', ');
-          }
-          throw new Error(errorMessage || 'Failed to update employee.');
-        }
-        saved = await res.json();
       } else {
         const requestData = {
           ...employee,
         };
-        const res = await fetch(`${API_BASE_URL}/employees/`, {
+        saved = await apiFetch('/employees/', {
           method: 'POST',
-          headers: getAuthHeaders(),
           body: JSON.stringify(requestData),
         });
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          let errorMessage = errData.detail || errData.message;
-          if (!errorMessage) {
-             const fields = Object.values(errData).filter(v => Array.isArray(v)).flat();
-             if (fields.length > 0) errorMessage = fields.join(', ');
-          }
-          throw new Error(errorMessage || 'Failed to onboard employee.');
-        }
-        saved = await res.json();
       }
 
       const mappedSaved = { ...saved, id: String(saved.id) };

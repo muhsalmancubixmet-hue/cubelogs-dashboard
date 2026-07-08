@@ -77,13 +77,7 @@ function TasksContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const url = `${API_BASE_URL}/tasks/?status=${statusFilter}&assigned_to=${filterAssignee}`;
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to fetch tasks.');
-      }
-      const data = await res.json();
+      const data = await apiFetch(`/tasks/?status=${statusFilter}&assigned_to=${filterAssignee}`);
       const mappedTasks = data.map(t => ({
         ...t,
         id: String(t.id),
@@ -201,27 +195,19 @@ function TasksContent() {
         status: task.status,
       };
 
-      let res;
+      let saved;
       if (task.id) {
-        res = await fetch(`${API_BASE_URL}/tasks/${task.id}/`, {
+        saved = await apiFetch(`/tasks/${task.id}/`, {
           method: 'PUT',
-          headers: getAuthHeaders(),
           body: JSON.stringify(payload),
         });
       } else {
-        res = await fetch(`${API_BASE_URL}/tasks/`, {
+        saved = await apiFetch('/tasks/', {
           method: 'POST',
-          headers: getAuthHeaders(),
           body: JSON.stringify(payload),
         });
       }
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to save task.');
-      }
-
-      const saved = await res.json();
       const mappedTask = {
         ...saved,
         id: String(saved.id),
@@ -263,15 +249,9 @@ function TasksContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/tasks/${id}/`, {
+      await apiFetch(`/tasks/${id}/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to delete task.');
-      }
 
       setTasks(prev => prev.filter(t => t.id !== id));
       await fetchTasksData();

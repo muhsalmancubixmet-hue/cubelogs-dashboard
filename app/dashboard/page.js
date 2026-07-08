@@ -5,7 +5,7 @@ import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   EmployeesIcon, 
   LeavesIcon, 
@@ -79,12 +79,9 @@ export default function Dashboard() {
 
     try {
       // Fetch user profile first to ensure fresh session details
-      const userRes = await fetch(`${API_BASE_URL}/auth/me/`, { headers });
-      if (userRes.ok) {
-        const userData = await userRes.json();
-        userObj = { ...userData, id: String(userData.id) };
-        setCurrentUser(userObj);
-      }
+      const userData = await apiFetch('/auth/me/');
+      userObj = { ...userData, id: String(userData.id) };
+      setCurrentUser(userObj);
     } catch (e) {
       console.warn('Failed to refresh user profile', e);
     }
@@ -93,18 +90,18 @@ export default function Dashboard() {
       const orgId = userObj?.organization;
       const orgQuery = orgId ? `?organization=${orgId}` : '';
 
-      const fetchTasks = fetch(`${API_BASE_URL}/tasks/${orgQuery}`, { headers }).then(r => r.ok ? r.json() : []);
-      const fetchLeaves = fetch(`${API_BASE_URL}/leaves/${orgQuery}`, { headers }).then(r => r.ok ? r.json() : []);
-      const fetchHolidays = fetch(`${API_BASE_URL}/holidays/`, { headers }).then(r => r.ok ? r.json() : []);
+      const fetchTasks = apiFetch(`/tasks/${orgQuery}`).catch(() => []);
+      const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(() => []);
+      const fetchHolidays = apiFetch('/holidays/').catch(() => []);
       
       const hasEmployeesPerm = checkPerm('admin:employees') || checkPerm('attendance:admin');
       const fetchEmployees = hasEmployeesPerm
-        ? fetch(`${API_BASE_URL}/employees/${orgQuery}`, { headers }).then(r => r.ok ? r.json() : [])
+        ? apiFetch(`/employees/${orgQuery}`).catch(() => [])
         : Promise.resolve([]);
 
       const hasAttendancePerm = checkPerm('attendance:admin') || checkPerm('attendance:staff');
       const fetchAttendance = hasAttendancePerm
-        ? fetch(`${API_BASE_URL}/attendance/${orgQuery}`, { headers }).then(r => r.ok ? r.json() : [])
+        ? apiFetch(`/attendance/${orgQuery}`).catch(() => [])
         : Promise.resolve([]);
 
       const [tasksData, leavesData, holidaysData, employeesData, attendanceData] = await Promise.all([
@@ -152,15 +149,10 @@ export default function Dashboard() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_BASE_URL}/attendance/clock-out/`, {
+      await apiFetch('/attendance/clock-out/', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ employeeId: parseInt(employeeId) }),
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to clock out');
-      }
       await fetchDashboardData();
     } catch (err) {
       console.error(err);

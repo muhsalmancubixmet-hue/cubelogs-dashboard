@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   EmployeesIcon, 
   AddIcon, 
@@ -63,20 +63,10 @@ export default function Employees() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/employees/bulk-upload/`, {
+      const result = await apiFetch('/employees/bulk-upload/', {
         method: 'POST',
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
         body: formData
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to upload files.');
-      }
-
-      const result = await res.json();
       setSuccessSummary(result);
       if (result.failures && result.failures.length > 0) {
         setPartialFailures(result.failures);
@@ -106,17 +96,10 @@ export default function Employees() {
     setErrorMsg('');
     try {
       const url = `${API_BASE_URL}/employees/?search=${encodeURIComponent(searchQuery)}`;
-      const [res, meRes] = await Promise.all([
-        fetch(url, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/auth/me/`, { headers: getAuthHeaders() })
+      const [employeesData, meData] = await Promise.all([
+        apiFetch(`/employees/?search=${encodeURIComponent(searchQuery)}`),
+        apiFetch('/auth/me/')
       ]);
-
-      if (!res.ok || !meRes.ok) {
-        throw new Error('Failed to fetch employee directory data');
-      }
-
-      const employeesData = await res.json();
-      const meData = await meRes.json();
       
       const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
 
@@ -175,15 +158,9 @@ export default function Employees() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/employees/${id}/`, {
+      await apiFetch(`/employees/${id}/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to delete employee.');
-      }
 
       setEmployees(prev => prev.filter(emp => emp.id !== id));
       setEmployeePhotos(prev => {

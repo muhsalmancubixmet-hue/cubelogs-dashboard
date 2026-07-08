@@ -6,23 +6,19 @@ import { useApp } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api';
 
 const clay = {
-  shadow: '8px 8px 20px rgba(139,120,221,0.13), -4px -4px 12px rgba(255,255,255,0.9)',
-  shadowInner: 'inset 3px 3px 8px rgba(139,120,221,0.10), inset -3px -3px 8px rgba(255,255,255,0.85)',
-  shadowHover: '10px 10px 24px rgba(139,120,221,0.18), -5px -5px 14px rgba(255,255,255,0.95)',
+  shadow: '8px 8px 20px rgba(37,99,235,0.06), -4px -4px 12px rgba(255,255,255,0.9)',
+  shadowInner: 'inset 3px 3px 8px rgba(37,99,235,0.04), inset -3px -3px 8px rgba(255,255,255,0.85)',
+  shadowHover: '10px 10px 24px rgba(37,99,235,0.09), -5px -5px 14px rgba(255,255,255,0.95)',
   shadowBtn: '4px 4px 10px rgba(0,0,0,0.12), -2px -2px 6px rgba(255,255,255,0.9)',
   radius: '20px', radiusSm: '14px', radiusXs: '10px',
-  cardPending: 'linear-gradient(145deg,#fff9e6,#fef3c7)',
-  cardLate:    'linear-gradient(145deg,#fff7ed,#ffedd5)',
-  cardAbsent:  'linear-gradient(145deg,#fef2f2,#fee2e2)',
-  cardInfo:    'linear-gradient(145deg,#eff6ff,#dbeafe)',
 };
 
 const STATUS_COLORS = {
-  'Pending Approval': { bg:'linear-gradient(135deg,#fef9c3,#fde68a)', border:'#f59e0b', text:'#92400e', dot:'#f59e0b' },
-  'Approved':         { bg:'linear-gradient(135deg,#dcfce7,#bbf7d0)', border:'#22c55e', text:'#14532d', dot:'#22c55e' },
-  'Late':             { bg:'linear-gradient(135deg,#ffedd5,#fed7aa)', border:'#f97316', text:'#7c2d12', dot:'#f97316' },
-  'Half Day':         { bg:'linear-gradient(135deg,#ede9fe,#ddd6fe)', border:'#8b5cf6', text:'#4c1d95', dot:'#8b5cf6' },
-  'Absent':           { bg:'linear-gradient(135deg,#fee2e2,#fecaca)', border:'#ef4444', text:'#7f1d1d', dot:'#ef4444' },
+  'Pending Approval': { bg:'linear-gradient(135deg,#f0f9ff,#e0f2fe)', border:'#0ea5e9', text:'#0369a1', dot:'#0284c7' },
+  'Approved':         { bg:'linear-gradient(135deg,#eff6ff,#dbeafe)', border:'#2563eb', text:'#1e40af', dot:'#1d4ed8' },
+  'Late':             { bg:'linear-gradient(135deg,#eff6ff,#dbeafe)', border:'#60a5fa', text:'#1d4ed8', dot:'#3b82f6' },
+  'Half Day':         { bg:'linear-gradient(135deg,#e0f2fe,#93c5fd)', border:'#1d4ed8', text:'#1e3a8a', dot:'#1e40af' },
+  'Absent':           { bg:'linear-gradient(135deg,#f1f5f9,#e2e8f0)', border:'#94a3b8', text:'#334155', dot:'#475569' },
 };
 
 const fmt12h = (s) => {
@@ -33,7 +29,7 @@ const fmt12h = (s) => {
 
 const getInitials = (n) => n ? n.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2) : 'E';
 
-const ClayAvatar = ({ name, color = '#a78bfa', size = 44 }) => (
+const ClayAvatar = ({ name, color = '#3b82f6', size = 44 }) => (
   <div style={{
     width: size, height: size, borderRadius: '50%',
     background: `radial-gradient(circle at 35% 35%,#fff 0%,${color}44 60%,${color}88 100%)`,
@@ -60,19 +56,49 @@ const StatusPill = ({ status }) => {
   );
 };
 
-const StatCard = ({ emoji, label, value, gradient, borderColor }) => (
+const StatCard = ({ emoji, label, value, color }) => (
   <div style={{
-    background: gradient, borderRadius: clay.radius, padding: '22px 24px',
-    boxShadow: clay.shadow, border: `1.5px solid ${borderColor}`,
-    display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, flex: 1,
+    background: 'linear-gradient(145deg, #ffffff, #f8fafc)',
+    borderRadius: clay.radius, padding: '16px 18px',
+    boxShadow: clay.shadow, border: '1.5px solid #e2e8f0',
+    borderLeft: `5px solid ${color}`,
+    display: 'flex', flexDirection: 'column', gap: 8, minWidth: '140px', flex: '1 1 140px',
     transition: 'box-shadow 0.2s,transform 0.2s', cursor: 'default',
   }}
     onMouseEnter={e => { e.currentTarget.style.boxShadow = clay.shadowHover; e.currentTarget.style.transform = 'translateY(-2px)'; }}
     onMouseLeave={e => { e.currentTarget.style.boxShadow = clay.shadow; e.currentTarget.style.transform = 'translateY(0)'; }}
   >
-    <div style={{ fontSize: 28 }}>{emoji}</div>
-    <div style={{ fontSize: 32, fontWeight: 800, color: '#1e1b4b', lineHeight: 1 }}>{value}</div>
-    <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+      <span style={{ fontSize: 20 }}>{emoji}</span>
+    </div>
+    <div style={{ fontSize: 32, fontWeight: 800, color: '#0f172a', lineHeight: 1, marginTop: 4 }}>{value}</div>
+  </div>
+);
+
+const ColorLegend = () => (
+  <div style={{
+    display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
+    padding: '12px 18px', borderRadius: 12, background: '#ffffff',
+    border: '1.5px solid #bae6fd', marginBottom: 24, fontSize: 12,
+    boxShadow: 'inset 2px 2px 5px rgba(37,99,235,0.03)',
+  }}>
+    <span style={{ fontWeight: 700, color: '#1e3a8a', marginRight: 4 }}>Status Indicators:</span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0284c7' }} /> Pending Approval (Sky Blue)
+    </span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1d4ed8' }} /> Approved (Royal Blue)
+    </span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} /> Late Arrival (Steel Blue)
+    </span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1e40af' }} /> Half Day (Navy Blue)
+    </span>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#475569' }} /> Absent (Slate)
+    </span>
   </div>
 );
 
@@ -95,18 +121,18 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
       padding: '14px 18px', borderRadius: clay.radiusSm,
-      background: ok ? 'linear-gradient(135deg,#f0fdf4,#dcfce7)' : 'rgba(255,255,255,0.75)',
+      background: ok ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'rgba(255,255,255,0.75)',
       boxShadow: clay.shadowInner,
-      border: ok ? '1.5px solid #86efac' : '1.5px solid rgba(255,255,255,0.8)',
+      border: ok ? '1.5px solid #60a5fa' : '1.5px solid rgba(255,255,255,0.8)',
       transition: 'background 0.4s,border-color 0.4s',
     }}>
-      <ClayAvatar name={log.employeeName} color={ok ? '#22c55e' : '#a78bfa'} />
+      <ClayAvatar name={log.employeeName} color={ok ? '#1d4ed8' : '#3b82f6'} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: '#1e1b4b', marginBottom: 2 }}>{log.employeeName}</div>
         <div style={{ fontSize: 12, color: '#6b7280' }}>
           {log.employeeDesignation || '--'} &middot; Clock-in: <strong>{fmt12h(log.clockIn)}</strong>
           {log.minutesLate !== undefined && (
-            <span style={{ color: '#f97316', fontWeight: 700, marginLeft: 8 }}>+{log.minutesLate} min late</span>
+            <span style={{ color: '#3b82f6', fontWeight: 700, marginLeft: 8 }}>+{log.minutesLate} min late</span>
           )}
           {log.shiftStart && (
             <span style={{ color: '#9ca3af', marginLeft: 8 }}>shift {log.shiftStart}</span>
@@ -136,26 +162,26 @@ const AbsentRow = ({ item, isLeave }) => (
   <div style={{
     display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
     padding: '14px 18px', borderRadius: clay.radiusSm,
-    background: isLeave ? 'linear-gradient(135deg,#eff6ff,#dbeafe)' : 'linear-gradient(135deg,#fef2f2,#fee2e2)',
+    background: isLeave ? 'linear-gradient(135deg,#f0f9ff,#e0f2fe)' : 'linear-gradient(135deg,#f8fafc,#eff6ff)',
     boxShadow: clay.shadowInner,
-    border: isLeave ? '1.5px solid #93c5fd' : '1.5px solid #fca5a5',
+    border: isLeave ? '1.5px solid #bae6fd' : '1.5px solid #cbd5e1',
   }}>
-    <ClayAvatar name={item.employeeName} color={isLeave ? '#3b82f6' : '#ef4444'} />
+    <ClayAvatar name={item.employeeName} color={isLeave ? '#3b82f6' : '#64748b'} />
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontWeight: 700, fontSize: 14, color: '#1e1b4b', marginBottom: 2 }}>{item.employeeName}</div>
       <div style={{ fontSize: 12, color: '#6b7280' }}>
         {item.designation || item.employeeDesignation || '--'}
         {isLeave && item.leaveTypeName && (
-          <span style={{ marginLeft: 8, fontWeight: 600, color: '#3b82f6' }}>&middot; {item.leaveTypeName}</span>
+          <span style={{ marginLeft: 8, fontWeight: 600, color: '#2563eb' }}>&middot; {item.leaveTypeName}</span>
         )}
       </div>
     </div>
     <StatusPill status={isLeave ? 'Approved' : 'Absent'} />
     <span style={{
       padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-      background: isLeave ? 'rgba(59,130,246,0.12)' : 'rgba(239,68,68,0.12)',
-      color: isLeave ? '#1d4ed8' : '#dc2626',
-      border: isLeave ? '1px solid #93c5fd' : '1px solid #fca5a5',
+      background: isLeave ? 'rgba(59,130,246,0.12)' : 'rgba(100,116,139,0.12)',
+      color: isLeave ? '#1d4ed8' : '#475569',
+      border: isLeave ? '1px solid #93c5fd' : '1px solid #cbd5e1',
     }}>
       {isLeave ? 'On Leave' : 'No Clock-In'}
     </span>
@@ -220,27 +246,85 @@ export default function HRAttendancePortalPage() {
   const absent  = dashData?.absent  || [];
 
   const tabs = [
-    { id: 'pending', label: `Pending (${summary.pendingCount ?? '--'})`,    color: '#f59e0b' },
-    { id: 'late',    label: `Late Comers (${summary.lateCount ?? '--'})`,   color: '#f97316' },
-    { id: 'absent',  label: `Leave & Absent (${(summary.onLeaveCount ?? 0) + (summary.absentCount ?? 0)})`, color: '#ef4444' },
+    { id: 'pending', label: `Pending (${summary.pendingCount ?? '--'})`,    color: '#0284c7' },
+    { id: 'late',    label: `Late Comers (${summary.lateCount ?? '--'})`,   color: '#3b82f6' },
+    { id: 'absent',  label: `Leave & Absent (${(summary.onLeaveCount ?? 0) + (summary.absentCount ?? 0)})`, color: '#1e40af' },
   ];
 
   return (
     <PageWrapper title="Attendance Management Portal" requiredPermission="attendance:management_portal">
       <div style={{ minHeight: '100%', paddingBottom: 40, fontFamily: "'Inter',sans-serif" }}>
+        <style>{`
+          .attendance-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+          }
+          .attendance-header-card {
+            background: linear-gradient(145deg,#f0f7ff,#e0f2fe);
+            border-radius: 20px;
+            padding: 28px 32px;
+            margin-bottom: 24px;
+            box-shadow: 8px 8px 20px rgba(37,99,235,0.06), -4px -4px 12px rgba(255,255,255,0.9);
+            border: 1.5px solid #bae6fd;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+          }
+          .attendance-main-panel {
+            background: linear-gradient(145deg,#f0f7ff,#e0f2fe);
+            border-radius: 20px;
+            padding: 24px 28px;
+            box-shadow: 8px 8px 20px rgba(37,99,235,0.06), -4px -4px 12px rgba(255,255,255,0.9);
+            border: 1.5px solid #bae6fd;
+          }
+          .attendance-tabs-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            white-space: nowrap;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding-bottom: 4px;
+          }
+          .attendance-tabs-container::-webkit-scrollbar {
+            display: none;
+          }
+          @media (max-width: 1024px) {
+            .attendance-stats-grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 12px;
+            }
+          }
+          @media (max-width: 600px) {
+            .attendance-stats-grid {
+              grid-template-columns: repeat(2, 1fr);
+              gap: 10px;
+              margin-bottom: 16px;
+            }
+            .attendance-header-card {
+              padding: 16px 18px !important;
+              border-radius: 14px !important;
+              margin-bottom: 16px !important;
+            }
+            .attendance-main-panel {
+              padding: 16px 14px !important;
+              border-radius: 14px !important;
+            }
+          }
+        `}</style>
 
         {/* Header */}
-        <div style={{
-          background: 'linear-gradient(145deg,#f5f3ff,#ede9fe)',
-          borderRadius: clay.radius, padding: '28px 32px', marginBottom: 24,
-          boxShadow: clay.shadow, border: '1.5px solid #c4b5fd',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-        }}>
+        <div className="attendance-header-card">
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1e1b4b', margin: 0, marginBottom: 4 }}>
               Attendance Monitor Center
             </h1>
-            <p style={{ margin: 0, color: '#7c3aed', fontWeight: 500, fontSize: 14 }}>
+            <p style={{ margin: 0, color: '#2563eb', fontWeight: 500, fontSize: 14 }}>
               Review, approve and track workforce attendance in real-time
               {dashData?.date && (
                 <span style={{ marginLeft: 8, color: '#9ca3af' }}>
@@ -255,7 +339,7 @@ export default function HRAttendancePortalPage() {
             onClick={() => { setLoading(true); fetchDashboard(); }}
             style={{
               padding: '10px 20px', borderRadius: 12,
-              background: 'linear-gradient(135deg,#7c3aed,#6d28d9)',
+              background: 'linear-gradient(135deg,#2563eb,#1d4ed8)',
               color: '#fff', fontWeight: 700, fontSize: 13, border: 'none',
               boxShadow: clay.shadowBtn, cursor: 'pointer',
             }}
@@ -283,11 +367,11 @@ export default function HRAttendancePortalPage() {
             borderRadius: clay.radius, boxShadow: clay.shadowInner,
           }}>
             <div style={{
-              width: 32, height: 32, border: '3px solid #e9d5ff',
-              borderTopColor: '#7c3aed', borderRadius: '50%',
+              width: 32, height: 32, border: '3px solid #dbeafe',
+              borderTopColor: '#2563eb', borderRadius: '50%',
               animation: 'hrSpin 0.9s linear infinite',
             }} />
-            <span style={{ color: '#7c3aed', fontWeight: 700, fontSize: 15 }}>Loading attendance data...</span>
+            <span style={{ color: '#2563eb', fontWeight: 700, fontSize: 15 }}>Loading attendance data...</span>
             <style>{'@keyframes hrSpin{to{transform:rotate(360deg)}}'}</style>
           </div>
         )}
@@ -295,11 +379,11 @@ export default function HRAttendancePortalPage() {
         {!loading && dashData && (
           <>
             {/* Stat Cards */}
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 28 }}>
-              <StatCard emoji="⏳" label="Pending Approvals" value={summary.pendingCount ?? 0} gradient={clay.cardPending} borderColor="#fcd34d" />
-              <StatCard emoji="⚠️" label="Late Comers"       value={summary.lateCount ?? 0}    gradient={clay.cardLate}    borderColor="#fdba74" />
-              <StatCard emoji="🏖️" label="On Leave Today"   value={summary.onLeaveCount ?? 0} gradient={clay.cardInfo}    borderColor="#93c5fd" />
-              <StatCard emoji="🚫" label="Absent Today"      value={summary.absentCount ?? 0}  gradient={clay.cardAbsent}  borderColor="#fca5a5" />
+            <div className="attendance-stats-grid">
+              <StatCard emoji="⏳" label="Pending Approvals" value={summary.pendingCount ?? 0} color="#0ea5e9" />
+              <StatCard emoji="⚠️" label="Late Comers"       value={summary.lateCount ?? 0}    color="#3b82f6" />
+              <StatCard emoji="🏖️" label="On Leave Today"   value={summary.onLeaveCount ?? 0} color="#2563eb" />
+              <StatCard emoji="🚫" label="Absent Today"      value={summary.absentCount ?? 0}  color="#475569" />
             </div>
 
             {dashData.grace_period_minutes !== undefined && (
@@ -317,12 +401,8 @@ export default function HRAttendancePortalPage() {
             )}
 
             {/* Main Panel */}
-            <div style={{
-              background: 'linear-gradient(145deg,#f8f6ff,#f0eeff)',
-              borderRadius: clay.radius, padding: '24px 28px',
-              boxShadow: clay.shadow, border: '1.5px solid #e9d5ff',
-            }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
+            <div className="attendance-main-panel">
+              <div className="attendance-tabs-container">
                 {tabs.map(tab => (
                   <TabBtn key={tab.id} active={activeTab === tab.id}
                     onClick={() => setActiveTab(tab.id)} color={tab.color}>
@@ -330,6 +410,8 @@ export default function HRAttendancePortalPage() {
                   </TabBtn>
                 ))}
               </div>
+
+              <ColorLegend />
 
               {/* Pending Tab */}
               {activeTab === 'pending' && (

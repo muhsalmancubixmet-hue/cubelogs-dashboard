@@ -5,7 +5,7 @@ import { PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   EmployeesIcon, 
   BackIcon, 
@@ -65,35 +65,15 @@ function EmployeeProfileContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const [
-        userRes,
-        employeesRes,
-        tasksRes,
-        leavesRes,
-        attendanceRes,
-        holidaysRes,
-        schedulesRes
-      ] = await Promise.all([
-        fetch(`${API_BASE_URL}/auth/me/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/employees/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/tasks/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/leaves/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/attendance/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/holidays/`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE_URL}/schedules/`, { headers: getAuthHeaders() }),
+      const [userData, employeesData, tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
+        apiFetch('/auth/me/'),
+        apiFetch('/employees/'),
+        apiFetch('/tasks/'),
+        apiFetch('/leaves/'),
+        apiFetch('/attendance/'),
+        apiFetch('/holidays/'),
+        apiFetch('/schedules/'),
       ]);
-
-      const responses = [userRes, employeesRes, tasksRes, leavesRes, attendanceRes, holidaysRes, schedulesRes];
-      for (const res of responses) {
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || errData.message || 'API request failed');
-        }
-      }
-
-      const [userData, employeesData, tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all(
-        responses.map(res => res.json())
-      );
 
       const mappedUser = { ...userData, id: String(userData.id) };
       const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
@@ -167,18 +147,10 @@ function EmployeeProfileContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/employees/${employee.id}/`, {
+      const saved = await apiFetch(`/employees/${employee.id}/`, {
         method: 'PUT',
-        headers: getAuthHeaders(),
         body: JSON.stringify(employee),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to update employee.');
-      }
-
-      const saved = await res.json();
       const mappedSaved = { ...saved, id: String(saved.id) };
 
       setEmployees(prev => prev.map(emp => emp.id === employee.id ? mappedSaved : emp));
@@ -215,15 +187,9 @@ function EmployeeProfileContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/employees/${employee.id}/`, {
+      await apiFetch(`/employees/${employee.id}/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to delete employee.');
-      }
 
       router.push('/admin/employees');
     } catch (err) {
@@ -237,18 +203,10 @@ function EmployeeProfileContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/attendance/${logId}/`, {
+      const response = await apiFetch(`/attendance/${logId}/`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
         body: JSON.stringify(changes),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to adjust attendance.');
-      }
-
-      const response = await res.json();
       const mappedLog = {
         ...response,
         id: String(response.id),

@@ -78,13 +78,7 @@ function LeavesContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const url = `${API_BASE_URL}/leaves/?status=${statusFilter}&employee_id=${employeeFilter}`;
-      const res = await fetch(url, { headers: getAuthHeaders() });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to fetch leaves.');
-      }
-      const leavesData = await res.json();
+      const leavesData = await apiFetch(`/leaves/?status=${statusFilter}&employee_id=${employeeFilter}`);
       const mappedLeaves = leavesData.map(l => ({
         ...l,
         id: String(l.id),
@@ -313,18 +307,10 @@ function LeavesContent() {
         duration: leave.dayType === 'Half Day' ? 0.5 : 1.0,
       };
 
-      const res = await fetch(`${API_BASE_URL}/leaves/`, {
+      const response = await apiFetch('/leaves/', {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify(payload),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to submit leave.');
-      }
-
-      const response = await res.json();
       const mappedLeave = {
         ...response,
         id: String(response.id),
@@ -448,18 +434,10 @@ function LeavesContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/leaves/${id}/status/`, {
+      const updatedLeave = await apiFetch(`/leaves/${id}/status/`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ status }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to update leave status.');
-      }
-
-      const updatedLeave = await res.json();
       const mappedLeave = {
         ...updatedLeave,
         id: String(updatedLeave.id),

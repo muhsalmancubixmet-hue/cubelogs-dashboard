@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiFetch } from '../lib/api';
+import { authService, organizationService } from '../lib/services/apiService';
 import CustomAlertModal from '../components/CustomAlertModal';
 
 export const AppContext = createContext();
@@ -109,11 +110,7 @@ export function AppProvider({ children }) {
         locationsData,
         settingsData,
         permissionsConfigData
-      ] = await Promise.all([
-        apiFetch(`/locations/${orgQuery}`),
-        apiFetch(`/settings/current/${orgQuery}`),
-        apiFetch(`/permissions/config/?t=${Date.now()}`),
-      ]);
+      ] = await organizationService.fetchInitialData(orgQuery);
 
       setOfficeLocations(locationsData.map(mapLocation));
 
@@ -138,7 +135,7 @@ export function AppProvider({ children }) {
         const token = localStorage.getItem('cubelogs_access_token');
         if (token) {
           try {
-            const user = await apiFetch('/auth/me/');
+            const user = await authService.fetchMe();
             const mappedUser = mapEmployee(user);
             setCurrentUser(mappedUser);
             localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
@@ -163,7 +160,7 @@ export function AppProvider({ children }) {
 
     const interval = setInterval(async () => {
       try {
-        const user = await apiFetch('/auth/me/');
+        const user = await authService.fetchMe();
         const mappedUser = mapEmployee(user);
 
         // Update currentUser state (which contains the subscription object)
@@ -185,10 +182,7 @@ export function AppProvider({ children }) {
   // Auth Operations
   const login = async (email, password) => {
     try {
-      const data = await apiFetch('/auth/login/', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
+      const data = await authService.login(email, password);
 
       const { access, refresh, user } = data;
       localStorage.setItem('cubelogs_access_token', access);
@@ -206,10 +200,7 @@ export function AppProvider({ children }) {
 
   const magicLogin = async (token) => {
     try {
-      const data = await apiFetch('/auth/magic-login/', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      });
+      const data = await authService.magicLogin(token);
 
       const { access, refresh, user } = data;
       localStorage.setItem('cubelogs_access_token', access);
@@ -236,10 +227,7 @@ export function AppProvider({ children }) {
 
   const requestPasswordReset = async (email) => {
     try {
-      const data = await apiFetch('/auth/password-reset/request/', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      });
+      const data = await authService.requestPasswordReset(email);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Failed to request password reset.' };
@@ -248,10 +236,7 @@ export function AppProvider({ children }) {
 
   const validateResetToken = async (token) => {
     try {
-      const data = await apiFetch('/auth/password-reset/validate/', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-      });
+      const data = await authService.validateResetToken(token);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Invalid or expired token.' };
@@ -260,10 +245,7 @@ export function AppProvider({ children }) {
 
   const confirmPasswordReset = async (token, password, passwordConfirm) => {
     try {
-      const data = await apiFetch('/auth/password-reset/confirm/', {
-        method: 'POST',
-        body: JSON.stringify({ token, password, passwordConfirm }),
-      });
+      const data = await authService.confirmPasswordReset(token, password, passwordConfirm);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Failed to reset password.' };
@@ -279,18 +261,15 @@ export function AppProvider({ children }) {
 
   const saveOfficeLocations = async (locations) => {
     try {
-      const current = await apiFetch('/locations/');
+      const current = await organizationService.fetchLocations();
       for (const loc of current) {
-        await apiFetch(`/locations/${loc.id}/`, { method: 'DELETE' });
+        await organizationService.deleteLocation(loc.id);
       }
 
       const created = [];
       for (const loc of locations) {
         const { id, ...locData } = loc; // strip local id
-        const newLoc = await apiFetch('/locations/', {
-          method: 'POST',
-          body: JSON.stringify(locData),
-        });
+        const newLoc = await organizationService.createLocation(locData);
         created.push(mapLocation(newLoc));
       }
       setOfficeLocations(created);
@@ -305,10 +284,7 @@ export function AppProvider({ children }) {
   // Branding & Settings
   const saveBrandLogo = async (logoData) => {
     try {
-      const response = await apiFetch('/settings/current/', {
-        method: 'PATCH',
-        body: JSON.stringify({ brandLogo: logoData }),
-      });
+      const response = await organizationService.saveSettings({ brandLogo: logoData });
       setBrandLogo(response.brandLogo);
     } catch (e) {
       console.error('Error saving brand logo:', e);
@@ -317,10 +293,7 @@ export function AppProvider({ children }) {
 
   const saveCompanyName = async (name) => {
     try {
-      const response = await apiFetch('/settings/current/', {
-        method: 'PATCH',
-        body: JSON.stringify({ companyName: name }),
-      });
+      const response = await organizationService.saveSettings({ companyName: name });
       setCompanyName(response.companyName);
     } catch (e) {
       console.error('Error saving company name:', e);
@@ -330,19 +303,16 @@ export function AppProvider({ children }) {
 
   const confirmSubscription = async (sessionId) => {
     try {
-      const response = await apiFetch('/subscription/confirm/', {
-        method: 'POST',
-        body: JSON.stringify({ session_id: sessionId }),
-      });
+      const response = await organizationService.confirmSubscription(sessionId);
 
       // Refresh settings state
-      const settingsData = await apiFetch('/settings/current/');
+      const settingsData = await organizationService.fetchSettings();
       setBrandLogo(settingsData.brandLogo);
       setCompanyName(settingsData.companyName || '');
       setSubscriptionDays(settingsData.subscriptionDays);
 
       // Refresh current user to update permissions/active features
-      const user = await apiFetch('/auth/me/');
+      const user = await authService.fetchMe();
       updateAuthSession(
         localStorage.getItem('cubelogs_access_token'),
         localStorage.getItem('cubelogs_refresh_token'),
@@ -359,13 +329,10 @@ export function AppProvider({ children }) {
   const completeOnboarding = async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = ["Sunday"]) => {
     try {
       // 1. Save brand logo, company name, and default weekly holidays
-      const response = await apiFetch('/settings/current/', {
-        method: 'PATCH',
-        body: JSON.stringify({ 
-          brandLogo: logoBase64, 
-          companyName,
-          default_weekly_holidays: defaultWeeklyHolidays
-        }),
+      const response = await organizationService.saveSettings({ 
+        brandLogo: logoBase64, 
+        companyName,
+        default_weekly_holidays: defaultWeeklyHolidays
       });
       setBrandLogo(response.brandLogo);
       setCompanyName(response.companyName);
@@ -386,14 +353,11 @@ export function AppProvider({ children }) {
       if (packageName) {
         body.packageName = packageName;
       }
-      const response = await apiFetch('/settings/current/', {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      });
+      const response = await organizationService.saveSettings(body);
       setSubscriptionDays(response.subscriptionDays);
 
       // Instantly refresh current user data to sync feature gates in frontend context
-      const user = await apiFetch('/auth/me/');
+      const user = await authService.fetchMe();
       updateAuthSession(
         localStorage.getItem('cubelogs_access_token'),
         localStorage.getItem('cubelogs_refresh_token'),

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, apiFetch } from '@/lib/api';
 import { 
   HolidaysIcon, 
   BrandLogo, 
@@ -53,14 +53,7 @@ function HolidaysContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/holidays/`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to fetch holidays');
-      }
-      const data = await res.json();
+      const data = await apiFetch('/holidays/');
       const mapped = data.map(h => ({ ...h, id: String(h.id) }));
       setHolidays(mapped);
     } catch (err) {
@@ -88,15 +81,10 @@ function HolidaysContent() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/settings/holidays/`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setWeeklyHolidays(data.default_weekly_holidays || ['Sunday']);
-        setMonthlyRules(data.monthly_recurring_holidays || []);
-        setYearlyRules(data.yearly_recurring_holidays || []);
-      }
+      const data = await apiFetch('/settings/holidays/');
+      setWeeklyHolidays(data.default_weekly_holidays || ['Sunday']);
+      setMonthlyRules(data.monthly_recurring_holidays || []);
+      setYearlyRules(data.yearly_recurring_holidays || []);
     } catch (err) {
       console.error("Failed to load holiday rules settings:", err);
     } finally {
@@ -119,19 +107,14 @@ function HolidaysContent() {
   const handleSaveRules = async () => {
     setSavingRules(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/settings/holidays/`, {
+      await apiFetch('/settings/holidays/', {
         method: 'PATCH',
-        headers: getAuthHeaders(),
         body: JSON.stringify({
           default_weekly_holidays: weeklyHolidays,
           monthly_recurring_holidays: monthlyRules,
           yearly_recurring_holidays: yearlyRules,
         }),
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to save rules');
-      }
       alert('Holiday Rules Engine configured successfully!');
       // Reload holidays to pick up recalculated dates
       fetchHolidays();
@@ -186,20 +169,14 @@ function HolidaysContent() {
     setErrorMsg('');
     try {
       const method = selectedHoliday ? 'PUT' : 'POST';
-      const url = selectedHoliday 
-        ? `${API_BASE_URL}/holidays/${selectedHoliday.id}/` 
-        : `${API_BASE_URL}/holidays/`;
+      const path = selectedHoliday 
+        ? `/holidays/${selectedHoliday.id}/` 
+        : '/holidays/';
 
-      const res = await fetch(url, {
+      await apiFetch(path, {
         method,
-        headers: getAuthHeaders(),
         body: JSON.stringify(holidayData),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to save holiday');
-      }
 
       await fetchHolidays();
       resetForm();
@@ -222,15 +199,9 @@ function HolidaysContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const res = await fetch(`${API_BASE_URL}/holidays/${idToDelete}/`, {
+      await apiFetch(`/holidays/${idToDelete}/`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || errData.message || 'Failed to delete holiday');
-      }
 
       await fetchHolidays();
       setConfirmModal({ open: false, id: null });

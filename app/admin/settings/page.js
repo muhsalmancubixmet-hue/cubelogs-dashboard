@@ -5,6 +5,10 @@ import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
+import TemplatesTab from '@/components/admin/settings/TemplatesTab';
+import LocationsTab from '@/components/admin/settings/LocationsTab';
+import BrandingTab from '@/components/admin/settings/BrandingTab';
+import BillingTab from '@/components/admin/settings/BillingTab';
 
 const FEATURE_LABELS = {
   'dashboard': 'My Dashboard Analytics',
@@ -1290,970 +1294,112 @@ function SettingsHubContent() {
 
           {/* TAB 1: ROLE TEMPLATES CONTENT */}
           {currentTab === 'templates' && hasTemplatesPerm && (
-            <div className="settings-grid">
-              {/* Form panel */}
-              <div className="panel settings-panel-card">
-                <h3>{isEditingTemp ? 'Modify Role Matrix' : 'Create Role Template'}</h3>
-                <p className="tab-desc">Set standard dashboard, tasks, leave, and settings permissions for selected employee positions.</p>
-
-                <form onSubmit={handleSaveTemplate} className="settings-form">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="designation-title">Designation Title</label>
-                    <input
-                      id="designation-title"
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Senior Developer"
-                      value={tempName}
-                      onChange={(e) => setTempName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  {/* Search Bar for Modules */}
-                  <div className="form-group" style={{ marginBottom: '16px', marginTop: '12px' }}>
-                    <label className="form-label" htmlFor="perm-search" style={{ fontSize: '0.82rem', fontWeight: '600' }}>Search Modules</label>
-                    <input
-                      id="perm-search"
-                      type="text"
-                      className="form-input"
-                      placeholder="Search modules by name (e.g. Attendance)..."
-                      value={permSearchQuery}
-                      onChange={(e) => setPermSearchQuery(e.target.value)}
-                      style={{ height: '38px', fontSize: '0.85rem' }}
-                    />
-                  </div>
-
-                  {/* Module Tabs Selector */}
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Select Module to Configure</label>
-                    <div className="module-tabs" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
-                      <button
-                        type="button"
-                        className="btn btn-sm"
-                        style={{
-                          whiteSpace: 'nowrap',
-                          padding: '6px 12px',
-                          fontSize: '0.78rem',
-                          background: activeModuleTab === 'all' ? 'var(--primary)' : 'var(--bg-app)',
-                          color: activeModuleTab === 'all' ? '#ffffff' : 'var(--text-main)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontWeight: '600',
-                          transition: 'all 0.15s'
-                        }}
-                        onClick={() => setActiveModuleTab('all')}
-                      >
-                        All Modules
-                      </button>
-                      {Object.entries(MODULES_MAP)
-                        .filter(([key, mod]) => permSearchQuery === '' || mod.label.toLowerCase().includes(permSearchQuery.toLowerCase()))
-                        .map(([key, mod]) => (
-                          <button
-                            key={key}
-                            type="button"
-                            className="btn btn-sm"
-                            style={{
-                              whiteSpace: 'nowrap',
-                              padding: '6px 12px',
-                              fontSize: '0.78rem',
-                              background: activeModuleTab === key ? 'var(--primary)' : 'var(--bg-app)',
-                              color: activeModuleTab === key ? '#ffffff' : 'var(--text-main)',
-                              border: '1px solid var(--border)',
-                              borderRadius: 'var(--radius-sm)',
-                              cursor: 'pointer',
-                              fontWeight: '600',
-                              transition: 'all 0.15s'
-                            }}
-                            onClick={() => setActiveModuleTab(key)}
-                          >
-                            {mod.label}
-                          </button>
-                        ))
-                      }
-                    </div>
-                  </div>
-
-                  {/* Matrix Header with Select All */}
-                  <div className="permission-matrix-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
-                    <span className="section-title" style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-main)' }}>Configure Page Access Flags</span>
-                    {filteredVisibleFlags.length > 0 && (
-                      <label className="form-checkbox-container select-all-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '0.82rem' }}>
-                        <input
-                          type="checkbox"
-                          className="form-checkbox"
-                          checked={isAllPermsSelected}
-                          onChange={handleSelectAllPermsToggle}
-                        />
-                        <strong>Select All ({filteredVisibleFlags.length})</strong>
-                      </label>
-                    )}
-                  </div>
-
-                  {/* Module-Grouped Checklists */}
-                  <div className="module-groups-stack" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-                    {Object.entries(MODULES_MAP)
-                      .filter(([key, mod]) => {
-                        const matchesTab = activeModuleTab === 'all' || activeModuleTab === key;
-                        const matchesSearch = permSearchQuery === '' || mod.label.toLowerCase().includes(permSearchQuery.toLowerCase());
-                        return matchesTab && matchesSearch;
-                      })
-                      .map(([key, mod]) => {
-                        const modPerms = visiblePermissionFlags.filter(flag => mod.ids.includes(flag.id));
-
-                        if (modPerms.length === 0) return null;
-
-                        return (
-                          <div key={key} className="module-group-card" style={{ background: 'var(--primary-light)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)' }}>
-                            {(() => {
-                              const visibleIds = visiblePermissionFlags
-                                .filter(flag => mod.ids.includes(flag.id))
-                                .map(flag => flag.id);
-                              const isModuleAllSelected = visibleIds.length > 0 && visibleIds.every(id => selectedPermissions.includes(id));
-
-                              return (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>
-                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                                    <input
-                                      type="checkbox"
-                                      className="form-checkbox"
-                                      checked={isModuleAllSelected}
-                                      onChange={() => handleToggleModuleAll(mod.ids)}
-                                    />
-                                    <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                      {mod.label}
-                                    </h4>
-                                  </label>
-                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: '600', opacity: 0.8 }}>
-                                    {modPerms.filter(p => selectedPermissions.includes(p.id)).length} of {modPerms.length} Active
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                            <div className="permissions-checklist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
-                              {modPerms.map((flag) => (
-                                <label className="form-checkbox-container permission-item-label" key={flag.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 0' }}>
-                                  <input
-                                    type="checkbox"
-                                    className="form-checkbox"
-                                    checked={selectedPermissions.includes(flag.id)}
-                                    onChange={() => handlePermissionCheckbox(flag.id)}
-                                  />
-                                  <span style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{flag.label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    {filteredVisibleFlags.length === 0 && (
-                      <p style={{ textAlign: 'center', padding: '20px 0', fontSize: '0.85rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
-                        No permission flags match your search filters.
-                      </p>
-                    )}
-                  </div>
-
-                  {tempSuccess && (
-                    <div className="tab-alert success">
-                      <CheckIcon size={14} />
-                      <span>{tempSuccess}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row">
-                    <button type="submit" className="btn btn-primary">
-                      {isEditingTemp ? 'Save Changes' : 'Create Template'}
-                    </button>
-                    {isEditingTemp && (
-                      <button type="button" className="btn btn-secondary" onClick={handleCancelTemplate}>
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* List Panel */}
-              <div className="panel settings-panel-card">
-                <h3>Designation Templates</h3>
-                <p className="tab-desc">List of templates currently active in database.</p>
-
-                <div className="templates-list-stack">
-                  {templates.length === 0 ? (
-                    <p className="no-data">No custom templates created yet.</p>
-                  ) : (
-                    templates.map((temp) => (
-                      <div className="template-item-card" key={temp.id}>
-                        <div className="card-top">
-                          <h4>{temp.name}</h4>
-                          <span className="badge badge-info">{temp.permissions.length} Authorized</span>
-                        </div>
-                        
-                        <div className="permissions-badge-preview">
-                          {temp.permissions.map(permId => {
-                            const flag = visiblePermissionFlags.find(p => p.id === permId);
-                            return flag ? <span key={permId} className="preview-badge">{flag.label.split(' (')[0]}</span> : null;
-                          })}
-                        </div>
-
-                        <div className="card-actions-row">
-                          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedTemplate(temp)}>
-                            <EditIcon size={12} />
-                            <span>Edit Matrix</span>
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteTemplate(temp.id)}>
-                            <DeleteIcon size={12} />
-                            <span>Remove</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
+            <TemplatesTab
+              templates={templates}
+              selectedTemplate={selectedTemplate}
+              setSelectedTemplate={setSelectedTemplate}
+              tempName={tempName}
+              setTempName={setTempName}
+              selectedPermissions={selectedPermissions}
+              setSelectedPermissions={setSelectedPermissions}
+              isEditingTemp={isEditingTemp}
+              tempSuccess={tempSuccess}
+              permSearchQuery={permSearchQuery}
+              setPermSearchQuery={setPermSearchQuery}
+              activeModuleTab={activeModuleTab}
+              setActiveModuleTab={setActiveModuleTab}
+              visiblePermissionFlags={visiblePermissionFlags}
+              filteredVisibleFlags={filteredVisibleFlags}
+              isAllPermsSelected={isAllPermsSelected}
+              handleSelectAllPermsToggle={handleSelectAllPermsToggle}
+              handlePermissionCheckbox={handlePermissionCheckbox}
+              handleToggleModuleAll={handleToggleModuleAll}
+              handleSaveTemplate={handleSaveTemplate}
+              handleCancelTemplate={handleCancelTemplate}
+              handleDeleteTemplate={handleDeleteTemplate}
+              MODULES_MAP={MODULES_MAP}
+            />
           )}
 
           {/* TAB 2: OFFICE LOCATIONS CONTENT */}
           {currentTab === 'locations' && hasLocationsPerm && isAttendanceEnabled && (
-            <div className="settings-grid">
-              {/* Form Panel */}
-              <div className="panel settings-panel-card">
-                <h3>{editingLocId ? 'Edit Office Geofence' : 'Create Geofenced Location'}</h3>
-                <p className="tab-desc">Add office premises coordinates to enable geofenced check-ins.</p>
-
-                <form onSubmit={handleSaveLocation} className="settings-form">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="loc-name">Location / Branch Name</label>
-                    <input
-                      id="loc-name"
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Corporate Head Office"
-                      value={locName}
-                      onChange={(e) => setLocName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '16px' }}>
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="loc-lat">Latitude</label>
-                      <input
-                        id="loc-lat"
-                        type="number"
-                        step="any"
-                        className="form-input"
-                        placeholder="e.g. 11.114300"
-                        value={locLat}
-                        onChange={(e) => setLocLat(e.target.value)}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="loc-lon">Longitude</label>
-                      <input
-                        id="loc-lon"
-                        type="number"
-                        step="any"
-                        className="form-input"
-                        placeholder="e.g. 76.227400"
-                        value={locLon}
-                        onChange={(e) => setLocLon(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="loc-radius">Geofence Validation Radius (Meters)</label>
-                    <input
-                      id="loc-radius"
-                      type="number"
-                      min="5"
-                      className="form-input"
-                      placeholder="100"
-                      value={locRadius}
-                      onChange={(e) => setLocRadius(parseInt(e.target.value) || '')}
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={handleAutofillCoordinates}
-                    disabled={fetchingGeo}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '12px' }}
-                  >
-                    {fetchingGeo ? (
-                      <>
-                        <div className="btn-spinner"></div>
-                        <span>Acquiring Coordinates...</span>
-                      </>
-                    ) : (
-                      <>
-                        <LocationIcon size={14} />
-                        <span>Autofill Browser Coordinates</span>
-                      </>
-                    )}
-                  </button>
-
-                  {locSuccess && (
-                    <div className="tab-alert success">
-                      <CheckIcon size={14} />
-                      <span>{locSuccess}</span>
-                    </div>
-                  )}
-
-                  {locError && (
-                    <div className="tab-alert danger">
-                      <WarningIcon size={14} />
-                      <span>{locError}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row">
-                    <button type="submit" className="btn btn-primary">
-                      {editingLocId ? 'Save Coordinates' : 'Add Location'}
-                    </button>
-                    {editingLocId && (
-                      <button type="button" className="btn btn-secondary" onClick={handleCancelLocation}>
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* List Panel */}
-              <div className="panel settings-panel-card">
-                <h3>Office Premises Directory</h3>
-                <p className="tab-desc">Locations active in corporate geofence validations.</p>
-
-                <div className="locations-stack">
-                  {officeLocations.map(loc => (
-                    <div className={`location-item-card ${editingLocId === loc.id ? 'active-edit' : ''}`} key={loc.id}>
-                      <div className="card-top">
-                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <LocationIcon size={14} style={{ color: 'var(--primary)' }} />
-                          <span>{loc.name}</span>
-                        </h4>
-                        <span className="badge badge-info">{loc.radius}m Radius</span>
-                      </div>
-                      
-                      <div className="coord-details-box">
-                        <div><strong>Latitude:</strong> {loc.lat.toFixed(6)}° N</div>
-                        <div><strong>Longitude:</strong> {loc.lon.toFixed(6)}° E</div>
-                      </div>
-
-                      <div className="card-actions-row">
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleEditLocation(loc)}>
-                          <EditIcon size={12} />
-                          <span>Edit</span>
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteLocation(loc.id)}>
-                          <DeleteIcon size={12} />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <LocationsTab
+              editingLocId={editingLocId}
+              locName={locName}
+              setLocName={setLocName}
+              locLat={locLat}
+              setLocLat={setLocLat}
+              locLon={locLon}
+              setLocLon={setLocLon}
+              locRadius={locRadius}
+              setLocRadius={setLocRadius}
+              fetchingGeo={fetchingGeo}
+              locSuccess={locSuccess}
+              locError={locError}
+              officeLocations={officeLocations}
+              handleSaveLocation={handleSaveLocation}
+              handleEditLocation={handleEditLocation}
+              handleDeleteLocation={handleDeleteLocation}
+              handleCancelLocation={handleCancelLocation}
+              handleAutofillCoordinates={handleAutofillCoordinates}
+            />
           )}
 
           {/* TAB 3: BRANDING LOGO CONTENT */}
           {currentTab === 'branding' && hasBrandingPerm && (
-            <div className="settings-grid">
-              <div className="panel settings-panel-card">
-                <h3>Company Logo</h3>
-                <p className="tab-desc">Upload a logo to represent your brand across the application.</p>
-                <div className="logo-edit-section" style={{ marginTop: '24px', marginBottom: '24px' }}>
-                  <div className="logo-preview-circle" style={{ cursor: 'pointer' }} onClick={() => logoInputRef.current?.click()}>
-                    {brandLogo ? (
-                      <img src={brandLogo} alt="Company logo" className="logo-preview-img" />
-                    ) : (
-                      <div className="logo-placeholder">
-                        <CameraIcon size={28} />
-                        <span>Upload Logo</span>
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => logoInputRef.current?.click()}>
-                      Edit
-                    </button>
-                    {brandLogo && (
-                      <button type="button" className="btn btn-danger btn-sm" onClick={handleRemoveLogo}>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  <input ref={logoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoChange} />
-                </div>
-              </div>
-
-              <div className="panel settings-panel-card">
-                <h3>Company Name</h3>
-                <p className="tab-desc">Change the display name of your organization.</p>
-                
-                <form onSubmit={handleSaveCompanyNameSubmit} className="settings-form" style={{ marginTop: '24px' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="company-name-input">Organization Name</label>
-                    <input
-                      id="company-name-input"
-                      type="text"
-                      className="form-input"
-                      placeholder="e.g. Acme Corporation"
-                      value={newCompanyName}
-                      onChange={(e) => setNewCompanyName(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  {companyNameSuccess && (
-                    <div className="tab-alert success" style={{ marginTop: '12px' }}>
-                      <CheckIcon size={14} />
-                      <span>{companyNameSuccess}</span>
-                    </div>
-                  )}
-
-                  {companyNameError && (
-                    <div className="tab-alert error" style={{ marginTop: '12px' }}>
-                      <WarningIcon size={14} />
-                      <span>{companyNameError}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row" style={{ marginTop: '20px' }}>
-                    <button type="submit" className="btn btn-primary" disabled={isSavingCompanyName}>
-                      {isSavingCompanyName ? 'Saving...' : 'Update Name'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Crop Modal */}
-              {logoCropOpen && (
-                <div className="modal-overlay" style={{
-                  position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                  backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-                }}>
-                  <div className="modal-content" style={{
-                    background: '#fff', padding: '24px', borderRadius: '8px', maxWidth: '400px', width: '90%',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center'
-                  }}>
-                    <h3 style={{ marginBottom: '8px', color: 'var(--text-main)' }}>Crop Company Logo</h3>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px', textAlign: 'center' }}>
-                      Adjust and crop the logo inside the circular boundary.
-                    </p>
-                    
-                    {/* Circular Cropping Border Wrapper */}
-                    <div className="crop-preview-container" style={{
-                      width: '180px', height: '180px', borderRadius: '50%',
-                      border: '3.5px dashed var(--primary)', padding: '6px',
-                      backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'center',
-                      alignItems: 'center', marginBottom: '24px', overflow: 'hidden'
-                    }}>
-                      {tempLogo && (
-                        <img src={tempLogo} alt="Crop Preview" style={{
-                          width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'
-                        }} />
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
-                      <button type="button" className="btn btn-primary" onClick={confirmLogoCrop} style={{ flex: 1, padding: '10px 16px' }}>
-                        Save
-                      </button>
-                      <button type="button" className="btn btn-secondary" onClick={handleCancelLogoCrop} style={{ flex: 1, padding: '10px 16px' }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <BrandingTab
+              brandLogo={brandLogo}
+              logoInputRef={logoInputRef}
+              newCompanyName={newCompanyName}
+              setNewCompanyName={setNewCompanyName}
+              companyNameSuccess={companyNameSuccess}
+              companyNameError={companyNameError}
+              isSavingCompanyName={isSavingCompanyName}
+              logoCropOpen={logoCropOpen}
+              tempLogo={tempLogo}
+              handleSaveCompanyNameSubmit={handleSaveCompanyNameSubmit}
+              handleLogoChange={handleLogoChange}
+              confirmLogoCrop={confirmLogoCrop}
+              handleCancelLogoCrop={handleCancelLogoCrop}
+              handleRemoveLogo={handleRemoveLogo}
+            />
           )}
 
           {/* TAB 4: BILLING & SUBSCRIPTIONS CONTENT */}
-          {currentTab === 'billing' && hasBillingPerm && (() => {
-            const transactions = wallet.transactions || [];
-            const debitTransactions = transactions.filter(tx => tx.transactionType === 'Debit' && tx.status === 'Success');
-            const creditTransactions = transactions.filter(tx => tx.transactionType === 'Credit' && tx.status === 'Success');
-            return (
-              <div className="settings-single-card">
-                <div className="panel settings-panel-card billing-theme" style={{ maxWidth: '1080px', margin: '0 auto' }}>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
-                    <span>Billing & Subscription Plans</span>
-                  </h3>
-                  <p className="tab-desc">Manage system licenses and subscription packages to prevent workforce check-in geofence blocks.</p>
-
-                  {billingSuccess && (
-                    <div className="tab-alert success" style={{ marginBottom: '24px' }}>
-                      <CheckIcon size={14} />
-                      <span>{billingSuccess}</span>
-                    </div>
-                  )}
-
-                  {walletSuccess && (
-                    <div className="tab-alert success" style={{ marginBottom: '24px' }}>
-                      <CheckIcon size={14} />
-                      <span>{walletSuccess}</span>
-                    </div>
-                  )}
-
-                  {walletError && (
-                    <div className="tab-alert danger" style={{ marginBottom: '24px' }}>
-                      <WarningIcon size={14} />
-                      <span>{walletError}</span>
-                    </div>
-                  )}
-
-                  {/* Warnings / Alerts Box */}
-                  {isExpiring ? (
-                    <div className="subscription-alert-banner danger-alert" style={{ backgroundColor: 'var(--danger-light)', border: '1.5px solid var(--primary-border)', color: 'var(--danger)' }}>
-                      <div className="banner-icon-side" style={{ color: 'var(--danger)' }}>
-                        <WarningIcon size={28} />
-                      </div>
-                      <div className="banner-text-side">
-                        <h4>Subscription Expiration Notice</h4>
-                        <p>
-                          Your enterprise subscription is set to expire in <strong>{subscriptionDays} days</strong>. 
-                          Renew immediately to ensure that coordinates checks and daily punches operate without interruptions.
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="subscription-alert-banner success-alert" style={{ backgroundColor: 'var(--success-light)', border: '1.5px solid var(--primary-border)', color: 'var(--success)' }}>
-                      <div className="banner-icon-side" style={{ color: 'var(--success)' }}>
-                        <CheckIcon size={28} />
-                      </div>
-                      <div className="banner-text-side">
-                        <h4>Subscription Plan Active</h4>
-                        <p>
-                          Your enterprise license holds premium active status with <strong>{subscriptionDays} days remaining</strong>. 
-                          No billing actions are required at this time.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dynamic Calculator UI */}
-                  <div className="dynamic-calculator-container">
-                    {/* Left Side: Configuration inputs */}
-                    <div className="panel calculator-panel" style={{ border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: '#ffffff' }}>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)' }}>Configure Workspace Tiers</h4>
-                      
-                      {/* Team Size Input */}
-                      <div className="form-group" style={{ marginBottom: '24px' }}>
-                        <label className="form-label" htmlFor="team-size" style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-                          Enter Estimated Team Size / Employee Count
-                        </label>
-                        <input
-                          id="team-size"
-                          type="number"
-                          min="1"
-                          className="form-input"
-                          placeholder="e.g. 10"
-                          value={employeeCount}
-                          onChange={(e) => setEmployeeCount(Math.max(1, parseInt(e.target.value) || 0))}
-                          style={{ border: '1px solid var(--primary-border)', padding: '12px', borderRadius: '8px', fontSize: '1rem', width: '100%' }}
-                        />
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                          Base core features (Dashboard, Employees, Settings, Audit Logs) are included free.
-                        </span>
-                      </div>
-
-                      {/* Module Selectors */}
-                      <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: '600', marginBottom: '12px', display: 'block' }}>
-                          Select Premium Add-on Modules (₹100 / employee / mo each)
-                        </label>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                          {/* Attendance Management */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.25s ease', backgroundColor: premiumAddons.attendance ? 'var(--primary-light, #eff6ff)' : '#ffffff', borderColor: premiumAddons.attendance ? 'var(--primary-border, #bfdbfe)' : 'var(--border)' }}>
-                            <div style={{ flex: 1 }}>
-                              <strong style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>Attendance Management</strong>
-                              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4', display: 'block' }}>Includes geofenced clocking, leave requests, leave approvals, shifts scheduling, and holiday calendar.</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              {toggleLoading.attendance ? (
-                                <div className="btn-spinner" style={{ width: '20px', height: '20px', borderColor: 'rgba(37,99,235,0.1)', borderTopColor: 'var(--primary)' }}></div>
-                              ) : (
-                                <label style={{
-                                  position: 'relative',
-                                  display: 'inline-block',
-                                  width: '46px',
-                                  height: '24px',
-                                  cursor: 'pointer'
-                                }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={premiumAddons.attendance}
-                                    onChange={() => handleToggleModule('attendance', premiumAddons.attendance)}
-                                    style={{ opacity: 0, width: 0, height: 0 }}
-                                  />
-                                  <span style={{
-                                    position: 'absolute',
-                                    top: 0, left: 0, right: 0, bottom: 0,
-                                    backgroundColor: premiumAddons.attendance ? 'var(--primary, #2563eb)' : '#cbd5e1',
-                                    transition: 'background-color 0.2s ease',
-                                    borderRadius: '24px',
-                                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-                                  }} />
-                                  <span style={{
-                                    position: 'absolute',
-                                    height: '18px',
-                                    width: '18px',
-                                    left: '3px',
-                                    bottom: '3px',
-                                    backgroundColor: 'white',
-                                    transition: 'transform 0.2s ease',
-                                    borderRadius: '50%',
-                                    transform: premiumAddons.attendance ? 'translateX(22px)' : 'translateX(0)',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                                  }} />
-                                </label>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Project & Tasks Management */}
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.25s ease', backgroundColor: premiumAddons.project ? 'var(--primary-light, #eff6ff)' : '#ffffff', borderColor: premiumAddons.project ? 'var(--primary-border, #bfdbfe)' : 'var(--border)' }}>
-                            <div style={{ flex: 1 }}>
-                              <strong style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>Project & Tasks Management</strong>
-                              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4', display: 'block' }}>Includes assigning templates/roles, adding task workspaces, tracking goals, and task feeds.</span>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                              {toggleLoading.project ? (
-                                <div className="btn-spinner" style={{ width: '20px', height: '20px', borderColor: 'rgba(37,99,235,0.1)', borderTopColor: 'var(--primary)' }}></div>
-                              ) : (
-                                <label style={{
-                                  position: 'relative',
-                                  display: 'inline-block',
-                                  width: '46px',
-                                  height: '24px',
-                                  cursor: 'pointer'
-                                }}>
-                                  <input
-                                    type="checkbox"
-                                    checked={premiumAddons.project}
-                                    onChange={() => handleToggleModule('project', premiumAddons.project)}
-                                    style={{ opacity: 0, width: 0, height: 0 }}
-                                  />
-                                  <span style={{
-                                    position: 'absolute',
-                                    top: 0, left: 0, right: 0, bottom: 0,
-                                    backgroundColor: premiumAddons.project ? 'var(--primary, #2563eb)' : '#cbd5e1',
-                                    transition: 'background-color 0.2s ease',
-                                    borderRadius: '24px',
-                                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-                                  }} />
-                                  <span style={{
-                                    position: 'absolute',
-                                    height: '18px',
-                                    width: '18px',
-                                    left: '3px',
-                                    bottom: '3px',
-                                    backgroundColor: 'white',
-                                    transition: 'transform 0.2s ease',
-                                    borderRadius: '50%',
-                                    transform: premiumAddons.project ? 'translateX(22px)' : 'translateX(0)',
-                                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                                  }} />
-                                </label>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Side: Cost Estimation & Checkout */}
-                    <div className="premium-billing-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', border: '2px solid var(--primary)', boxShadow: '0 10px 30px rgba(37, 99, 235, 0.08)' }}>
-                      <div>
-                        <h4 style={{ fontSize: '1.2rem', fontWeight: '850', marginBottom: '8px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Subscription Summary</h4>
-                        <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Metered plan customized specifically for your team size.</p>
-
-                        {/* Formula Visual */}
-                        <div style={{ backgroundColor: 'var(--primary-light)', padding: '16px', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--primary-border)' }}>
-                          <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: '4px' }}>Formula</span>
-                          <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: '600' }}>
-                            {employeeCount} Employees × {((premiumAddons.attendance ? 1 : 0) + (premiumAddons.project ? 1 : 0)) * 100} INR
-                          </div>
-                        </div>
-
-                        {/* Dynamic Cost */}
-                        <div className="dynamic-price-display" style={{ marginTop: '0', marginBottom: '16px' }}>
-                          <span className="currency-symbol">₹</span>
-                          <span className="price-value">{(employeeCount * (((premiumAddons.attendance ? 1 : 0) + (premiumAddons.project ? 1 : 0)) * 100)).toLocaleString('en-IN')}</span>
-                          <span className="price-period">/ month</span>
-                        </div>
-
-                        {/* Wallet Balance Display */}
-                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px', marginTop: '20px', marginBottom: '20px' }}>
-                          <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', color: 'var(--text-muted)', marginBottom: '4px' }}>Wallet Balance</span>
-                          <div className="dynamic-price-display" style={{ marginTop: '0', marginBottom: '16px' }}>
-                            <span className="currency-symbol">₹</span>
-                            <span className="price-value" style={{ fontSize: '1.8rem' }}>{parseFloat(wallet.balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            <span className="price-period" style={{ fontSize: '0.85rem' }}> Available</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Add Money to Wallet Form */}
-                      <form onSubmit={handleTopup} className="settings-form" style={{ marginTop: 'auto', width: '100%' }}>
-                        <div className="form-group" style={{ marginBottom: '12px' }}>
-                          <label className="form-label" htmlFor="topup-amount-billing" style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '0.88rem' }}>Deposit Amount (INR)</label>
-                          <input
-                            id="topup-amount-billing"
-                            type="number"
-                            min="100"
-                            step="50"
-                            className="form-input"
-                            placeholder="Enter amount (e.g. 1000)"
-                            value={topupAmount}
-                            onChange={(e) => setTopupAmount(e.target.value)}
-                            required
-                            style={{ border: '1px solid var(--primary-border)', backgroundColor: 'var(--primary-light)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.95rem', width: '100%' }}
-                          />
-                        </div>
-
-                        {/* Promo Input Layout */}
-                        <div className="form-group" style={{ marginBottom: '16px' }}>
-                          <label className="form-label" style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '0.88rem' }}>Have a Promo Code?</label>
-                          <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                              type="text"
-                              className="form-input"
-                              placeholder="Enter coupon code"
-                              value={couponCode}
-                              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                              disabled={appliedCoupon || couponChecking}
-                              style={{ border: '1px solid var(--border)', padding: '10px 14px', borderRadius: '8px', fontSize: '0.95rem', flex: 1 }}
-                            />
-                            {appliedCoupon ? (
-                              <button
-                                type="button"
-                                onClick={handleRemoveCoupon}
-                                style={{ padding: '10px 16px', fontSize: '0.85rem', fontWeight: '600', color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', cursor: 'pointer' }}
-                              >
-                                Remove
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={handleApplyCoupon}
-                                disabled={couponChecking}
-                                style={{ padding: '10px 16px', fontSize: '0.85rem', fontWeight: '600', color: 'var(--primary)', backgroundColor: 'var(--primary-light)', border: '1px solid var(--primary-border)', borderRadius: '8px', cursor: 'pointer' }}
-                              >
-                                {couponChecking ? 'Checking...' : 'Apply'}
-                              </button>
-                            )}
-                          </div>
-                          {couponError && <span style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: '4px', display: 'block' }}>{couponError}</span>}
-                          {appliedCoupon && <span style={{ fontSize: '0.8rem', color: '#10b981', marginTop: '4px', display: 'block' }}>Promo code "{appliedCoupon.code}" applied!</span>}
-                        </div>
-
-                        {/* Dynamic Breakdown Block */}
-                        {appliedCoupon && (
-                          <div style={{ backgroundColor: '#f8fafc', border: '1px solid var(--border)', borderRadius: '10px', padding: '14px', marginBottom: '16px', fontSize: '0.88rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Top-up Principal:</span>
-                              <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>₹{parseFloat(appliedCoupon.net_payable).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10b981' }}>
-                              <span style={{ fontWeight: '500' }}>Promo Code Bonus ({appliedCoupon.code}):</span>
-                              <span style={{ fontWeight: '600' }}>+ ₹{parseFloat(appliedCoupon.computed_bonus).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                              <span style={{ color: 'var(--text-muted)' }}>Total Value Added to Wallet:</span>
-                              <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>₹{parseFloat(appliedCoupon.total_value).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '10px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
-                              <span style={{ fontWeight: '700', color: 'var(--primary-dark)' }}>Net Payable Amount:</span>
-                              <span style={{ fontSize: '1.05rem', fontWeight: '850', color: '#ffffff', backgroundColor: '#2563eb', padding: '4px 10px', borderRadius: '6px', boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}>
-                                ₹{parseFloat(appliedCoupon.net_payable).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        <button 
-                          type="submit" 
-                          className="btn-premium btn-premium-primary"
-                          disabled={topupLoading}
-                          style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
-                        >
-                          {topupLoading ? (
-                            <div className="btn-spinner" style={{ margin: '0 auto', borderColor: 'rgba(255,255,255,0.1)', borderTopColor: '#fff' }}></div>
-                          ) : (
-                            <>
-                              <span>Add Money to Wallet</span>
-                              <span className="btn-arrow">+</span>
-                            </>
-                          )}
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-
-                  {/* Billing History & Receipts Split */}
-                  <div className="billing-history-section" style={{ marginTop: '48px', borderTop: '1px solid var(--border)', paddingTop: '32px' }}>
-                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
-                      <span>Billing & Receipt History</span>
-                    </h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-                      <p className="tab-desc" style={{ margin: 0 }}>View subscription invoice debits and download prepaid wallet deposit receipts.</p>
-                      <input
-                        type="text"
-                        className="form-input billing-search-input"
-                        placeholder="Search invoices or receipts..."
-                        value={billingSearchQuery}
-                        onChange={(e) => setBillingSearchQuery(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="billing-history-grid">
-                      
-                      {/* Left side: Invoice Details (Debits) */}
-                      <div>
-                        <h4 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' }}></span>
-                          <span>Invoice Details (Subscription Debits)</span>
-                        </h4>
-                        <div className="table-container" style={{ border: '1px solid var(--border)', borderRadius: '10px', overflowX: 'auto', maxHeight: '350px', overflowY: 'auto', backgroundColor: '#ffffff' }}>
-                          <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr>
-                                <th>Date</th>
-                                <th>Details</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Invoice</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {debitTransactions.filter(tx => !billingSearchQuery || (tx.details && tx.details.toLowerCase().includes(billingSearchQuery.toLowerCase()))).length === 0 ? (
-                                <tr>
-                                  <td colSpan="5" className="no-data" style={{ textAlign: 'center', padding: '32px 0' }}>No invoice debits recorded matching search.</td>
-                                </tr>
-                              ) : (
-                                debitTransactions.filter(tx => !billingSearchQuery || (tx.details && tx.details.toLowerCase().includes(billingSearchQuery.toLowerCase()))).map((tx) => (
-                                  <tr key={tx.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedReceipt(tx)}>
-                                    <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
-                                    <td style={{ whiteSpace: 'normal', fontSize: '0.85rem', color: 'var(--text-main)', maxWidth: '200px' }}>
-                                      {tx.details}
-                                    </td>
-                                    <td style={{ fontWeight: '700', color: '#1e293b' }}>
-                                      -₹{parseFloat(tx.amount).toFixed(2)}
-                                    </td>
-                                    <td>
-                                      <span className={`badge ${tx.status === 'Success' ? 'badge-success' : tx.status === 'Pending' ? 'badge-pending' : 'badge-danger'}`}>
-                                        {tx.status}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      <div onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary btn-sm"
-                                          onClick={() => setSelectedReceipt(tx)}
-                                          style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
-                                        >
-                                          View
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Right side: Payment Receipts (Credits) */}
-                      <div>
-                        <h4 style={{ fontSize: '1.05rem', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
-                          <span>Payment Receipts (Wallet Deposits)</span>
-                        </h4>
-                        <div className="table-container" style={{ border: '1px solid var(--border)', borderRadius: '10px', overflowX: 'auto', maxHeight: '350px', overflowY: 'auto', backgroundColor: '#ffffff' }}>
-                          <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                              <tr>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Receipt</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {creditTransactions.filter(tx => !billingSearchQuery || (tx.details && tx.details.toLowerCase().includes(billingSearchQuery.toLowerCase()))).length === 0 ? (
-                                <tr>
-                                  <td colSpan="4" className="no-data" style={{ textAlign: 'center', padding: '32px 0' }}>No payment receipts recorded matching search.</td>
-                                </tr>
-                              ) : (
-                                creditTransactions.filter(tx => !billingSearchQuery || (tx.details && tx.details.toLowerCase().includes(billingSearchQuery.toLowerCase()))).map((tx) => (
-                                  <tr key={tx.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedReceipt(tx)}>
-                                    <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
-                                    <td style={{ fontWeight: '700', color: '#10b981' }}>
-                                      +₹{parseFloat(tx.amount).toFixed(2)}
-                                    </td>
-                                    <td>
-                                      <span className={`badge ${tx.status === 'Success' ? 'badge-success' : tx.status === 'Pending' ? 'badge-pending' : 'badge-danger'}`}>
-                                        {tx.status}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                          type="button"
-                                          className="btn btn-primary btn-sm"
-                                          onClick={() => setSelectedReceipt(tx)}
-                                          style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
-                                        >
-                                          View
-                                        </button>
-                                        {tx.receipt_url ? (
-                                          <a 
-                                            href={tx.receipt_url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="btn btn-secondary btn-sm"
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
-                                          >
-                                            <span>Stripe</span>
-                                            <span>↗</span>
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-            );
-          })()}
+          {currentTab === 'billing' && hasBillingPerm && (
+            <BillingTab
+              currentUser={currentUser}
+              wallet={wallet}
+              topupAmount={topupAmount}
+              setTopupAmount={setTopupAmount}
+              topupLoading={topupLoading}
+              walletSuccess={walletSuccess}
+              walletError={walletError}
+              couponCode={couponCode}
+              setCouponCode={setCouponCode}
+              appliedCoupon={appliedCoupon}
+              couponError={couponError}
+              couponChecking={couponChecking}
+              checkoutLoading={checkoutLoading}
+              employeeCount={employeeCount}
+              setEmployeeCount={setEmployeeCount}
+              premiumAddons={premiumAddons}
+              setPremiumAddons={setPremiumAddons}
+              toggleLoading={toggleLoading}
+              billingSearchQuery={billingSearchQuery}
+              setBillingSearchQuery={setBillingSearchQuery}
+              selectedReceipt={selectedReceipt}
+              setSelectedReceipt={setSelectedReceipt}
+              billingSuccess={billingSuccess}
+              handleApplyCoupon={handleApplyCoupon}
+              handleRemoveCoupon={handleRemoveCoupon}
+              handleTopup={handleTopup}
+              handleToggleModule={handleToggleModule}
+              handleDynamicCheckout={handleDynamicCheckout}
+              PLANS={PLANS}
+              WalletIcon={WalletIcon}
+            />
+          )}
 
         </div>
       </div>

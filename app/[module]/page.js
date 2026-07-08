@@ -9,9 +9,9 @@ import PageWrapper from '../../components/PageWrapper';
 export default function ModulePage({ params }) {
   const resolvedParams = React.use(params);
   const { module: moduleSlug } = resolvedParams;
-  const { permissionsRegistry, loading: configLoading } = useContext(AppContext);
-
-  if (configLoading) {
+  const { permissionsRegistry, isInitialized } = useContext(AppContext);
+ 
+  if (!isInitialized) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
         <div style={{ textAlign: 'center', color: 'var(--primary)' }}>
@@ -21,10 +21,10 @@ export default function ModulePage({ params }) {
       </div>
     );
   }
-
+ 
   // Look up the module config
   const moduleConfig = permissionsRegistry?.modules?.find(m => m.id === moduleSlug);
-
+ 
   if (!moduleConfig) {
     return notFound();
   }
