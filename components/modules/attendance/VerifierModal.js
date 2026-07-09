@@ -28,8 +28,29 @@ export default function VerifierModal({
         onClick={(e) => e.stopPropagation()} 
         style={{ maxWidth: '420px', width: '95%', padding: '32px', position: 'relative' }}
       >
-        <button className="modal-close-btn" onClick={handleCloseVerifier}>
-          <CloseIcon size={24} />
+        <button 
+          className="modal-close-btn" 
+          onClick={handleCloseVerifier}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            right: '20px',
+            border: 'none',
+            background: '#f3f4f6',
+            borderRadius: '50%',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#6b7280',
+            transition: 'all 0.2s ease',
+            padding: 0,
+            zIndex: 10
+          }}
+        >
+          <CloseIcon size={16} />
         </button>
 
         <h3 style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -120,49 +141,47 @@ export default function VerifierModal({
               padding: '12px 16px',
               borderRadius: 'var(--radius-md)',
               fontSize: '0.85rem',
-              maxWidth: '100%',
+              width: '100%',
               lineHeight: '1.45',
-              textAlign: 'left'
+              textAlign: 'left',
+              boxSizing: 'border-box'
             }}>
               <strong>Reason:</strong> {verifierError}
             </div>
 
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-light)', maxWidth: '340px' }}>
-              If you are working on-site but location verification failed, you can override with a live photo capture.
+            <p style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-light)', maxWidth: '340px' }}>
+              If you are on-site but GPS failed, you can verify with a live photo instead.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
-              <button 
-                type="button" 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+              <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => {
-                  toggleFacingMode(); // toggle to 'user' mode initially
+                  toggleFacingMode();
                   startWebcam('user');
                 }}
                 style={{
+                  width: '100%',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'center',
                   gap: '8px',
-                  padding: '12px 24px',
-                  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)'
+                  padding: '12px 16px',
                 }}
               >
-                <CameraIcon size={18} />
+                <CameraIcon size={17} />
                 <span>Open Live Camera</span>
               </button>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-light)' }}>
-                Click camera icon to activate webcam fallback
-              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleCloseVerifier}
+                style={{ width: '100%', padding: '11px 16px' }}
+              >
+                Cancel
+              </button>
             </div>
-
-            <button 
-              type="button" 
-              className="btn btn-secondary btn-sm" 
-              onClick={handleCloseVerifier}
-              style={{ marginTop: '12px' }}
-            >
-              Cancel
-            </button>
           </div>
         )}
 
@@ -283,24 +302,6 @@ export default function VerifierModal({
                         <CameraIcon size={28} />
                       </button>
                       <div style={{ fontSize: '0.8rem', fontWeight: '600' }}>Click camera icon to activate live webcam feed</div>
-
-                      <div style={{ margin: '12px 0 4px', width: '80%', height: '1px', borderTop: '1.5px dashed var(--border)' }} />
-
-                      <div style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-light)' }}>Or upload/take a photo from your device:</div>
-                      <label className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', padding: '8px 16px', margin: '4px 0 0' }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="17 8 12 3 7 8" />
-                          <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        <span>Choose Photo File</span>
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          onChange={handlePhotoFileChange}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
                     </>
                   )}
                 </div>

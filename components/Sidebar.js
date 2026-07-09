@@ -19,9 +19,8 @@ import {
   AuditIcon
 } from './Icons';
 
-export default function Sidebar() {
+const Sidebar = React.memo(function Sidebar() {
   const { currentUser, hasPermission, logout, sidebarOpen, setSidebarOpen, companyName, permissionsRegistry } = useApp();
-  console.log("permissionsRegistry", permissionsRegistry)
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -315,4 +314,6 @@ export default function Sidebar() {
       </div>
     </aside>
   );
-}
+});
+
+export default Sidebar;

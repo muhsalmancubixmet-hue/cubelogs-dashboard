@@ -27,10 +27,12 @@ const HolidaySlider = () => {
   }, []);
 
   // Group holidays by "YYYY-MM" key, sorted ascending
+  // Filter out auto-generated "Weekly Off" recurring entries before grouping
   const grouped = useMemo(() => {
     if (!holidays || holidays.length === 0) return [];
+    const realHolidays = holidays.filter(h => !h.name || !h.name.includes('Weekly Off'));
     const groups = {};
-    holidays.forEach((h) => {
+    realHolidays.forEach((h) => {
       const d = new Date(h.date);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
       if (!groups[key]) groups[key] = { key, year: d.getFullYear(), month: d.getMonth(), items: [] };
@@ -83,7 +85,7 @@ const HolidaySlider = () => {
   };
 
   return (
-    <section className="panel hs-root" aria-label="Upcoming holidays" style={{ marginBottom: 0, maxWidth: '650px', width: '100%', margin: '0 auto' }}>
+    <section className="panel hs-root" aria-label="Upcoming holidays" style={{ marginBottom: 0, maxWidth: '650px', width: '100%', margin: '0 auto', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
       {/* Redesigned Header: month label displayed in the title */}
       <div className="panel-header-custom" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <h3 className="hs-title-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main)' }}>
@@ -107,7 +109,7 @@ const HolidaySlider = () => {
       </div>
 
       {/* Main slider with arrows on both sides */}
-      <div className="hs-slider-outer" style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'center', width: '100%' }}>
+      <div className="hs-slider-outer" style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'center', width: '100%', flexGrow: 1 }}>
         {/* Left Navigation Arrow */}
         <button
           className="hs-side-nav-arrow"

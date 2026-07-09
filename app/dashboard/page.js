@@ -6,16 +6,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { API_BASE_URL, apiFetch } from '@/lib/api';
-import { 
-  EmployeesIcon, 
-  LeavesIcon, 
-  TasksIcon, 
-  HolidaysIcon, 
-  ClockIcon, 
-  CheckIcon, 
-  DeclineIcon, 
+import {
+  EmployeesIcon,
+  LeavesIcon,
+  TasksIcon,
+  HolidaysIcon,
+  ClockIcon,
+  CheckIcon,
+  DeclineIcon,
   BrandLogo,
-  WarningIcon
+  WarningIcon,
+  CloseIcon
 } from '@/components/Icons';
 import HolidaySlider from '@/components/HolidaySlider';
 import LeaveStatusBadge from '@/components/LeaveStatusBadge';
@@ -34,7 +35,7 @@ export default function Dashboard() {
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   // Search filter
   const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
 
@@ -55,17 +56,193 @@ export default function Dashboard() {
     return currentUser.permissions && currentUser.permissions.includes(permissionName);
   };
 
+  // ── Inline Clock-In Modal ────────────────────────────────────────────────────
+  const [ciModal, setCiModal] = useState(false);       // modal open
+  const [ciStep, setCiStep] = useState('checking');    // 'checking' | 'success' | 'failed' | 'camera'
+  const [ciError, setCiError] = useState('');
+  const [ciLocation, setCiLocation] = useState(null);
+  const [ciDistance, setCiDistance] = useState(null);
+  const [ciClosest, setCiClosest] = useState(null);
+  const [ciPhoto, setCiPhoto] = useState(null);
+  const [ciStream, setCiStream] = useState(null);
+  const [ciFacing, setCiFacing] = useState('user');
+  const [ciSubmitting, setCiSubmitting] = useState(false);
+  const [officeLocations, setOfficeLocations] = useState([]);
+  const ciVideoRef = useRef(null);
+  const ciLockRef = useRef(false);
+
+  // Attach camera stream to <video> element whenever ciStream changes
+  useEffect(() => {
+    if (ciVideoRef.current && ciStream) {
+      ciVideoRef.current.srcObject = ciStream;
+      ciVideoRef.current.play().catch(() => {});
+    }
+  }, [ciStream]);
+
+  // Clean up stream when modal closes
+  useEffect(() => {
+    if (!ciModal) {
+      ciStream?.getTracks().forEach(t => t.stop());
+      setCiStream(null);
+    }
+  }, [ciModal]);
+
+  const ciHaversine = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const ciGetCoords = (ms = 8000) => new Promise((res, rej) =>
+    navigator.geolocation.getCurrentPosition(res,
+      () => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: ms }),
+      { enableHighAccuracy: true, timeout: ms }
+    )
+  );
+
+  const ciStopCamera = () => {
+    setCiStream(prev => { prev?.getTracks().forEach(t => t.stop()); return null; });
+  };
+
+  const ciStartCamera = async (mode = ciFacing) => {
+    ciStopCamera();
+    setCiSubmitting(true);
+    setCiError('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: { ideal: mode } },
+        audio: false
+      });
+      setCiStream(stream); // useEffect above will attach it to the video element
+    } catch {
+      setCiError('Camera access denied. Please allow camera permissions and try again.');
+    } finally {
+      setCiSubmitting(false);
+    }
+  };
+
+  const ciCapturePhoto = () => {
+    const vid = ciVideoRef.current;
+    if (!vid || vid.readyState < 2) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = vid.videoWidth || 640;
+    canvas.height = vid.videoHeight || 480;
+    canvas.getContext('2d').drawImage(vid, 0, 0);
+    const photo = canvas.toDataURL('image/jpeg', 0.85);
+    setCiPhoto(photo);
+    return photo;
+  };
+
+  const ciApiClockIn = async (verificationData) => {
+    if (ciLockRef.current) return { success: false };
+    ciLockRef.current = true;
+    try {
+      const responseLog = await apiFetch('/attendance/clock-in/', {
+        method: 'POST',
+        body: JSON.stringify({ employeeId: parseInt(currentUser.id), verificationData }),
+      });
+      setAttendanceLogs(prev => [
+        { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) },
+        ...prev
+      ]);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || 'Clock-in failed.' };
+    } finally {
+      setTimeout(() => { ciLockRef.current = false; }, 1500);
+    }
+  };
+
+  const ciPunchWithPhoto = async () => {
+    setCiSubmitting(true);
+    setCiError('');
+    try {
+      const photo = ciPhoto || ciCapturePhoto();
+      if (!photo) throw new Error('No photo captured. Make sure the camera is active.');
+      const result = await ciApiClockIn({
+        photo,
+        coords: ciLocation
+          ? { lat: ciLocation.lat, lon: ciLocation.lon, distance: ciDistance, locationName: ciClosest?.name || 'Office' }
+          : { lat: 0, lon: 0, distance: 9999, locationName: 'Unknown' }
+      });
+      if (result.success) { ciStopCamera(); setCiStep('success'); }
+      else setCiError(result.error || 'Clock-in failed.');
+    } catch (err) {
+      setCiError(err.message);
+    } finally {
+      setCiSubmitting(false);
+    }
+  };
+
+  const handleDashboardClockIn = async () => {
+    setCiModal(true);
+    setCiStep('checking');
+    setCiError('');
+    setCiLocation(null);
+    setCiDistance(null);
+    setCiClosest(null);
+    setCiPhoto(null);
+
+    if (!navigator.geolocation) {
+      setCiError('Geolocation is not supported by your browser.');
+      setCiStep('failed');
+      return;
+    }
+
+    try {
+      const pos = await ciGetCoords();
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      let minDist = Infinity, closest = null, inFence = false;
+
+      if (officeLocations.length > 0) {
+        officeLocations.forEach(loc => {
+          const d = ciHaversine(lat, lon, loc.lat, loc.lon);
+          if (d < minDist) { minDist = d; closest = loc; }
+          if (d <= loc.radius) inFence = true;
+        });
+      } else {
+        inFence = true; // No geofence configured → allow
+      }
+
+      setCiLocation({ lat, lon });
+      setCiDistance(minDist < Infinity ? minDist : null);
+      setCiClosest(closest);
+
+      if (inFence) {
+        const result = await ciApiClockIn({
+          photo: null,
+          coords: { lat, lon, distance: minDist < Infinity ? minDist : 0, locationName: closest?.name || 'Remote/Direct' }
+        });
+        if (result.success) setCiStep('success');
+        else { setCiError(result.error || 'Clock-in failed.'); setCiStep('failed'); }
+      } else {
+        setCiError(`Outside geofence. Nearest office: ${closest?.name || 'Office'} (${minDist.toFixed(0)}m away, limit ${closest?.radius || 100}m).`);
+        setCiStep('failed');
+      }
+    } catch (err) {
+      const code = err.code;
+      setCiError(
+        code === 1 ? 'Location access denied. Please enable it in browser settings.' :
+        code === 2 ? 'Location unavailable. Check your GPS/network.' :
+        code === 3 ? 'Location timed out. Check your connection and try again.' :
+        `Location error: ${err.message}`
+      );
+      setCiStep('failed');
+    }
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     setError('');
-    
+
     let userObj = currentUser;
     if (!userObj && typeof window !== 'undefined') {
       const activeUserStr = localStorage.getItem('cubelogs_active_user');
       if (activeUserStr) {
         try {
           userObj = JSON.parse(activeUserStr);
-        } catch (e) {}
+        } catch (e) { }
       }
     }
 
@@ -93,7 +270,7 @@ export default function Dashboard() {
       const fetchTasks = apiFetch(`/tasks/${orgQuery}`).catch(() => []);
       const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(() => []);
       const fetchHolidays = apiFetch('/holidays/').catch(() => []);
-      
+
       const hasEmployeesPerm = checkPerm('admin:employees') || checkPerm('attendance:admin');
       const fetchEmployees = hasEmployeesPerm
         ? apiFetch(`/employees/${orgQuery}`).catch(() => [])
@@ -181,6 +358,7 @@ export default function Dashboard() {
       }
     }
     fetchDashboardData();
+    apiFetch('/locations/').then(d => setOfficeLocations(d.map(l => ({ ...l, id: String(l.id) })))).catch(() => {});
   }, []);
 
   const handleRowClick = (empId) => {
@@ -208,14 +386,14 @@ export default function Dashboard() {
   // Sync active logs & calculate elapsed times
   useEffect(() => {
     if (!currentUser) return;
-    
+
     // Find today's active log for this employee
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const log = attendanceLogs.find(
       l => l.employeeId === currentUser.id && l.date === today && !l.clockOut
     );
-    
+
     setActiveLog(log || null);
 
     if (timerRef.current) {
@@ -227,7 +405,7 @@ export default function Dashboard() {
       timerRef.current = setInterval(() => {
         const now = new Date();
         const inTime = new Date(log.clockIn);
-        
+
         // Calculate total net work seconds
         let totalElapsedMs = now - inTime;
         const netWorkSecs = Math.max(0, Math.floor(totalElapsedMs / 1000));
@@ -254,7 +432,7 @@ export default function Dashboard() {
   const totalEmployees = employees.length;
   const pendingLeaves = leaves.filter(l => l.status === 'Pending').length;
   const openTasks = tasks.filter(t => t.status !== 'Completed').length;
-  const upcomingHolidaysCount = holidays.length;
+  const upcomingHolidaysCount = holidays.filter(h => !h.name || !h.name.includes('Weekly Off')).length;
 
   // Check if current user is admin/hr (or has permission to see global attendance)
   const isAdminView = currentUser?.isSuperAdmin || hasPermission('attendance:admin');
@@ -274,7 +452,7 @@ export default function Dashboard() {
   const myLeaves = leaves.filter(l => l.employeeId === currentUser?.id);
 
   // Sort and display the 3 most recent leaves
-  const displayLeaves = isAdminView 
+  const displayLeaves = isAdminView
     ? [...leaves].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).slice(0, 3)
     : [...myLeaves].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).slice(0, 3);
 
@@ -342,7 +520,7 @@ export default function Dashboard() {
 
   return (
     <PageWrapper title="Dashboard Analytics" requiredPermission="dashboard">
-      
+
       {/* Pending Payment Alert */}
 
       {/* Expired Subscription Alert */}
@@ -369,7 +547,7 @@ export default function Dashboard() {
           <span style={{ fontSize: '0.88rem' }}>{error}</span>
         </div>
       )}
-      
+
       {/* Consolidated Metrics Grid at the top below navbar */}
       <div className="metrics-grid" style={{ marginBottom: '32px' }}>
         {isAdminView ? (
@@ -480,8 +658,8 @@ export default function Dashboard() {
         // Filter active modules based on subscription and user permissions
         const activeModules = modulesList.filter(module => {
           const reqFlag = module.metadata?.required_subscription_flag;
-          const hasAddon = reqFlag 
-            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag]) 
+          const hasAddon = reqFlag
+            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag])
             : true;
 
           if (!hasAddon) return false;
@@ -537,8 +715,8 @@ export default function Dashboard() {
                   gap: '20px'
                 }}>
                   {canOnboard && (
-                    <Link 
-                      href="/admin/employees" 
+                    <Link
+                      href="/admin/employees"
                       className="overview-action-card"
                       style={{
                         display: 'flex',
@@ -582,8 +760,8 @@ export default function Dashboard() {
                   )}
 
                   {canManageTemplates && (
-                    <Link 
-                      href="/admin/templates" 
+                    <Link
+                      href="/admin/templates"
                       className="overview-action-card"
                       style={{
                         display: 'flex',
@@ -640,9 +818,9 @@ export default function Dashboard() {
                     </div>
 
                     <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
-                      <div className="dashboard-control-col-left" style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div className="dashboard-control-col-left" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
                         {hasPermission('attendance:staff') && (
-                          <div className="panel clocking-card-panel" style={{ marginBottom: 0, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                          <div className="panel clocking-card-panel" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', padding: '24px', height: 'fit-content' }}>
                             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                               <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
                               <span>Attendance Control Center</span>
@@ -675,9 +853,9 @@ export default function Dashboard() {
                               </div>
                             )}
 
-                            <div className="clock-actions-row" style={{ marginTop: 'auto', paddingTop: '20px' }}>
+                            <div className="clock-actions-row" style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
                               {!isClockedIn ? (
-                                <button className="btn btn-primary btn-lg full-width" onClick={() => router.push('/attendance?triggerClockIn=true')}>
+                                <button className="btn btn-primary btn-lg full-width" onClick={handleDashboardClockIn}>
                                   Clock In
                                 </button>
                               ) : (
@@ -688,17 +866,13 @@ export default function Dashboard() {
                             </div>
                           </div>
                         )}
-                      </div>
-                      <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <DashboardCalendar holidays={holidays} />
-                      </div>
-                    </div>
-
-                    <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
-                      <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <HolidaySlider />
                       </div>
-                      <div className="col-6" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div style={{ marginBottom: 0 }}>
+                          <DashboardCalendar holidays={holidays} />
+                        </div>
+
                         <div className="panel" style={{ marginBottom: 0 }}>
                           <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -768,7 +942,7 @@ export default function Dashboard() {
                               style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
                             />
                           </div>
-                          
+
                           <div className="table-container" style={{ marginTop: '15px' }}>
                             <table className="data-table">
                               <thead>
@@ -789,26 +963,26 @@ export default function Dashboard() {
                                     return matchName || matchRole;
                                   })
                                   .map(emp => {
-                                  const d = new Date();
-                                  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                                  const log = attendanceLogs.find(l => l.employeeId === emp.id && l.date === today);
-                                  const isWorking = log && !log.clockOut;
+                                    const d = new Date();
+                                    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    const log = attendanceLogs.find(l => l.employeeId === emp.id && l.date === today);
+                                    const isWorking = log && !log.clockOut;
 
-                                  return (
-                                    <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
-                                      <td><strong>{emp.name}</strong></td>
-                                      <td>{emp.isSuperAdmin ? 'Super Admin' : emp.designation}</td>
-                                      <td>{log ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                                      <td>
-                                        {isWorking ? (
-                                          <span className="status-dot online"></span>
-                                        ) : (
-                                          <span className="status-dot offline"></span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
+                                    return (
+                                      <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
+                                        <td><strong>{emp.name}</strong></td>
+                                        <td>{emp.isSuperAdmin ? 'Super Admin' : emp.designation}</td>
+                                        <td>{log ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                        <td>
+                                          {isWorking ? (
+                                            <span className="status-dot online"></span>
+                                          ) : (
+                                            <span className="status-dot offline"></span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
                               </tbody>
                             </table>
                           </div>
@@ -892,11 +1066,11 @@ export default function Dashboard() {
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
                       Access services for {module.metadata?.name || 'this module'}:
                     </p>
-                    
+
                     <div className="dynamic-capabilities-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' }}>
                       {userCaps.map(cap => (
-                        <Link 
-                          key={cap.id} 
+                        <Link
+                          key={cap.id}
                           href={`${cap.path}${cap.tab ? `?tab=${cap.tab}` : ''}`}
                           className="capability-card"
                           style={{
@@ -1042,12 +1216,12 @@ export default function Dashboard() {
         }
 
         .timer-display-group {
-          margin: 20px 0 30px;
+          margin: 15px 0 20px;
         }
 
         .timer-circle {
-          width: 180px;
-          height: 180px;
+          width: 150px;
+          height: 150px;
           border-radius: 50%;
           display: flex;
           flex-direction: column;
@@ -1071,7 +1245,7 @@ export default function Dashboard() {
         }
 
         .timer-label {
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           color: var(--text-light);
           text-transform: uppercase;
           font-weight: 600;
@@ -1080,7 +1254,7 @@ export default function Dashboard() {
 
         .timer-val {
           font-family: var(--font-heading);
-          font-size: 1.8rem;
+          font-size: 1.5rem;
           font-weight: 800;
           color: var(--text-main);
           margin-top: 4px;
@@ -1172,6 +1346,263 @@ export default function Dashboard() {
             margin-bottom: 16px !important;
           }
         }
+      `}</style>
+
+      {/* ── Inline Clock-In Modal ────────────────────────────────────────── */}
+      {ciModal && (
+        <div
+          onClick={() => setCiModal(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 3000,
+            background: 'rgba(10, 18, 40, 0.55)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px', animation: 'ciOverlayIn 0.2s ease'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface, #fff)',
+              borderRadius: '20px',
+              border: '1px solid var(--border)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+              width: '100%', maxWidth: '420px',
+              overflow: 'hidden',
+              animation: 'ciCardIn 0.28s cubic-bezier(0.34,1.56,0.64,1)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '20px 24px 16px',
+              borderBottom: '1px solid var(--border)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '10px',
+                  background: 'var(--primary-light)', color: 'var(--primary)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <ClockIcon size={18} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>Clock In</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>Attendance Verification</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setCiModal(false)}
+                style={{
+                  width: 30, height: 30, borderRadius: '50%', border: 'none',
+                  background: 'var(--bg-app)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'var(--text-muted)', transition: 'background 0.15s',
+                  padding: 0
+                }}
+              >
+                <CloseIcon size={14} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '28px 24px 24px' }}>
+
+              {/* STEP: checking */}
+              {ciStep === 'checking' && (
+                <div style={{ textAlign: 'center', padding: '16px 0 8px' }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: '50%',
+                    border: '3px solid var(--primary-border)',
+                    borderTopColor: 'var(--primary)',
+                    animation: 'spin 0.8s linear infinite',
+                    margin: '0 auto 20px'
+                  }} />
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', marginBottom: 6 }}>Verifying Location…</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', lineHeight: 1.5, maxWidth: 280, margin: '0 auto' }}>
+                    Please allow GPS access if prompted. We're checking your office boundary.
+                  </div>
+                </div>
+              )}
+
+              {/* STEP: success */}
+              {ciStep === 'success' && (
+                <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: '50%',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '2px solid rgba(16,185,129,0.4)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 20px', color: '#10b981'
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-main)', marginBottom: 6 }}>Clocked In!</div>
+                  <div style={{ fontSize: '0.83rem', color: 'var(--text-light)', marginBottom: 20 }}>
+                    Your attendance has been logged at {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.
+                    {ciClosest && ciDistance !== null && (
+                      <span><br />Verified at <strong>{ciClosest.name}</strong> ({ciDistance.toFixed(0)}m)</span>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setCiModal(false)}
+                    style={{ width: '100%', padding: '12px' }}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+
+              {/* STEP: failed */}
+              {ciStep === 'failed' && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '2px solid rgba(239,68,68,0.25)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 16px', color: '#ef4444'
+                  }}>
+                    <WarningIcon size={26} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#ef4444', marginBottom: 10 }}>Verification Failed</div>
+                  <div style={{
+                    background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+                    borderRadius: 10, padding: '12px 14px',
+                    fontSize: '0.82rem', color: '#b91c1c', textAlign: 'left', lineHeight: 1.5, marginBottom: 20
+                  }}>
+                    {ciError}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: 16 }}>
+                    If you're on-site but GPS failed, you can verify with a live photo instead.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                      onClick={() => { setCiStep('camera'); ciStartCamera('user'); }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                      Use Camera Instead
+                    </button>
+                    <button className="btn btn-secondary" style={{ width: '100%', padding: '11px' }} onClick={() => setCiModal(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP: camera */}
+              {ciStep === 'camera' && (
+                <div>
+                  {/* Camera feed */}
+                  <div style={{
+                    position: 'relative', width: '100%', aspectRatio: '4/3',
+                    background: '#0f172a', borderRadius: 12, overflow: 'hidden',
+                    marginBottom: 16, border: '1px solid var(--border)'
+                  }}>
+                    {ciPhoto ? (
+                      <img src={ciPhoto} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : ciStream ? (
+                      <>
+                        <video
+                          ref={ciVideoRef}
+                          autoPlay playsInline muted
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                        {/* Flip camera */}
+                        <button
+                          onClick={() => { const m = ciFacing === 'user' ? 'environment' : 'user'; setCiFacing(m); ciStartCamera(m); }}
+                          style={{
+                            position: 'absolute', bottom: 10, right: 10,
+                            width: 34, height: 34, borderRadius: '50%', border: 'none',
+                            background: 'rgba(0,0,0,0.5)', color: '#fff',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', backdropFilter: 'blur(4px)'
+                          }}
+                          title="Switch camera"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 4v6h-6M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <div style={{
+                        width: '100%', height: '100%', display: 'flex',
+                        flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: 12, color: '#94a3b8'
+                      }}>
+                        {ciSubmitting ? (
+                          <div style={{ width: 32, height: 32, border: '3px solid #334155', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => ciStartCamera('user')}
+                              style={{
+                                width: 52, height: 52, borderRadius: '50%', border: 'none',
+                                background: 'var(--primary)', color: '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', boxShadow: '0 4px 14px rgba(37,99,235,0.4)'
+                              }}
+                            >
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                              </svg>
+                            </button>
+                            <span style={{ fontSize: '0.8rem' }}>Tap to activate camera</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {ciError && (
+                    <div style={{
+                      background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)',
+                      borderRadius: 8, padding: '10px 12px',
+                      fontSize: '0.8rem', color: '#b91c1c', marginBottom: 14
+                    }}>{ciError}</div>
+                  )}
+
+
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {ciPhoto ? (
+                      <button className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}
+                        onClick={() => { setCiPhoto(null); ciStartCamera(ciFacing); }}
+                      >Retake</button>
+                    ) : null}
+                    <button
+                      className="btn btn-primary"
+                      style={{ flex: 2, padding: '11px', opacity: ciSubmitting ? 0.7 : 1 }}
+                      disabled={ciSubmitting || (!ciStream && !ciPhoto)}
+                      onClick={ciPunchWithPhoto}
+                    >
+                      {ciSubmitting ? 'Clocking in…' : ciPhoto ? 'Confirm & Clock In' : 'Capture & Clock In'}
+                    </button>
+                    <button className="btn btn-secondary" style={{ flex: 1, padding: '10px' }}
+                      onClick={() => setCiModal(false)}
+                    >Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes ciOverlayIn { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes ciCardIn { from { opacity: 0; transform: scale(0.93) translateY(12px) } to { opacity: 1; transform: none } }
       `}</style>
     </PageWrapper>
   );

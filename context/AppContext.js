@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '../lib/api';
 import { authService, organizationService } from '../lib/services/apiService';
 import CustomAlertModal from '../components/CustomAlertModal';
@@ -78,6 +78,36 @@ const mapLocation = (loc) => ({
   id: String(loc.id),
 });
 
+const isUserEqual = (a, b) => {
+  if (!a || !b) return false;
+  if (
+    a.id !== b.id ||
+    a.email !== b.email ||
+    a.name !== b.name ||
+    a.profilePhoto !== b.profilePhoto ||
+    a.organization !== b.organization
+  ) {
+    return false;
+  }
+  const subA = a.subscription || {};
+  const subB = b.subscription || {};
+  if (
+    subA.subscriptionStatus !== subB.subscriptionStatus ||
+    subA.daysRemaining !== subB.daysRemaining ||
+    subA.secondsRemaining !== subB.secondsRemaining ||
+    subA.warningActive !== subB.warningActive
+  ) {
+    return false;
+  }
+  const permA = a.permissions || [];
+  const permB = b.permissions || [];
+  if (permA.length !== permB.length) return false;
+  for (let i = 0; i < permA.length; i++) {
+    if (permA[i] !== permB[i]) return false;
+  }
+  return true;
+};
+
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [officePremises, setOfficePremises] = useState({ lat: 11.1143, lon: 76.2274 });
@@ -92,18 +122,18 @@ export function AppProvider({ children }) {
   // Custom Alert Modal State
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', title: '', type: 'info' });
 
-  const showAlert = (message, title = '', type = 'info') => {
+  const showAlert = useCallback((message, title = '', type = 'info') => {
     setAlertModal({ isOpen: true, message, title, type });
-  };
+  }, []);
 
-  const closeAlert = () => {
+  const closeAlert = useCallback(() => {
     setAlertModal(prev => ({ ...prev, isOpen: false }));
-  };
+  }, []);
 
-  const fetchInitialData = async (userObj = null) => {
+  const fetchInitialData = useCallback(async (userObj) => {
+    if (!userObj) return;
     try {
-      const activeUser = userObj || currentUser;
-      const orgId = activeUser?.organization;
+      const orgId = userObj.organization;
       const orgQuery = orgId ? `?organization=${orgId}` : '';
 
       const [
@@ -126,7 +156,7 @@ export function AppProvider({ children }) {
     } catch (e) {
       console.warn('Failed to fetch platform records:', e);
     }
-  };
+  }, []);
 
   // Initialize session on mount
   useEffect(() => {
@@ -152,7 +182,7 @@ export function AppProvider({ children }) {
     };
 
     initSession();
-  }, []);
+  }, [fetchInitialData]);
 
   // Periodic subscription & session refresh polling
   useEffect(() => {
@@ -163,12 +193,14 @@ export function AppProvider({ children }) {
         const user = await authService.fetchMe();
         const mappedUser = mapEmployee(user);
 
-        // Update currentUser state (which contains the subscription object)
-        setCurrentUser(mappedUser);
-        localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        // Update currentUser state only if data actually changed
+        if (!isUserEqual(mappedUser, currentUser)) {
+          setCurrentUser(mappedUser);
+          localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        }
 
         // Also update subscriptionDays if it changes
-        if (user.subscription) {
+        if (user.subscription && user.subscription.daysRemaining !== subscriptionDays) {
           setSubscriptionDays(user.subscription.daysRemaining);
         }
       } catch (e) {
@@ -177,10 +209,10 @@ export function AppProvider({ children }) {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser, subscriptionDays]);
 
   // Auth Operations
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       const data = await authService.login(email, password);
 
@@ -196,9 +228,9 @@ export function AppProvider({ children }) {
     } catch (e) {
       return { success: false, message: e.message || 'Invalid email or password.' };
     }
-  };
+  }, [fetchInitialData]);
 
-  const magicLogin = async (token) => {
+  const magicLogin = useCallback(async (token) => {
     try {
       const data = await authService.magicLogin(token);
 
@@ -214,52 +246,52 @@ export function AppProvider({ children }) {
     } catch (e) {
       return { success: false, message: e.message || 'Invalid or expired magic link.' };
     }
-  };
+  }, [fetchInitialData]);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setCurrentUser(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('cubelogs_access_token');
       localStorage.removeItem('cubelogs_refresh_token');
       localStorage.removeItem('cubelogs_active_user');
     }
-  };
+  }, []);
 
-  const requestPasswordReset = async (email) => {
+  const requestPasswordReset = useCallback(async (email) => {
     try {
       const data = await authService.requestPasswordReset(email);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Failed to request password reset.' };
     }
-  };
+  }, []);
 
-  const validateResetToken = async (token) => {
+  const validateResetToken = useCallback(async (token) => {
     try {
       const data = await authService.validateResetToken(token);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Invalid or expired token.' };
     }
-  };
+  }, []);
 
-  const confirmPasswordReset = async (token, password, passwordConfirm) => {
+  const confirmPasswordReset = useCallback(async (token, password, passwordConfirm) => {
     try {
       const data = await authService.confirmPasswordReset(token, password, passwordConfirm);
       return { success: true, message: data.message };
     } catch (e) {
       return { success: false, message: e.message || 'Failed to reset password.' };
     }
-  };
+  }, []);
 
   // CRUD operations moved to their respective component pages
 
   // Locations CRUD
-  const saveOfficePremises = (premises) => {
+  const saveOfficePremises = useCallback((premises) => {
     setOfficePremises(premises);
-  };
+  }, []);
 
-  const saveOfficeLocations = async (locations) => {
+  const saveOfficeLocations = useCallback(async (locations) => {
     try {
       const current = await organizationService.fetchLocations();
       for (const loc of current) {
@@ -279,19 +311,19 @@ export function AppProvider({ children }) {
     } catch (e) {
       console.error('Error saving locations:', e);
     }
-  };
+  }, []);
 
   // Branding & Settings
-  const saveBrandLogo = async (logoData) => {
+  const saveBrandLogo = useCallback(async (logoData) => {
     try {
       const response = await organizationService.saveSettings({ brandLogo: logoData });
       setBrandLogo(response.brandLogo);
     } catch (e) {
       console.error('Error saving brand logo:', e);
     }
-  };
+  }, []);
 
-  const saveCompanyName = async (name) => {
+  const saveCompanyName = useCallback(async (name) => {
     try {
       const response = await organizationService.saveSettings({ companyName: name });
       setCompanyName(response.companyName);
@@ -299,9 +331,18 @@ export function AppProvider({ children }) {
       console.error('Error saving company name:', e);
       throw e;
     }
-  };
+  }, []);
 
-  const confirmSubscription = async (sessionId) => {
+  const updateAuthSession = useCallback((access, refresh, user) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cubelogs_access_token', access);
+      localStorage.setItem('cubelogs_refresh_token', refresh);
+      localStorage.setItem('cubelogs_active_user', JSON.stringify(mapEmployee(user)));
+    }
+    setCurrentUser(mapEmployee(user));
+  }, []);
+
+  const confirmSubscription = useCallback(async (sessionId) => {
     try {
       const response = await organizationService.confirmSubscription(sessionId);
 
@@ -324,9 +365,9 @@ export function AppProvider({ children }) {
       console.error('Error confirming subscription:', e);
       throw e;
     }
-  };
+  }, [updateAuthSession]);
 
-  const completeOnboarding = async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = ["Sunday"]) => {
+  const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = ["Sunday"]) => {
     try {
       // 1. Save brand logo, company name, and default weekly holidays
       const response = await organizationService.saveSettings({ 
@@ -345,9 +386,9 @@ export function AppProvider({ children }) {
       console.error('Error completing onboarding:', e);
       throw e;
     }
-  };
+  }, [saveOfficeLocations]);
 
-  const renewSubscription = async (packageName = null) => {
+  const renewSubscription = useCallback(async (packageName = null) => {
     try {
       const body = { subscriptionDays: 365 };
       if (packageName) {
@@ -366,66 +407,87 @@ export function AppProvider({ children }) {
     } catch (e) {
       console.error('Error renewing subscription:', e);
     }
-  };
-
-  const updateAuthSession = (access, refresh, user) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('cubelogs_access_token', access);
-      localStorage.setItem('cubelogs_refresh_token', refresh);
-      localStorage.setItem('cubelogs_active_user', JSON.stringify(mapEmployee(user)));
-    }
-    setCurrentUser(mapEmployee(user));
-  };
+  }, [updateAuthSession]);
 
   // Permission Check Helper
-  const hasPermission = (permission) => {
+  const hasPermission = useCallback((permission) => {
     if (!currentUser) return false;
     if (currentUser.isSuperAdmin) return true;
     return currentUser.permissions && currentUser.permissions.includes(permission);
-  };
+  }, [currentUser]);
 
   // Feature Gating Helper (Based on active subscription package features)
-  const isFeatureUnlocked = (feature) => {
+  const isFeatureUnlocked = useCallback((feature) => {
     if (!currentUser) return false;
     if (currentUser.subscription && currentUser.subscription.features) {
       return currentUser.subscription.features.includes(feature);
     }
     return currentUser.isSuperAdmin;
-  };
+  }, [currentUser]);
+
+  const contextValue = useMemo(() => ({
+    currentUser,
+    isInitialized,
+    login,
+    magicLogin,
+    logout,
+    requestPasswordReset,
+    validateResetToken,
+    confirmPasswordReset,
+    hasPermission,
+    isFeatureUnlocked,
+    sidebarOpen,
+    setSidebarOpen,
+    officePremises,
+    saveOfficePremises,
+    officeLocations,
+    saveOfficeLocations,
+    brandLogo,
+    saveBrandLogo,
+    companyName,
+    saveCompanyName,
+    subscriptionDays,
+    renewSubscription,
+    completeOnboarding,
+    confirmSubscription,
+    alertModal,
+    showAlert,
+    closeAlert,
+    updateAuthSession,
+    permissionsRegistry,
+  }), [
+    currentUser,
+    isInitialized,
+    login,
+    magicLogin,
+    logout,
+    requestPasswordReset,
+    validateResetToken,
+    confirmPasswordReset,
+    hasPermission,
+    isFeatureUnlocked,
+    sidebarOpen,
+    officePremises,
+    saveOfficePremises,
+    officeLocations,
+    saveOfficeLocations,
+    brandLogo,
+    saveBrandLogo,
+    companyName,
+    saveCompanyName,
+    subscriptionDays,
+    renewSubscription,
+    completeOnboarding,
+    confirmSubscription,
+    alertModal,
+    showAlert,
+    closeAlert,
+    updateAuthSession,
+    permissionsRegistry
+  ]);
 
   return (
-    <AppContext.Provider
-      value={{
-        currentUser,
-        isInitialized,
-        login,
-        magicLogin,
-        logout,
-        requestPasswordReset,
-        validateResetToken,
-        confirmPasswordReset,
-        hasPermission,
-        isFeatureUnlocked,
-        sidebarOpen,
-        setSidebarOpen,
-        officePremises,
-        saveOfficePremises,
-        officeLocations,
-        saveOfficeLocations,
-        brandLogo,
-        saveBrandLogo,
-        companyName,
-        saveCompanyName,
-        subscriptionDays,
-        renewSubscription,
-        completeOnboarding,
-        confirmSubscription,
-        alertModal,
-        showAlert,
-        closeAlert,
-        updateAuthSession,
-        permissionsRegistry,
-      }}>
+    <AppContext.Provider value={contextValue}>
       {children}
       <CustomAlertModal />
     </AppContext.Provider>
