@@ -7,7 +7,7 @@ export default function RedirectConfigureLeaves() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/leaves?tab=manage');
+    router.replace('/attendance?tab=leaves-manage');
   }, [router]);
 
   return (

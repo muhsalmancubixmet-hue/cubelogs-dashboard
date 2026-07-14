@@ -367,7 +367,7 @@ export function AppProvider({ children }) {
     }
   }, [updateAuthSession]);
 
-  const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = ["Sunday"]) => {
+  const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = []) => {
     try {
       // 1. Save brand logo, company name, and default weekly holidays
       const response = await organizationService.saveSettings({ 

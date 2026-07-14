@@ -65,7 +65,7 @@ function HolidaysContent() {
   };
 
   // Restore user session locally
-  const [weeklyHolidays, setWeeklyHolidays] = useState(['Sunday']);
+  const [weeklyHolidays, setWeeklyHolidays] = useState([]);
   const [monthlyRules, setMonthlyRules] = useState([]);
   const [yearlyRules, setYearlyRules] = useState([]);
   const [loadingRules, setLoadingRules] = useState(false);
@@ -82,7 +82,7 @@ function HolidaysContent() {
     setLoading(true);
     try {
       const data = await apiFetch('/settings/holidays/');
-      setWeeklyHolidays(data.default_weekly_holidays || ['Sunday']);
+      setWeeklyHolidays(data.default_weekly_holidays ?? []);
       setMonthlyRules(data.monthly_recurring_holidays || []);
       setYearlyRules(data.yearly_recurring_holidays || []);
     } catch (err) {

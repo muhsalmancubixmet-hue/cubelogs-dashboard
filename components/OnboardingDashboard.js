@@ -11,7 +11,7 @@ export default function OnboardingDashboard() {
   const [logoName, setLogoName] = useState('');
   const [mapsUrl, setMapsUrl] = useState('');
   const [coordinates, setCoordinates] = useState(null);
-  const [weeklyHolidays, setWeeklyHolidays] = useState(['Sunday']);
+  const [weeklyHolidays, setWeeklyHolidays] = useState([]);
   
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -232,7 +232,7 @@ export default function OnboardingDashboard() {
               ))}
             </div>
             <span className="form-hint" style={{ marginTop: '6px', display: 'block' }}>
-              Select recurring weekly off-days for your organization. Pre-populated with Sunday.
+              Select recurring weekly off-days for your organization.
             </span>
           </div>
 

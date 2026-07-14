@@ -369,6 +369,16 @@ function AttendanceContent() {
   const getCoordinates = (timeoutMs = 10000) => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          resolve({
+            coords: {
+              latitude: officePremises?.lat || 11.1143,
+              longitude: officePremises?.lon || 76.2274,
+              accuracy: 10,
+            }
+          });
+          return;
+        }
         const error = new Error('Geolocation is not supported by your browser.');
         error.code = 0;
         reject(error);
@@ -380,7 +390,20 @@ function AttendanceContent() {
           console.warn('High accuracy geolocation failed, trying fallback with low accuracy...', err);
           navigator.geolocation.getCurrentPosition(
             resolve,
-            reject,
+            (fallbackErr) => {
+              if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.warn('Localhost detected: resolving with mock coordinates matching office premises.');
+                resolve({
+                  coords: {
+                    latitude: officePremises?.lat || 11.1143,
+                    longitude: officePremises?.lon || 76.2274,
+                    accuracy: 10,
+                  }
+                });
+              } else {
+                reject(fallbackErr);
+              }
+            },
             { enableHighAccuracy: false, timeout: timeoutMs }
           );
         },
@@ -448,6 +471,38 @@ function AttendanceContent() {
       setVerifierLoading(false);
     } catch (err) {
       console.error(err);
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.warn('Localhost detected: generating a mock canvas fallback image because camera is unavailable.');
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 400;
+          canvas.height = 300;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const grad = ctx.createLinearGradient(0, 0, 400, 300);
+            grad.addColorStop(0, '#3b82f6');
+            grad.addColorStop(1, '#1d4ed8');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 400, 300);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('MOCK WEBCAM FEED', 200, 130);
+            ctx.font = '16px sans-serif';
+            ctx.fillText('Local development camera fallback active', 200, 165);
+            ctx.fillText(`Punch-in User: ${currentUser?.email || 'Admin'}`, 200, 195);
+
+            const mockPhotoData = canvas.toDataURL('image/jpeg');
+            setVerifierPhoto(mockPhotoData);
+            setVerifierError('');
+            setVerifierLoading(false);
+            return;
+          }
+        } catch (canvasErr) {
+          console.error("Failed to generate mock canvas photo:", canvasErr);
+        }
+      }
       setVerifierError('Camera access denied or unavailable. A live camera feed is required to punch in.');
       setVerifierLoading(false);
     }
