@@ -52,8 +52,8 @@ export default function PersonalProfile() {
     fetchProfileData();
   }, []);
 
-  const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
-  const isAttendanceEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_attendance_enabled;
+  const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
+  const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
 
   const visiblePermissionFlags = PERMISSION_FLAGS.filter(flag => {
     if (!isProjectEnabled && (flag.id === 'tasks:create' || flag.id === 'tasks:view')) {

@@ -158,25 +158,18 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // Initialize session on mount
+  // Initialize session on mount - relies on HttpOnly cookies (no localStorage token)
   useEffect(() => {
     const initSession = async () => {
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('cubelogs_access_token');
-        if (token) {
-          try {
-            const user = await authService.fetchMe();
-            const mappedUser = mapEmployee(user);
-            setCurrentUser(mappedUser);
-            localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
-            await fetchInitialData(mappedUser);
-          } catch (e) {
-            console.warn('Session restoration failed:', e);
-            localStorage.removeItem('cubelogs_access_token');
-            localStorage.removeItem('cubelogs_refresh_token');
-            localStorage.removeItem('cubelogs_active_user');
-          }
-        }
+      try {
+        const user = await authService.fetchMe();
+        const mappedUser = mapEmployee(user);
+        setCurrentUser(mappedUser);
+        localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        await fetchInitialData(mappedUser);
+      } catch (e) {
+        // No active session - user needs to log in
+        localStorage.removeItem('cubelogs_active_user');
       }
       setIsInitialized(true);
     };
@@ -216,9 +209,8 @@ export function AppProvider({ children }) {
     try {
       const data = await authService.login(email, password);
 
-      const { access, refresh, user } = data;
-      localStorage.setItem('cubelogs_access_token', access);
-      localStorage.setItem('cubelogs_refresh_token', refresh);
+      // Cookies are set server-side (HttpOnly). Store non-sensitive user data locally.
+      const { user } = data;
       localStorage.setItem('cubelogs_active_user', JSON.stringify(mapEmployee(user)));
 
       const mappedUser = mapEmployee(user);
@@ -234,9 +226,8 @@ export function AppProvider({ children }) {
     try {
       const data = await authService.magicLogin(token);
 
-      const { access, refresh, user } = data;
-      localStorage.setItem('cubelogs_access_token', access);
-      localStorage.setItem('cubelogs_refresh_token', refresh);
+      // Cookies are set server-side (HttpOnly). Store non-sensitive user data locally.
+      const { user } = data;
       localStorage.setItem('cubelogs_active_user', JSON.stringify(mapEmployee(user)));
 
       const mappedUser = mapEmployee(user);
@@ -248,11 +239,18 @@ export function AppProvider({ children }) {
     }
   }, [fetchInitialData]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     setCurrentUser(null);
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('cubelogs_access_token');
-      localStorage.removeItem('cubelogs_refresh_token');
+      // Call backend to clear HttpOnly cookies
+      try {
+        const { API_BASE_URL } = await import('@/lib/api');
+        await fetch(`${API_BASE_URL}/auth/logout/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+      } catch (e) { /* ignore */ }
       localStorage.removeItem('cubelogs_active_user');
     }
   }, []);

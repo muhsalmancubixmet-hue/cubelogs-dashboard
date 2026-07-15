@@ -12,7 +12,7 @@ export default function PageWrapper({ children, title, requiredPermission }) {
   const { currentUser, isInitialized, hasPermission, sidebarOpen, setSidebarOpen, brandLogo, officeLocations } = useApp();
   const router = useRouter();
 
-  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
 
   const isAllowedPathForUnpaid = () => {
     if (typeof window === 'undefined') return true;

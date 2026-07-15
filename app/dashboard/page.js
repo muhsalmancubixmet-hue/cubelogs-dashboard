@@ -472,7 +472,7 @@ export default function Dashboard() {
 
   if (!currentUser) return null;
 
-  const isUnpaid = (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Unpaid';
+  const isUnpaid = (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Unpaid' || (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Restricted';
 
   if (isUnpaid) {
     return (
@@ -578,7 +578,7 @@ export default function Dashboard() {
               </Link>
             )}
             {isAttendanceEnabled && (
-              <Link href="/holidays?tab=manage" className="metric-card">
+              <Link href="/attendance?tab=holidays-manage" className="metric-card">
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><HolidaysIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Scheduled Holidays</h4>

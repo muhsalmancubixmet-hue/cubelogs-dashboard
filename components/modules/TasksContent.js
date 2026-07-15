@@ -71,7 +71,7 @@ function TasksContent() {
 
   const fetchTasksData = async () => {
     if (currentUser) {
-      const isProjectEnabled = currentUser.email === 'admin@cubelogs.com' || currentUser.subscription?.is_project_enabled;
+      const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
       if (!isProjectEnabled) return;
     }
     setLoading(true);
@@ -135,7 +135,7 @@ function TasksContent() {
   // Redirect if project management is not purchased
   useEffect(() => {
     if (currentUser) {
-      const isProjectEnabled = currentUser.email === 'admin@cubelogs.com' || currentUser.subscription?.is_project_enabled;
+      const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
       if (!isProjectEnabled) {
         router.push('/dashboard');
       }
@@ -296,7 +296,7 @@ function TasksContent() {
 
   if (!currentUser) return null;
 
-  const isProjectEnabled = currentUser.email === 'admin@cubelogs.com' || currentUser.subscription?.is_project_enabled;
+  const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   if (!isProjectEnabled) return null;
 
   const myTasks = tasks.filter(t => t.assignedTo === currentUser.id);

@@ -51,7 +51,7 @@ function EmployeeProfileContent() {
   // Profile photo upload ref (in-place)
   const photoInputRef = useRef(null);
 
-  const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
+  const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
 
   const getAuthHeaders = () => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;

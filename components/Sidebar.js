@@ -27,7 +27,8 @@ const Sidebar = React.memo(function Sidebar() {
 
   const iconMap = {
     'AttendanceIcon': <AttendanceIcon size={18} />,
-    'TasksIcon': <TasksIcon size={18} />
+    'TasksIcon': <TasksIcon size={18} />,
+    'LeavesIcon': <LeavesIcon size={18} />
   };
 
   // Active sub-tab search param check
@@ -65,7 +66,7 @@ const Sidebar = React.memo(function Sidebar() {
   const isActive = (path) => pathname === path;
 
 
-  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
 
   const hasSettingsTemplates = !isUnpaid && hasPermission('admin:templates');
   const hasSettingsLocations = !isUnpaid && hasPermission('locations:manage');

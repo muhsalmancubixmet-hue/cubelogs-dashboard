@@ -68,8 +68,8 @@ function EmployeeCreateContent() {
   
   const [isEditing, setIsEditing] = useState(false);
 
-  const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
-  const isAttendanceEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_attendance_enabled;
+  const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
+  const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
 
   const visiblePermissionFlags = useMemo(() => {
     return PERMISSION_FLAGS.filter(flag => {

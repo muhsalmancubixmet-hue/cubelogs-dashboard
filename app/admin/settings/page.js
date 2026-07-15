@@ -204,7 +204,7 @@ function SettingsHubContent() {
   // Active Tab State (templates, locations, branding, billing)
   const currentTab = searchParams.get('tab') || 'templates';
 
-  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid';
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
 
   // Permission Checks per Tab
   const hasTemplatesPerm = !isUnpaid && hasPermission('admin:templates');
@@ -213,8 +213,8 @@ function SettingsHubContent() {
   const hasBillingPerm = hasPermission('settings:billing');
   const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
 
-  const isProjectEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_project_enabled;
-  const isAttendanceEnabled = currentUser?.email === 'admin@cubelogs.com' || currentUser?.subscription?.is_attendance_enabled;
+  const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
+  const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
@@ -457,23 +457,32 @@ function SettingsHubContent() {
   }, [selectedTemplate]);
 
   const MODULES_MAP = {
+    general: {
+      label: 'General Access',
+      ids: ['dashboard', 'admin:employees']
+    },
     attendance: {
       label: 'Attendance Management',
-      ids: [
-        'attendance:staff', 
-        'attendance:admin', 
-        'attendance:management_portal', 
-        'locations:manage',
-        'leaves:apply',
-        'leaves:approve',
-        'leaves:manage',
-        'holidays:manage',
-        'holidays:view'
-      ]
+      ids: ['attendance:staff', 'attendance:admin', 'attendance:management_portal']
+    },
+    leaves: {
+      label: 'Leave Management',
+      ids: ['leaves:apply', 'leaves:approve', 'leaves:manage']
     },
     tasks: {
       label: 'Project Management',
       ids: ['tasks:create', 'tasks:view']
+    },
+    settings: {
+      label: 'System Settings',
+      ids: [
+        'admin:templates',
+        'settings:branding',
+        'settings:billing',
+        'locations:manage',
+        'holidays:manage',
+        'holidays:view'
+      ]
     }
   };
 
@@ -1404,7 +1413,7 @@ function SettingsHubContent() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style jsx global>{`
         .settings-container {
           display: flex;
           flex-direction: column;
