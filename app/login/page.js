@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { BrandLogo } from '@/components/Icons';
 
 export default function Login() {
-  const { login, currentUser, isInitialized, requestPasswordReset } = useApp();
+  const { login, currentUser, authStatus, requestPasswordReset } = useApp();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -23,10 +23,14 @@ export default function Login() {
   const [recoverySuccess, setRecoverySuccess] = useState('');
 
   useEffect(() => {
-    if (isInitialized && currentUser) {
+    if (authStatus === 'authenticated' && currentUser) {
       router.push('/dashboard');
     }
-  }, [currentUser, isInitialized, router]);
+  }, [currentUser, authStatus, router]);
+
+  if (authStatus === 'loading') {
+    return null; // Prevent UI flashing during session check
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

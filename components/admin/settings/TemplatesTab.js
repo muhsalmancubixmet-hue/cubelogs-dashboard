@@ -173,18 +173,21 @@ export default function TemplatesTab({
                         </div>
                       );
                     })()}
-                    <div className="permissions-checklist-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
-                      {modPerms.map((flag) => (
-                        <label className="form-checkbox-container permission-item-label" key={flag.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 0' }}>
-                          <input
-                            type="checkbox"
-                            className="form-checkbox"
-                            checked={selectedPermissions.includes(flag.id)}
-                            onChange={() => handlePermissionCheckbox(flag.id)}
-                          />
-                          <span style={{ fontSize: '0.82rem', color: 'var(--text-main)' }}>{flag.label}</span>
-                        </label>
-                      ))}
+                    <div className="permissions-checklist-matrix">
+                      {modPerms.map((flag) => {
+                        const isChecked = selectedPermissions.includes(flag.id);
+                        return (
+                          <label className={`form-checkbox-container matrix-item ${isChecked ? 'active' : ''}`} key={flag.id}>
+                            <input
+                              type="checkbox"
+                              className="form-checkbox"
+                              checked={isChecked}
+                              onChange={() => handlePermissionCheckbox(flag.id)}
+                            />
+                            <span>{flag.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -259,6 +262,139 @@ export default function TemplatesTab({
           )}
         </div>
       </div>
+      <style jsx>{`
+        .permissions-checklist-matrix {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 10px 14px;
+          align-items: center;
+          margin-top: 10px;
+        }
+
+        .matrix-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          background-color: var(--bg-card);
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--text-main);
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .matrix-item:hover {
+          border-color: var(--primary);
+          background-color: var(--bg-app);
+        }
+
+        .matrix-item.active {
+          background-color: var(--primary-light);
+          border-color: var(--primary-border);
+          color: var(--primary);
+          font-weight: 600;
+        }
+
+        .templates-list-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+
+        .template-item-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-md);
+          padding: 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          transition: all 0.15s ease;
+        }
+
+        .template-item-card:hover {
+          border-color: var(--primary-border);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .card-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .card-top h4 {
+          margin: 0;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: var(--text-main);
+        }
+
+        .permissions-badge-preview {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        .preview-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          background: #dbeafe;
+          color: #1e40af;
+          border: 1px solid #93c5fd;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .card-actions-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 4px;
+        }
+
+        .form-actions-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-top: 16px;
+        }
+
+        @media (max-width: 768px) {
+          .permissions-checklist-matrix {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .matrix-item {
+            white-space: normal;
+            width: 100%;
+          }
+          .template-item-card {
+            padding: 14px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .permissions-checklist-matrix {
+            grid-template-columns: 1fr;
+          }
+          .preview-badge {
+            font-size: 0.72rem;
+            padding: 3px 8px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

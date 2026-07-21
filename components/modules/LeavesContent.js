@@ -66,14 +66,6 @@ function LeavesContent() {
   const [hoveredExhaustedType, setHoveredExhaustedType] = useState('');
   const [clickedExhaustedMsg, setClickedExhaustedMsg] = useState('');
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   const fetchLeavesData = async () => {
     setLoading(true);
     setErrorMsg('');
@@ -97,13 +89,6 @@ function LeavesContent() {
 
   // Sync session & fetch dependencies on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-    }
 
     const loadDependencies = async () => {
       try {

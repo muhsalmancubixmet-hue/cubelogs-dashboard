@@ -9,7 +9,7 @@ import { WarningIcon } from './Icons';
 import OnboardingDashboard from './OnboardingDashboard';
 
 export default function PageWrapper({ children, title, requiredPermission }) {
-  const { currentUser, isInitialized, hasPermission, sidebarOpen, setSidebarOpen, brandLogo, officeLocations } = useApp();
+  const { currentUser, authStatus, hasPermission, sidebarOpen, setSidebarOpen, brandLogo, officeLocations, logout } = useApp();
   const router = useRouter();
 
   const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
@@ -25,16 +25,16 @@ export default function PageWrapper({ children, title, requiredPermission }) {
   };
 
   useEffect(() => {
-    if (isInitialized && !currentUser) {
+    if (authStatus === 'unauthenticated') {
       router.push('/login');
       return;
     }
-    if (isInitialized && currentUser && isUnpaid && !isAllowedPathForUnpaid()) {
+    if (authStatus === 'authenticated' && currentUser && isUnpaid && !isAllowedPathForUnpaid()) {
       router.replace('/dashboard');
     }
-  }, [currentUser, isInitialized, isUnpaid, router]);
+  }, [currentUser, authStatus, isUnpaid, router]);
 
-  if (!isInitialized) {
+  if (authStatus === 'loading') {
     return (
       <div className="loading-container">
         <div className="spinner"></div>
@@ -72,7 +72,7 @@ export default function PageWrapper({ children, title, requiredPermission }) {
     );
   }
 
-  if (!currentUser) {
+  if (authStatus === 'unauthenticated' || !currentUser) {
     return null; // redirecting
   }
 
@@ -125,11 +125,7 @@ export default function PageWrapper({ children, title, requiredPermission }) {
             </p>
             <button 
               onClick={() => {
-                if (typeof window !== 'undefined') {
-                  localStorage.removeItem('cubelogs_access_token');
-                  localStorage.removeItem('cubelogs_refresh_token');
-                  localStorage.removeItem('cubelogs_active_user');
-                }
+                logout();
                 window.location.href = '/login';
               }} 
               style={{

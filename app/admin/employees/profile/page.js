@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useState, useRef, useEffect } from 'react';
-import { PERMISSION_FLAGS } from '@/context/AppContext';
+import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -30,8 +30,9 @@ function EmployeeProfileContent() {
   const router = useRouter();
   const empId = searchParams.get('id') || '';
 
+  const { currentUser, authStatus } = useApp();
+
   // Local states
-  const [currentUser, setCurrentUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [leaves, setLeaves] = useState([]);
@@ -53,20 +54,12 @@ function EmployeeProfileContent() {
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   const fetchProfileData = async () => {
+    if (authStatus !== 'authenticated') return;
     setLoading(true);
     setErrorMsg('');
     try {
-      const [userData, employeesData, tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
-        apiFetch('/auth/me/'),
+      const [employeesData, tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
         apiFetch('/employees/'),
         apiFetch('/tasks/'),
         apiFetch('/leaves/'),
@@ -75,7 +68,6 @@ function EmployeeProfileContent() {
         apiFetch('/schedules/'),
       ]);
 
-      const mappedUser = { ...userData, id: String(userData.id) };
       const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
       const mappedTasks = tasksData.map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) }));
       const mappedLeaves = leavesData.map(l => ({
@@ -100,7 +92,6 @@ function EmployeeProfileContent() {
         }
       });
 
-      setCurrentUser(mappedUser);
       setEmployees(mappedEmployees);
       setTasks(mappedTasks);
       setLeaves(mappedLeaves);
@@ -117,25 +108,10 @@ function EmployeeProfileContent() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        window.location.href = '/login';
-        return;
-      }
-
-      const activeUserStr = localStorage.getItem('cubelogs_active_user');
-      if (activeUserStr) {
-        try {
-          const user = JSON.parse(activeUserStr);
-          setCurrentUser({ ...user, id: String(user.id) });
-        } catch (e) {
-          console.warn('Failed to parse active user');
-        }
-      }
+    if (authStatus === 'authenticated') {
+      fetchProfileData();
     }
-    fetchProfileData();
-  }, [empId]);
+  }, [empId, authStatus]);
 
   const hasPermission = (permission) => {
     if (!currentUser) return false;
@@ -501,7 +477,7 @@ function EmployeeProfileContent() {
             <h2>{employee.name}</h2>
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
               {(employee.designation || '').split(',').map(r => r.trim()).filter(Boolean).map(role => (
-                <span key={role} className="badge badge-info designation-badge" style={{ margin: 0, color: '#ffffff' }}>{role}</span>
+                <span key={role} className="badge badge-info designation-badge" style={{ margin: 0, color: '#1e40af', backgroundColor: '#dbeafe', border: '1px solid #93c5fd', fontWeight: '600' }}>{role}</span>
               ))}
               {!(employee.designation || '').trim() && (
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', fontStyle: 'italic' }}>No designation registered</span>

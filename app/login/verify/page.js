@@ -8,36 +8,50 @@ import { BrandLogo } from '@/components/Icons';
 function VerifyMagicLinkContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { magicLogin } = useApp();
+  const { magicLogin, authStatus } = useApp();
   const [status, setStatus] = useState('Verifying your magic link...');
   const [error, setError] = useState(null);
-  const attempted = useRef(false);
+  const [readyToRedirect, setReadyToRedirect] = useState(false);
 
+  // Step 1: Run magic login once
   useEffect(() => {
-    if (attempted.current) return;
-    attempted.current = true;
-
     const token = searchParams.get('token');
     if (!token) {
       setError('Invalid link. No token provided.');
       return;
     }
 
+    let active = true;
+
     const verify = async () => {
-      const result = await magicLogin(token);
-      if (result.success) {
-        setStatus('Authentication successful! Redirecting to dashboard...');
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1000);
-      } else {
-        setError(result.message);
+      try {
+        const result = await magicLogin(token);
+        if (!active) return;
+        if (result.success) {
+          setStatus('Authentication successful! Redirecting to dashboard...');
+          setReadyToRedirect(true); // signal redirect intent
+        } else {
+          setError(result.message || 'Invalid or expired magic link.');
+        }
+      } catch (err) {
+        if (!active) return;
+        setError(err.message || 'Verification error occurred.');
       }
     };
-    
-    // Add artificial delay for smooth UI transition
-    setTimeout(verify, 800);
-  }, [searchParams, magicLogin, router]);
+
+    verify();
+
+    return () => {
+      active = false;
+    };
+  }, [searchParams, magicLogin]);
+
+  // Step 2: Redirect only after authStatus is 'authenticated' (context state fully committed)
+  useEffect(() => {
+    if (readyToRedirect && authStatus === 'authenticated') {
+      router.replace('/dashboard');
+    }
+  }, [readyToRedirect, authStatus, router]);
 
   return (
     <div className="verify-page-container">

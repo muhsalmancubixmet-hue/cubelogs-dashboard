@@ -109,23 +109,22 @@ export default function BillingTab({
           <div className="panel calculator-panel" style={{ border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: '#ffffff', padding: '24px' }}>
             <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)' }}>Configure Workspace Tiers</h4>
             
-            {/* Team Size Input */}
+            {/* Team Size Display (Fixed based on registered company employees) */}
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label" htmlFor="team-size" style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>
-                Enter Estimated Team Size / Employee Count
+              <label className="form-label" htmlFor="team-size" style={{ fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Registered Company Employee Count</span>
+                <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>🔒 Fixed</span>
               </label>
               <input
                 id="team-size"
-                type="number"
-                min="1"
-                className="form-input"
-                placeholder="e.g. 10"
-                value={employeeCount}
-                onChange={(e) => setEmployeeCount(Math.max(1, parseInt(e.target.value) || 0))}
-                style={{ border: '1px solid var(--primary-border)', padding: '12px', borderRadius: '8px', fontSize: '1rem', width: '100%' }}
+                type="text"
+                readOnly
+                disabled
+                value={`${employeeCount}`}
+                style={{ border: '1px solid var(--border)', backgroundColor: '#f8fafc', color: 'var(--text-main)', padding: '12px', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', width: '100%', cursor: 'not-allowed' }}
               />
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                Base core features (Dashboard, Employees, Settings, Audit Logs) are included free.
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
+                Fixed count of registered users in your company. Base core features (Dashboard, Employees, Settings, Audit Logs) are included free.
               </span>
             </div>
 

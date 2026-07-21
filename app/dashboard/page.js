@@ -24,10 +24,9 @@ import DashboardCalendar from '@/components/DashboardCalendar';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { currentUser: globalCurrentUser, permissionsRegistry } = useApp();
+  const { currentUser, authStatus, permissionsRegistry } = useApp();
 
   // Local state for dashboard data
-  const [currentUser, setCurrentUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [tasks, setTasks] = useState([]);
@@ -41,14 +40,6 @@ export default function Dashboard() {
 
   // Live local system clock state
   const [currentTime, setCurrentTime] = useState(null);
-
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
 
   const hasPermission = (permissionName) => {
     if (!currentUser) return false;
@@ -75,7 +66,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (ciVideoRef.current && ciStream) {
       ciVideoRef.current.srcObject = ciStream;
-      ciVideoRef.current.play().catch(() => {});
+      ciVideoRef.current.play().catch(() => { });
     }
   }, [ciStream]);
 
@@ -90,7 +81,7 @@ export default function Dashboard() {
   const ciHaversine = (lat1, lon1, lat2, lon2) => {
     const R = 6371000, toRad = d => d * Math.PI / 180;
     const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
-    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon/2)**2;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
@@ -224,9 +215,9 @@ export default function Dashboard() {
       const code = err.code;
       setCiError(
         code === 1 ? 'Location access denied. Please enable it in browser settings.' :
-        code === 2 ? 'Location unavailable. Check your GPS/network.' :
-        code === 3 ? 'Location timed out. Check your connection and try again.' :
-        `Location error: ${err.message}`
+          code === 2 ? 'Location unavailable. Check your GPS/network.' :
+            code === 3 ? 'Location timed out. Check your connection and try again.' :
+              `Location error: ${err.message}`
       );
       setCiStep('failed');
     }
@@ -236,49 +227,48 @@ export default function Dashboard() {
     setLoading(true);
     setError('');
 
-    let userObj = currentUser;
-    if (!userObj && typeof window !== 'undefined') {
-      const activeUserStr = localStorage.getItem('cubelogs_active_user');
-      if (activeUserStr) {
-        try {
-          userObj = JSON.parse(activeUserStr);
-        } catch (e) { }
-      }
+    const userObj = currentUser;
+    if (!userObj) {
+      setLoading(false);
+      return;
     }
 
     const checkPerm = (permName) => {
-      if (!userObj) return false;
       if (userObj.isSuperAdmin) return true;
       return userObj.permissions && userObj.permissions.includes(permName);
     };
-
-    const headers = getAuthHeaders();
-
-    try {
-      // Fetch user profile first to ensure fresh session details
-      const userData = await apiFetch('/auth/me/');
-      userObj = { ...userData, id: String(userData.id) };
-      setCurrentUser(userObj);
-    } catch (e) {
-      console.warn('Failed to refresh user profile', e);
-    }
 
     try {
       const orgId = userObj?.organization;
       const orgQuery = orgId ? `?organization=${orgId}` : '';
 
-      const fetchTasks = apiFetch(`/tasks/${orgQuery}`).catch(() => []);
-      const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(() => []);
-      const fetchHolidays = apiFetch('/holidays/').catch(() => []);
+      const catchUnlessAuthError = (err) => {
+        const msg = err.message || '';
+        const isAuthError = msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Credentials') || msg.includes('Authentication') || msg.includes('PermissionDenied');
+        if (isAuthError) {
+          throw err;
+        }
+        return [];
+      };
+
+      const getArrayData = (data) => {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.results)) return data.results;
+        return [];
+      };
+
+      const fetchTasks = apiFetch(`/tasks/${orgQuery}`).catch(catchUnlessAuthError);
+      const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(catchUnlessAuthError);
+      const fetchHolidays = apiFetch('/holidays/').catch(catchUnlessAuthError);
 
       const hasEmployeesPerm = checkPerm('admin:employees') || checkPerm('attendance:admin');
       const fetchEmployees = hasEmployeesPerm
-        ? apiFetch(`/employees/${orgQuery}`).catch(() => [])
+        ? apiFetch(`/employees/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
 
       const hasAttendancePerm = checkPerm('attendance:admin') || checkPerm('attendance:staff');
       const fetchAttendance = hasAttendancePerm
-        ? apiFetch(`/attendance/${orgQuery}`).catch(() => [])
+        ? apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
 
       const [tasksData, leavesData, holidaysData, employeesData, attendanceData] = await Promise.all([
@@ -289,25 +279,25 @@ export default function Dashboard() {
         fetchAttendance
       ]);
 
-      const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
-      const mappedAttendance = attendanceData.map(log => ({
+      const mappedEmployees = getArrayData(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
+      const mappedAttendance = getArrayData(attendanceData).map(log => ({
         ...log,
         id: String(log.id),
         employeeId: String(log.employee)
       }));
-      const mappedTasks = tasksData.map(t => ({
+      const mappedTasks = getArrayData(tasksData).map(t => ({
         ...t,
         id: String(t.id),
         assignedTo: String(t.assignedTo)
       }));
-      const mappedLeaves = leavesData.map(l => ({
+      const mappedLeaves = getArrayData(leavesData).map(l => ({
         ...l,
         id: String(l.id),
         employeeId: String(l.employee),
         leaveTypeId: String(l.leaveType),
         leaveType: l.leaveTypeName
       }));
-      const mappedHolidays = holidaysData.map(h => ({ ...h, id: String(h.id) }));
+      const mappedHolidays = getArrayData(holidaysData).map(h => ({ ...h, id: String(h.id) }));
 
       setEmployees(mappedEmployees);
       setAttendanceLogs(mappedAttendance);
@@ -340,26 +330,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      const activeUserStr = localStorage.getItem('cubelogs_active_user');
-      if (activeUserStr) {
-        try {
-          const user = JSON.parse(activeUserStr);
-          setCurrentUser({ ...user, id: String(user.id) });
-        } catch (e) {
-          console.warn('Failed to parse active user');
-        }
-      }
+    if (authStatus === 'authenticated') {
+      fetchDashboardData();
+      apiFetch('/locations/').then(d => setOfficeLocations(d.map(l => ({ ...l, id: String(l.id) })))).catch(() => { });
     }
-    fetchDashboardData();
-    apiFetch('/locations/').then(d => setOfficeLocations(d.map(l => ({ ...l, id: String(l.id) })))).catch(() => {});
-  }, []);
+  }, [authStatus]);
 
   const handleRowClick = (empId) => {
     router.push(`/admin/employees/profile?id=${empId}`);
@@ -472,7 +447,7 @@ export default function Dashboard() {
 
   if (!currentUser) return null;
 
-  const isUnpaid = (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Unpaid' || (globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Restricted';
+  const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
 
   if (isUnpaid) {
     return (
@@ -524,7 +499,7 @@ export default function Dashboard() {
       {/* Pending Payment Alert */}
 
       {/* Expired Subscription Alert */}
-      {(globalCurrentUser || currentUser)?.subscription?.subscriptionStatus === 'Expired' && (
+      {currentUser?.subscription?.subscriptionStatus === 'Expired' && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', marginBottom: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--danger-border)', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <WarningIcon size={20} style={{ color: 'var(--danger)' }} />
@@ -1486,8 +1461,8 @@ export default function Dashboard() {
                       onClick={() => { setCiStep('camera'); ciStartCamera('user'); }}
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                        <circle cx="12" cy="13" r="4"/>
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
                       </svg>
                       Use Camera Instead
                     </button>
@@ -1529,8 +1504,8 @@ export default function Dashboard() {
                           title="Switch camera"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M23 4v6h-6M1 20v-6h6"/>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            <path d="M23 4v6h-6M1 20v-6h6" />
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                           </svg>
                         </button>
                       </>
@@ -1554,8 +1529,8 @@ export default function Dashboard() {
                               }}
                             >
                               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                                <circle cx="12" cy="13" r="4"/>
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                <circle cx="12" cy="13" r="4" />
                               </svg>
                             </button>
                             <span style={{ fontSize: '0.8rem' }}>Tap to activate camera</span>

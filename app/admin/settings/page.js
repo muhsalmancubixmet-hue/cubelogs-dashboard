@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
+import { useApp, PERMISSION_FLAGS, MODULES_MAP } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -11,26 +11,24 @@ import BrandingTab from '@/components/admin/settings/BrandingTab';
 import BillingTab from '@/components/admin/settings/BillingTab';
 
 const FEATURE_LABELS = {
-  'dashboard': 'My Dashboard Analytics',
-  'admin:templates': 'Role Templates Engine',
-  'admin:employees': 'Employee Onboarding',
-  'attendance:staff': 'Daily Attendance Clocking',
-  'attendance:admin': 'Global Attendance Monitor',
-  'tasks:create': 'Task Assignment Workspaces',
-  'tasks:view': 'My Tasks View',
-  'leaves:apply': 'Apply Leaves Portal',
-  'leaves:approve': 'Leave Approvals Manager',
-  'leaves:manage': 'Custom Leave Rules',
-  'holidays:manage': 'Manage System Holidays',
+  'dashboard': 'Dashboard Analytics',
+  'audit_logs:view': 'System Audit Logs',
+  'admin:employees': 'Manage Employee Page',
+  'admin:templates': 'Role Template',
+  'locations:manage': 'Office Location',
+  'settings:branding': 'Branding',
+  'settings:billing': 'Billing & Subscription',
+  'attendance:staff': 'Attendance & Clocking',
+  'attendance:management_portal': 'Attendance Management Portal',
+  'attendance:admin': 'Attendance Rules Configuration',
+  'leaves:apply': 'Apply Leave Form',
+  'leaves:approve': 'Leave Approval Portal',
+  'leaves:manage': 'Configure Leave Types',
   'holidays:view': 'View Holiday Calendar',
-  'locations:manage': 'Office Geofencing Limits',
-  'settings:branding': 'Custom Company Branding',
-  'settings:billing': 'Billing & Subscription Settings',
-  'geofence': 'Geofenced Check-In Controls',
-  'biometric': 'Biometric Photo Verification',
-  'scheduling': 'Shift & Hours Scheduling',
-  'auditLogs': 'System Audit Log Tracking',
-  'multiLocation': 'Multi-location Geofences',
+  'holidays:manage': 'Configure Holidays',
+  'holidays:rules': 'Holiday Rule Engine',
+  'tasks:create': 'Add Task Workspace',
+  'tasks:view': 'My Tasks View',
 };
 
 const WalletIcon = ({ size = 16, ...props }) => (
@@ -114,7 +112,7 @@ function SettingsHubContent() {
     renewSubscription,
     hasPermission,
     showAlert,
-    updateAuthSession
+    refreshUser
   } = useApp();
 
   const [templates, setTemplates] = useState([]);
@@ -456,50 +454,11 @@ function SettingsHubContent() {
     }
   }, [selectedTemplate]);
 
-  const MODULES_MAP = {
-    general: {
-      label: 'General Access',
-      ids: ['dashboard', 'admin:employees']
-    },
-    attendance: {
-      label: 'Attendance Management',
-      ids: ['attendance:staff', 'attendance:admin', 'attendance:management_portal']
-    },
-    leaves: {
-      label: 'Leave Management',
-      ids: ['leaves:apply', 'leaves:approve', 'leaves:manage']
-    },
-    tasks: {
-      label: 'Project Management',
-      ids: ['tasks:create', 'tasks:view']
-    },
-    settings: {
-      label: 'System Settings',
-      ids: [
-        'admin:templates',
-        'settings:branding',
-        'settings:billing',
-        'locations:manage',
-        'holidays:manage',
-        'holidays:view'
-      ]
-    }
-  };
-
   const visiblePermissionFlags = PERMISSION_FLAGS.filter(flag => {
-    if (!isProjectEnabled && (flag.id === 'tasks:create' || flag.id === 'tasks:view')) {
+    if (!isProjectEnabled && MODULES_MAP.tasks?.ids.includes(flag.id)) {
       return false;
     }
-    if (!isAttendanceEnabled && (
-      flag.id === 'attendance:staff' ||
-      flag.id === 'attendance:admin' ||
-      flag.id === 'leaves:apply' ||
-      flag.id === 'leaves:approve' ||
-      flag.id === 'leaves:manage' ||
-      flag.id === 'holidays:manage' ||
-      flag.id === 'holidays:view' ||
-      flag.id === 'locations:manage'
-    )) {
+    if (!isAttendanceEnabled && MODULES_MAP.attendance?.ids.includes(flag.id)) {
       return false;
     }
     return true;
@@ -825,16 +784,7 @@ function SettingsHubContent() {
   }, [topupAmount]);
 
   const refreshUserSession = async () => {
-    try {
-      const user = await apiFetch('/auth/me/');
-      updateAuthSession(
-        localStorage.getItem('cubelogs_access_token'),
-        localStorage.getItem('cubelogs_refresh_token'),
-        user
-      );
-    } catch (e) {
-      console.error('Failed to refresh user session:', e);
-    }
+    await refreshUser();
   };
 
   const handleToggleModule = (moduleName, currentVal) => {
@@ -911,12 +861,32 @@ function SettingsHubContent() {
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
 
   useEffect(() => {
-    if (currentUser?.subscription) {
-      setEmployeeCount(currentUser.subscription.max_employees_allowed || 10);
-      setPremiumAddons({
-        attendance: currentUser.subscription.is_attendance_enabled || false,
-        project: currentUser.subscription.is_project_enabled || false,
-      });
+    const fetchActualEmployeeCount = async () => {
+      try {
+        const orgId = currentUser?.organization;
+        const orgQuery = orgId ? `?organization=${orgId}` : '';
+        const data = await apiFetch(`/employees/${orgQuery}`);
+        const list = Array.isArray(data) ? data : (data && Array.isArray(data.results)) ? data.results : [];
+        if (list.length > 0) {
+          setEmployeeCount(list.length);
+          return;
+        }
+      } catch (e) {
+        // Fallback to max_employees_allowed if API fails
+      }
+      if (currentUser?.subscription?.max_employees_allowed) {
+        setEmployeeCount(currentUser.subscription.max_employees_allowed);
+      }
+    };
+
+    if (currentUser) {
+      fetchActualEmployeeCount();
+      if (currentUser?.subscription) {
+        setPremiumAddons({
+          attendance: currentUser.subscription.is_attendance_enabled || false,
+          project: currentUser.subscription.is_project_enabled || false,
+        });
+      }
     }
   }, [currentUser]);
 
@@ -1422,46 +1392,59 @@ function SettingsHubContent() {
 
         .settings-tabs {
           display: flex;
-          gap: 12px;
-          border-bottom: 2px solid var(--border);
-          padding-bottom: 12px;
-          flex-wrap: wrap;
+          gap: 8px;
+          border-bottom: 1px solid var(--border);
+          padding-bottom: 10px;
+          overflow-x: auto;
+          white-space: nowrap;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        .settings-tabs::-webkit-scrollbar {
+          display: none;
         }
 
         .tab-link {
-          background: transparent;
-          border: 1px solid transparent;
-          border-radius: var(--radius-md);
-          padding: 10px 18px;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          padding: 8px 16px;
           font-weight: 600;
           color: var(--text-muted);
           cursor: pointer;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           gap: 8px;
-          transition: all 0.2s ease;
-          font-size: 0.92rem;
+          transition: all 0.15s ease;
+          font-size: 0.85rem;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
 
         .tab-link:hover {
-          background-color: var(--primary-light);
-          color: var(--primary-dark);
+          background-color: var(--bg-hover);
+          color: var(--text-main);
         }
 
         .tab-link.active {
-          background-color: var(--primary-light);
-          border-color: var(--primary-border);
-          color: var(--primary-dark);
+          background-color: var(--primary);
+          border-color: var(--primary);
+          color: #ffffff;
+        }
+
+        .tab-link.active :global(svg) {
+          color: #ffffff !important;
         }
 
         .settings-content-wrapper {
-          min-height: 400px;
+          min-height: auto;
         }
 
         .settings-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-          gap: 32px;
+          gap: 24px;
         }
 
         .settings-single-card {
@@ -1469,7 +1452,7 @@ function SettingsHubContent() {
         }
 
         .settings-panel-card {
-          padding: 32px !important;
+          padding: 24px !important;
           box-sizing: border-box;
           height: fit-content;
         }
@@ -2190,12 +2173,17 @@ function SettingsHubContent() {
             padding: 16px !important;
           }
           .settings-tabs {
-            flex-direction: column;
-            gap: 8px;
+            flex-direction: row;
+            overflow-x: auto;
+            white-space: nowrap;
+            gap: 6px;
+            padding-bottom: 8px;
           }
           .tab-link {
-            width: 100%;
-            justify-content: center;
+            width: auto;
+            justify-content: flex-start;
+            padding: 7px 12px;
+            font-size: 0.8rem;
           }
           .billing-search-input {
             width: 100% !important;

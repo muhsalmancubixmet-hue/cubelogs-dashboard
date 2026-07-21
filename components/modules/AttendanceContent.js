@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PageWrapper from '@/components/PageWrapper';
 import VerifierModal from './attendance/VerifierModal';
@@ -33,12 +33,8 @@ function AttendanceContent() {
   const [currentUser, setCurrentUser] = useState(null);
   const [cachedEmployees, setCachedEmployees] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
-  const [schedules, setSchedules] = useState([
-    { id: '1', designation: 'Developer', shiftStart: '09:00', shiftEnd: '17:00' },
-    { id: '2', designation: 'Designer', shiftStart: '09:00', shiftEnd: '17:00' },
-    { id: '3', designation: 'Manager', shiftStart: '09:00', shiftEnd: '17:00' },
-    { id: '4', designation: 'Staff', shiftStart: '08:00', shiftEnd: '16:00' },
-  ]);
+  const [roleTemplates, setRoleTemplates] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   const [facingMode, setFacingMode] = useState('user');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -59,14 +55,6 @@ function AttendanceContent() {
 
   // Lock to prevent double-firing Clock-In API
   const clockingInProgress = useRef(false);
-
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
 
   const fetchAttendanceData = async () => {
     if (!currentUser) return;
@@ -185,12 +173,6 @@ function AttendanceContent() {
   // Sync session & cached data on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
       const activeUserStr = localStorage.getItem('cubelogs_active_user');
       if (activeUserStr) {
         try {
@@ -204,14 +186,16 @@ function AttendanceContent() {
 
     const loadDependencies = async () => {
       try {
-        const [locsData, empsData, schedsData] = await Promise.all([
-          apiFetch('/locations/'),
-          apiFetch('/employees/'),
-          apiFetch('/schedules/')
+        const [locsData, empsData, schedsData, tmplsData] = await Promise.all([
+          apiFetch('/locations/').catch(() => []),
+          apiFetch('/employees/').catch(() => []),
+          apiFetch('/schedules/').catch(() => []),
+          apiFetch('/templates/').catch(() => [])
         ]);
-        setOfficeLocations(locsData.map(loc => ({ ...loc, id: String(loc.id) })));
-        setCachedEmployees(empsData.map(emp => ({ ...emp, id: String(emp.id) })));
-        setSchedules(schedsData.map(sched => ({ ...sched, id: String(sched.id) })));
+        setOfficeLocations(Array.isArray(locsData) ? locsData.map(loc => ({ ...loc, id: String(loc.id) })) : []);
+        setCachedEmployees(Array.isArray(empsData) ? empsData.map(emp => ({ ...emp, id: String(emp.id) })) : []);
+        setSchedules(Array.isArray(schedsData) ? schedsData.map(sched => ({ ...sched, id: String(sched.id) })) : []);
+        setRoleTemplates(Array.isArray(tmplsData) ? tmplsData.map(t => ({ ...t, id: String(t.id) })) : []);
       } catch (err) {
         console.error('Failed to load attendance dependencies:', err);
       }
@@ -256,6 +240,41 @@ function AttendanceContent() {
   const [myAttendanceSearchQuery, setMyAttendanceSearchQuery] = useState('');
   const [realtimeSearchQuery, setRealtimeSearchQuery] = useState('');
   const [scheduleSearchQuery, setScheduleSearchQuery] = useState('');
+
+  // Dynamic designation list derived ONLY from user-created role designation templates and registered employees
+  const activeDesignations = useMemo(() => {
+    const designationSet = new Set();
+    designationSet.add('Admin');
+
+    roleTemplates.forEach(t => {
+      if (t.name && t.name.trim()) {
+        designationSet.add(t.name.trim());
+      }
+    });
+
+    cachedEmployees.forEach(emp => {
+      if (emp.designation) {
+        emp.designation.split(',').forEach(d => {
+          const cleaned = d.trim();
+          if (cleaned) designationSet.add(cleaned);
+        });
+      }
+    });
+
+    return Array.from(designationSet);
+  }, [roleTemplates, cachedEmployees]);
+
+  const displaySchedules = useMemo(() => {
+    return activeDesignations.map(desig => {
+      const existing = schedules.find(s => String(s.designation).toLowerCase() === String(desig).toLowerCase());
+      return {
+        id: existing ? existing.id : desig,
+        designation: desig,
+        shiftStart: existing ? (existing.shiftStart || existing.shift_start || '09:00') : '09:00',
+        shiftEnd: existing ? (existing.shiftEnd || existing.shift_end || '17:00') : '17:00'
+      };
+    });
+  }, [activeDesignations, schedules]);
 
   // Geofencing and webcam verification state
   const [showVerifierModal, setShowVerifierModal] = useState(false);
@@ -711,7 +730,7 @@ function AttendanceContent() {
 
   // Helper calculations for Schedules & Compliance
   const getEmpSchedule = (empDesignation) => {
-    return schedules?.find(s => s.designation === empDesignation) || {
+    return displaySchedules?.find(s => String(s.designation).toLowerCase() === String(empDesignation || '').toLowerCase()) || {
       shiftStart: "09:00",
       shiftEnd: "17:00"
     };
@@ -1177,7 +1196,7 @@ function AttendanceContent() {
                           </tr>
                         </thead>
                         <tbody>
-                          {schedules
+                          {displaySchedules
                             ?.filter(sch => !scheduleSearchQuery || sch.designation.toLowerCase().includes(scheduleSearchQuery.toLowerCase()))
                             .map(sch => (
                               <tr key={sch.designation}>

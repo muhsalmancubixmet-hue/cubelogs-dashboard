@@ -9,15 +9,18 @@ import {
   EmployeesIcon, 
   AddIcon, 
   EditIcon, 
-  DeleteIcon 
+  DeleteIcon,
+  UploadIcon,
+  ExcelIcon
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
+import { useApp } from '@/context/AppContext';
 
 export default function Employees() {
   const router = useRouter();
+  const { currentUser, authStatus } = useApp();
 
   // Local states
-  const [currentUser, setCurrentUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [employeePhotos, setEmployeePhotos] = useState({});
   const [loading, setLoading] = useState(true);
@@ -27,6 +30,13 @@ export default function Employees() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null });
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => setOpenActionMenuId(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // Bulk Upload states
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
@@ -60,8 +70,6 @@ export default function Employees() {
     const formData = new FormData();
     formData.append('file', selectedFile);
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-
     try {
       const result = await apiFetch('/employees/bulk-upload/', {
         method: 'POST',
@@ -83,25 +91,18 @@ export default function Employees() {
     }
   };
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   const fetchEmployeesData = async () => {
+    if (authStatus !== 'authenticated') return;
     setLoading(true);
     setErrorMsg('');
     try {
-      const url = `${API_BASE_URL}/employees/?search=${encodeURIComponent(searchQuery)}`;
-      const [employeesData, meData] = await Promise.all([
-        apiFetch(`/employees/?search=${encodeURIComponent(searchQuery)}`),
-        apiFetch('/auth/me/')
-      ]);
-      
-      const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
+      const employeesData = await apiFetch(`/employees/?search=${encodeURIComponent(searchQuery)}`);
+      const list = Array.isArray(employeesData)
+        ? employeesData
+        : (employeesData && Array.isArray(employeesData.results))
+        ? employeesData.results
+        : [];
+      const mappedEmployees = list.map(emp => ({ ...emp, id: String(emp.id) }));
 
       const photoMap = {};
       mappedEmployees.forEach(emp => {
@@ -112,11 +113,9 @@ export default function Employees() {
 
       setEmployees(mappedEmployees);
       setEmployeePhotos(photoMap);
-      setCurrentUser({ ...meData, id: String(meData.id) });
 
-      // Cache employees and active user to localStorage
+      // Cache employees list
       localStorage.setItem('cubelogs_employees', JSON.stringify(mappedEmployees));
-      localStorage.setItem('cubelogs_active_user', JSON.stringify(meData));
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'Failed to load employee list.');
@@ -125,34 +124,15 @@ export default function Employees() {
     }
   };
 
-  // Sync session on mount
+  // Trigger main fetch when search query or auth status changes
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      const activeUserStr = localStorage.getItem('cubelogs_active_user');
-      if (activeUserStr) {
-        try {
-          const user = JSON.parse(activeUserStr);
-          setCurrentUser({ ...user, id: String(user.id) });
-        } catch (e) {
-          console.warn('Failed to parse active user');
-        }
-      }
+    if (authStatus === 'authenticated') {
+      const delayDebounce = setTimeout(() => {
+        fetchEmployeesData();
+      }, 300);
+      return () => clearTimeout(delayDebounce);
     }
-  }, [router]);
-
-  // Trigger main fetch when search query changes (debounced by 400ms)
-  useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchEmployeesData();
-    }, 400);
-    return () => clearTimeout(delayDebounce);
-  }, [searchQuery]);
+  }, [searchQuery, authStatus]);
 
   const localDeleteEmployee = async (id) => {
     setLoading(true);
@@ -186,8 +166,21 @@ export default function Employees() {
     setConfirmModal({ open: false, id: null });
   };
 
-  const handleEdit = (id) => {
-    router.push(`/admin/employees/create?id=${id}`);
+  const handleStatusChange = async (empId, newStatus) => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      await apiFetch(`/employees/${empId}/change-status/`, {
+        method: 'POST',
+        body: JSON.stringify({ status: newStatus })
+      });
+      await fetchEmployeesData();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || `Failed to set status to ${newStatus}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRowClick = (e, empId) => {
@@ -232,7 +225,8 @@ export default function Employees() {
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setBulkModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              📁 Bulk Upload (Excel/CSV)
+              <ExcelIcon size={16} style={{ color: '#16a34a' }} />
+              <span>Bulk Upload (Excel/CSV)</span>
             </button>
             {currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
@@ -287,89 +281,326 @@ export default function Employees() {
                   <th>Employee Profile</th>
                   <th>Contact Details</th>
                   <th>Designation</th>
-                  <th>Overrides</th>
+                  <th>Employment Status</th>
+                  <th>Permissions</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {employees.map(emp => (
-                  <tr key={emp.id} onClick={(e) => handleRowClick(e, emp.id)}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div className="avatar-circle" style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: '50%',
-                          background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
-                          color: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: '700',
-                          fontSize: '0.78rem',
-                          fontFamily: 'var(--font-heading)',
-                          flexShrink: 0,
-                          overflow: 'hidden',
-                          boxShadow: '0 2px 6px rgba(37,99,235,0.18)'
-                        }}>
-                          {employeePhotos[emp.id] ? (
-                            <img src={employeePhotos[emp.id]} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
-                          ) : (
-                            emp.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                {employees.map(emp => {
+                  const status = emp.employment_status || (emp.is_active === false ? 'Deactivated' : 'Active');
+                  return (
+                    <tr key={emp.id} onClick={(e) => handleRowClick(e, emp.id)}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="avatar-circle" style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: '700',
+                            fontSize: '0.78rem',
+                            fontFamily: 'var(--font-heading)',
+                            flexShrink: 0,
+                            overflow: 'hidden',
+                            boxShadow: '0 2px 6px rgba(37,99,235,0.18)'
+                          }}>
+                            {employeePhotos[emp.id] ? (
+                              <img src={employeePhotos[emp.id]} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
+                            ) : (
+                              emp.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                            )}
+                          </div>
+                          <div>
+                            <Link href={`/admin/employees/profile?id=${emp.id}`} className="profile-link">
+                              <strong>{emp.name}</strong>
+                            </Link>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{emp.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '0.82rem' }}>{emp.phone || 'No phone'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {(emp.designation || '').split(',').map(r => r.trim()).filter(Boolean).map(role => (
+                            <span key={role} className="badge badge-info" style={{ whiteSpace: 'nowrap', color: '#1e40af', backgroundColor: '#dbeafe', border: '1px solid #93c5fd', fontWeight: '600' }}>{role}</span>
+                          ))}
+                          {!(emp.designation || '').trim() && (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontStyle: 'italic' }}>—</span>
                           )}
                         </div>
-                        <div>
-                          <Link href={`/admin/employees/profile?id=${emp.id}`} className="profile-link">
-                            <strong>{emp.name}</strong>
-                          </Link>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>{emp.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td style={{ fontSize: '0.82rem' }}>{emp.phone || 'No phone'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {(emp.designation || '').split(',').map(r => r.trim()).filter(Boolean).map(role => (
-                          <span key={role} className="badge badge-info" style={{ whiteSpace: 'nowrap' }}>{role}</span>
-                        ))}
-                        {!(emp.designation || '').trim() && (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', fontStyle: 'italic' }}>—</span>
+                      </td>
+                      <td>
+                        {status === 'Active' && <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟢 Active</span>}
+                        {status === 'Deactivated' && <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟡 Deactivated</span>}
+                        {status === 'Terminated' && <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🔴 Terminated</span>}
+                        {status === 'Resigned' && <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed', border: '1px solid rgba(139, 92, 246, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟣 Resigned</span>}
+                      </td>
+                      <td>
+                        {emp.isSuperAdmin ? (
+                          <span className="badge badge-success">System Admin</span>
+                        ) : emp.useDefaultPermissions ? (
+                          <span className="badge badge-default">Template Defaults</span>
+                        ) : (
+                          <span className="badge badge-pending">Custom Override</span>
                         )}
-                      </div>
-                    </td>
-                    <td>
-                      {emp.isSuperAdmin ? (
-                        <span className="badge badge-success">System Admin</span>
-                      ) : emp.useDefaultPermissions ? (
-                        <span className="badge badge-default">Template Defaults</span>
-                      ) : (
-                        <span className="badge badge-pending">Custom Override</span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="action-btns-cell">
-                        <button 
-                          className="btn btn-secondary btn-sm" 
-                          onClick={() => handleEdit(emp.id)}
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <EditIcon size={12} />
-                          <span>Edit Profile</span>
-                        </button>
-                        {!emp.isSuperAdmin && (
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', position: 'relative' }}>
                           <button 
-                            className="btn btn-danger btn-sm" 
-                            onClick={() => handleDelete(emp.id)}
-                            style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            type="button"
+                            className="btn btn-secondary btn-sm" 
+                            onClick={() => handleEdit(emp.id)}
+                            style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}
                           >
-                            <DeleteIcon size={12} />
-                            <span>Offboard</span>
+                            <EditIcon size={13} />
+                            <span>Edit</span>
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+
+                          {!emp.isSuperAdmin && (
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenActionMenuId(openActionMenuId === emp.id ? null : emp.id);
+                                }}
+                                style={{
+                                  padding: '6px 10px',
+                                  fontSize: '0.78rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontWeight: '600',
+                                  backgroundColor: openActionMenuId === emp.id ? 'var(--primary-light)' : undefined,
+                                  borderColor: openActionMenuId === emp.id ? 'var(--primary-border)' : undefined,
+                                  color: openActionMenuId === emp.id ? 'var(--primary)' : undefined,
+                                }}
+                              >
+                                <span>Actions</span>
+                                <span style={{ fontSize: '0.65rem', transition: 'transform 0.15s', transform: openActionMenuId === emp.id ? 'rotate(180deg)' : 'none' }}>▼</span>
+                              </button>
+
+                              {openActionMenuId === emp.id && (
+                                <div
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 'calc(100% + 4px)',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.12)',
+                                    zIndex: 100,
+                                    minWidth: '165px',
+                                    padding: '6px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '2px'
+                                  }}
+                                >
+                                  {status === 'Active' ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          handleStatusChange(emp.id, 'Deactivated');
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          width: '100%',
+                                          padding: '8px 10px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: '500',
+                                          color: '#d97706',
+                                          backgroundColor: 'transparent',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          textAlign: 'left'
+                                        }}
+                                        className="hover-bg-light"
+                                      >
+                                        <span>🟡</span> Deactivate
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          handleStatusChange(emp.id, 'Terminated');
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          width: '100%',
+                                          padding: '8px 10px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: '500',
+                                          color: '#dc2626',
+                                          backgroundColor: 'transparent',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          textAlign: 'left'
+                                        }}
+                                        className="hover-bg-light"
+                                      >
+                                        <span>🔴</span> Terminate
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          handleStatusChange(emp.id, 'Resigned');
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          width: '100%',
+                                          padding: '8px 10px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: '500',
+                                          color: '#7c3aed',
+                                          backgroundColor: 'transparent',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          textAlign: 'left'
+                                        }}
+                                        className="hover-bg-light"
+                                      >
+                                        <span>🟣</span> Mark Resigned
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setOpenActionMenuId(null);
+                                          handleStatusChange(emp.id, 'Active');
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          width: '100%',
+                                          padding: '8px 10px',
+                                          fontSize: '0.8rem',
+                                          fontWeight: '500',
+                                          color: '#059669',
+                                          backgroundColor: 'transparent',
+                                          border: 'none',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          textAlign: 'left'
+                                        }}
+                                        className="hover-bg-light"
+                                      >
+                                        <span>🟢</span> Reactivate
+                                      </button>
+                                      {status !== 'Terminated' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null);
+                                            handleStatusChange(emp.id, 'Terminated');
+                                          }}
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '500',
+                                            color: '#dc2626',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            textAlign: 'left'
+                                          }}
+                                          className="hover-bg-light"
+                                        >
+                                          <span>🔴</span> Terminate
+                                        </button>
+                                      )}
+                                      {status !== 'Resigned' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setOpenActionMenuId(null);
+                                            handleStatusChange(emp.id, 'Resigned');
+                                          }}
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            width: '100%',
+                                            padding: '8px 10px',
+                                            fontSize: '0.8rem',
+                                            fontWeight: '500',
+                                            color: '#7c3aed',
+                                            backgroundColor: 'transparent',
+                                            border: 'none',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            textAlign: 'left'
+                                          }}
+                                          className="hover-bg-light"
+                                        >
+                                          <span>🟣</span> Mark Resigned
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  <div style={{ height: '1px', backgroundColor: 'var(--border)', margin: '4px 0' }} />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenActionMenuId(null);
+                                      handleDelete(emp.id);
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '8px',
+                                      width: '100%',
+                                      padding: '8px 10px',
+                                      fontSize: '0.8rem',
+                                      fontWeight: '600',
+                                      color: '#dc2626',
+                                      backgroundColor: '#fef2f2',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      textAlign: 'left'
+                                    }}
+                                  >
+                                    <DeleteIcon size={12} />
+                                    <span>Offboard</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -501,7 +732,7 @@ export default function Employees() {
                 accept=".csv,.xlsx,.xls"
                 onChange={handleFileChange}
               />
-              <div style={{ fontSize: '2.2rem', marginBottom: '10px' }}>📁</div>
+              <UploadIcon size={36} style={{ color: 'var(--primary)', marginBottom: '10px' }} />
               <p style={{ fontWeight: '600', marginBottom: '4px', fontSize: '0.88rem', color: 'var(--text-main)' }}>
                 {selectedFile ? selectedFile.name : 'Drag & drop Excel/CSV file here, or click to browse'}
               </p>

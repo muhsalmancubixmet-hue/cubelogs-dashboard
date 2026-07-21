@@ -58,14 +58,6 @@ function TasksContent() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null });
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   // Filter tasks
   const filterAssignee = searchParams.get('assignee') || '';
 
@@ -95,12 +87,6 @@ function TasksContent() {
   // Sync session & cached employees on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
       const activeUserStr = localStorage.getItem('cubelogs_active_user');
       if (activeUserStr) {
         try {

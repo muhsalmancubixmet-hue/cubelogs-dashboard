@@ -41,14 +41,6 @@ function HolidaysContent() {
 
   const fileInputRef = useRef(null);
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   const fetchHolidays = async () => {
     setLoading(true);
     setErrorMsg('');

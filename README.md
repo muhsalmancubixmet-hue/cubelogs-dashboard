@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CubeLogs Frontend App (`frontend-app`)
 
-## Getting Started
+Unified Workforce Engine & Attendance Platform Frontend built with Next.js App Router, React, and Django REST Framework SessionAuthentication.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 1. Overview & Architecture
+
+`frontend-app` is structured into a clean, feature-driven, modular architecture designed for developer predictability, maintainability, and scalability.
+
+```
+frontend-app/
+├── app/                        # Route pages and layouts only (thin page composition)
+├── components/
+│   ├── ui/                     # Base atomic UI elements (Button, Input, Badge, LoadingSpinner, EmptyState)
+│   ├── layout/                 # Shared structural components (Header, Sidebar, PageWrapper, ThemeProvider)
+│   └── shared/                 # Modals (CustomAlertModal, ConfirmModal, PwaUpdater)
+├── features/                   # Business domain modules (auth, employees, attendance, leaves, holidays, tasks, organization)
+├── providers/                  # Application-wide providers (AppProvider)
+├── lib/
+│   ├── api/                    # Centralized fetch client (apiClient.js)
+│   ├── services/               # Domain API services (authService, employeeService, etc.)
+│   ├── constants/              # Permissions, route maps
+│   └── utilities/              # Helper functions
+├── types/                      # TypeScript domain definitions
+└── tests/                      # Jest test suites
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## 2. Technology Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: Next.js 16.2.7 (App Router)
+- **UI Library**: React 19.2.4
+- **Language**: JavaScript / TypeScript 6
+- **Styling**: Vanilla CSS / Tailwind utilities
+- **Testing**: Jest 30 & React Testing Library
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 3. Session Authentication & CSRF Flow
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Authentication is powered by Django server-side **SessionAuthentication**:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Cookies**: Browser stores HttpOnly `sessionid` and readable `csrftoken` cookies.
+2. **API Client (`lib/api/apiClient.js`)**:
+   - Sends `credentials: "include"` on all requests.
+   - Automatically attaches `X-CSRFToken` header for unsafe HTTP methods (`POST`, `PUT`, `PATCH`, `DELETE`).
+   - Zero local storage of access/refresh JWT tokens.
+3. **Session Initialization**:
+   - `AppProvider` calls `authService.fetchMe()` on mount.
+   - Restores user session without full page reloads.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 4. AuthProvider & Permission Checking
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Access the auth context using the `useApp()` hook:
+
+```javascript
+import { useApp } from '@/context/AppContext';
+
+function MyComponent() {
+  const { currentUser, hasPermission, isFeatureUnlocked } = useApp();
+
+  if (!hasPermission('admin:employees')) {
+    return <p>Access Denied</p>;
+  }
+
+  return <div>Welcome, {currentUser.name}</div>;
+}
+```
+
+---
+
+## 5. Development & Build Commands
+
+- **Start Development Server**: `npm run dev`
+- **Run Unit Tests**: `npm test`
+- **Run Linter**: `npm run lint`
+- **Production Build**: `npm run build`
+- **Start Production Server**: `npm start`
+
+---
+
+## 6. How to Add New Functionality
+
+### Adding a New Route
+1. Create a folder under `app/your-route/` with a `page.js`.
+2. Keep `page.js` minimal by importing and composing components from `features/your-feature/`.
+
+### Adding a New Feature
+1. Create a directory under `features/your-feature/components/`.
+2. Define domain-specific UI and business logic inside that folder.
+
+### Adding a New API Service
+1. Create a new service file under `lib/services/yourService.js`.
+2. Use `apiFetch` from `lib/api/apiClient` to communicate with backend endpoints.
+3. Re-export your service in `lib/services/apiService.js`.
+
+---
+
+## 7. Troubleshooting Notes
+
+- **CSRF Verification Failed**: Ensure Django `CSRF_TRUSTED_ORIGINS` includes your frontend origin and `credentials: "include"` is used.
+- **401 Unauthorized**: Session expired or user logged out. The app automatically transitions `authStatus` to `unauthenticated`.

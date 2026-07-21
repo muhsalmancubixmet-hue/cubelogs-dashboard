@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
-import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
+import { useApp, PERMISSION_FLAGS, MODULES_MAP } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -17,9 +17,9 @@ function EmployeeCreateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('id') || '';
+  const { currentUser, authStatus } = useApp();
 
   // Local states
-  const [currentUser, setCurrentUser] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [employeePhotos, setEmployeePhotos] = useState({});
@@ -65,7 +65,14 @@ function EmployeeCreateContent() {
   // Step 2 Override settings
   const [useDefault, setUseDefault] = useState(true);
   const [customPermissions, setCustomPermissions] = useState([]);
+  const [activeModuleTab, setActiveModuleTab] = useState('all');
   
+  // Status modal state
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusModalState, setStatusModalState] = useState('loading'); // 'loading' | 'success' | 'error'
+  const [statusModalMessage, setStatusModalMessage] = useState('');
+  const [savedWorker, setSavedWorker] = useState(null);
+
   const [isEditing, setIsEditing] = useState(false);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
@@ -73,44 +80,26 @@ function EmployeeCreateContent() {
 
   const visiblePermissionFlags = useMemo(() => {
     return PERMISSION_FLAGS.filter(flag => {
-      if (!isProjectEnabled && (flag.id === 'tasks:create' || flag.id === 'tasks:view')) {
+      if (!isProjectEnabled && MODULES_MAP.tasks?.ids.includes(flag.id)) {
         return false;
       }
-      if (!isAttendanceEnabled && (
-        flag.id === 'attendance:staff' ||
-        flag.id === 'attendance:admin' ||
-        flag.id === 'leaves:apply' ||
-        flag.id === 'leaves:approve' ||
-        flag.id === 'leaves:manage' ||
-        flag.id === 'holidays:manage' ||
-        flag.id === 'holidays:view' ||
-        flag.id === 'locations:manage'
-      )) {
+      if (!isAttendanceEnabled && MODULES_MAP.attendance?.ids.includes(flag.id)) {
         return false;
       }
       return true;
     });
   }, [isProjectEnabled, isAttendanceEnabled]);
 
-  const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_access_token') : null;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    };
-  };
-
   const fetchOnboardingData = async () => {
+    if (authStatus !== 'authenticated') return;
     setLoading(true);
     setErrorMsg('');
     try {
-      const [userData, employeesData, templatesData] = await Promise.all([
-        apiFetch('/auth/me/'),
+      const [employeesData, templatesData] = await Promise.all([
         apiFetch('/employees/'),
         apiFetch('/templates/'),
       ]);
       
-      const mappedUser = { ...userData, id: String(userData.id) };
       const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
       const mappedTemplates = templatesData.map(t => ({ ...t, id: String(t.id) }));
 
@@ -121,7 +110,6 @@ function EmployeeCreateContent() {
         }
       });
 
-      setCurrentUser(mappedUser);
       setEmployees(mappedEmployees);
       setTemplates(mappedTemplates);
       setEmployeePhotos(photoMap);
@@ -149,25 +137,10 @@ function EmployeeCreateContent() {
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('cubelogs_access_token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
-
-      const activeUserStr = localStorage.getItem('cubelogs_active_user');
-      if (activeUserStr) {
-        try {
-          const user = JSON.parse(activeUserStr);
-          setCurrentUser({ ...user, id: String(user.id) });
-        } catch (e) {
-          console.warn('Failed to parse active user');
-        }
-      }
+    if (authStatus === 'authenticated') {
+      fetchOnboardingData();
     }
-    fetchOnboardingData();
-  }, [editId]);
+  }, [editId, authStatus]);
 
   // Sync designation to load preset baseline template permissions
   useEffect(() => {
@@ -282,9 +255,25 @@ function EmployeeCreateContent() {
     }
   };
 
+  const handleOnboardAnother = () => {
+    setName('');
+    setEmail('');
+    setPhone('');
+    setDesignation('');
+    setProfilePhoto(null);
+    setUseDefault(true);
+    setCustomPermissions([]);
+    setStatusModalOpen(false);
+    setSavedWorker(null);
+  };
+
   const localSaveEmployee = async (employee) => {
+    setStatusModalOpen(true);
+    setStatusModalState('loading');
+    setStatusModalMessage(employee.id ? 'Updating employee credentials...' : 'Registering and onboarding staff member...');
     setLoading(true);
     setErrorMsg('');
+
     try {
       let saved;
       if (employee.id) {
@@ -307,10 +296,19 @@ function EmployeeCreateContent() {
         localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedSaved));
       }
 
-      router.push('/admin/employees');
+      setSavedWorker(mappedSaved);
+      setStatusModalState('success');
+      setStatusModalMessage(
+        employee.id
+          ? `Profile for ${mappedSaved.name || 'employee'} has been updated successfully.`
+          : `Staff member ${mappedSaved.name || 'employee'} (${mappedSaved.email || ''}) has been registered successfully!`
+      );
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.message || 'Failed to save employee profile.');
+      const msg = err.message || 'Failed to save employee profile.';
+      setErrorMsg(msg);
+      setStatusModalState('error');
+      setStatusModalMessage(msg);
     } finally {
       setLoading(false);
     }
@@ -507,7 +505,7 @@ function EmployeeCreateContent() {
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {designation ? (
                         designation.split(',').map(r => r.trim()).filter(Boolean).map(role => (
-                          <span key={role} className="badge badge-info" style={{ margin: 0, padding: '2px 8px', fontSize: '0.72rem', color: '#ffffff' }}>
+                          <span key={role} className="badge badge-info" style={{ margin: 0, padding: '2px 8px', fontSize: '0.75rem', fontWeight: '600', color: '#1e40af', backgroundColor: '#dbeafe', border: '1px solid #93c5fd' }}>
                             {role}
                           </span>
                         ))
@@ -590,26 +588,79 @@ function EmployeeCreateContent() {
                 </p>
               </div>
 
+              {/* Module Tabs Selector */}
+              <div className="form-group" style={{ marginTop: '16px', marginBottom: '14px' }}>
+                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Select Module to Configure</label>
+                <div className="module-tabs" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    style={{
+                      whiteSpace: 'nowrap',
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      background: activeModuleTab === 'all' ? 'var(--primary)' : 'var(--bg-app)',
+                      color: activeModuleTab === 'all' ? '#ffffff' : 'var(--text-main)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-sm)',
+                      cursor: 'pointer',
+                      fontWeight: '600',
+                      transition: 'all 0.15s'
+                    }}
+                    onClick={() => setActiveModuleTab('all')}
+                  >
+                    All Modules
+                  </button>
+                  {Object.entries(MODULES_MAP)
+                    .filter(([key, mod]) => visiblePermissionFlags.some(flag => mod.ids.includes(flag.id)))
+                    .map(([key, mod]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        className="btn btn-sm"
+                        style={{
+                          whiteSpace: 'nowrap',
+                          padding: '6px 12px',
+                          fontSize: '0.78rem',
+                          background: activeModuleTab === key ? 'var(--primary)' : 'var(--bg-app)',
+                          color: activeModuleTab === key ? '#ffffff' : 'var(--text-main)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          transition: 'all 0.15s'
+                        }}
+                        onClick={() => setActiveModuleTab(key)}
+                      >
+                        {mod.label}
+                      </button>
+                    ))
+                  }
+                </div>
+              </div>
+
               {/* Checkbox Matrix Display */}
               <div className={`permissions-checklist-matrix ${useDefault ? 'locked' : 'unlocked'}`}>
-                {visiblePermissionFlags.map(flag => {
-                  const isChecked = customPermissions.includes(flag.id);
-                  return (
-                    <label 
-                      className={`form-checkbox-container matrix-item ${isChecked ? 'active' : ''} ${useDefault ? 'disabled' : ''}`}
-                      key={flag.id}
-                    >
-                      <input
-                        type="checkbox"
-                        className="form-checkbox"
-                        checked={isChecked}
-                        onChange={() => handlePermissionCheckbox(flag.id)}
-                        disabled={useDefault}
-                      />
-                      <span>{flag.label}</span>
-                    </label>
-                  );
-                })}
+                {visiblePermissionFlags
+                  .filter(flag => activeModuleTab === 'all' || MODULES_MAP[activeModuleTab]?.ids.includes(flag.id))
+                  .map(flag => {
+                    const isChecked = customPermissions.includes(flag.id);
+                    return (
+                      <label 
+                        className={`form-checkbox-container matrix-item ${isChecked ? 'active' : ''} ${useDefault ? 'disabled' : ''}`}
+                        key={flag.id}
+                      >
+                        <input
+                          type="checkbox"
+                          className="form-checkbox"
+                          checked={isChecked}
+                          onChange={() => handlePermissionCheckbox(flag.id)}
+                          disabled={useDefault}
+                        />
+                        <span>{flag.label}</span>
+                      </label>
+                    );
+                  })}
               </div>
             </div>
 
@@ -659,6 +710,106 @@ function EmployeeCreateContent() {
         </div>
       )}
 
+      {/* Onboarding Status Modal */}
+      {statusModalOpen && (
+        <div className="modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100,
+          padding: '16px'
+        }}>
+          <div className="modal-content" style={{
+            background: 'var(--bg-card)', padding: '28px 24px', borderRadius: 'var(--radius-lg)', maxWidth: '440px', width: '100%',
+            boxShadow: 'var(--shadow-xl)', border: '1px solid var(--border)', textAlign: 'center'
+          }}>
+            {statusModalState === 'loading' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
+                <div style={{ width: '48px', height: '48px', border: '4px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <div>
+                  <h3 style={{ margin: '0 0 6px', fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    {isEditing ? 'Updating Employee Profile...' : 'Registering & Onboarding Staff...'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Please wait while system credentials and route permission matrices are generated.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {statusModalState === 'success' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '60px', height: '60px', borderRadius: '50%',
+                  background: '#dcfce7', border: '2px solid #86efac',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.75rem', color: '#16a34a'
+                }}>
+                  ✓
+                </div>
+                <div>
+                  <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                    {isEditing ? 'Profile Updated Successfully!' : 'Employee Onboarded Successfully!'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                    {statusModalMessage}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => router.push('/admin/employees')}
+                    style={{ width: '100%', padding: '12px', fontSize: '0.88rem', fontWeight: '600' }}
+                  >
+                    View Employee Directory
+                  </button>
+                  {!isEditing && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleOnboardAnother}
+                      style={{ width: '100%', padding: '10px', fontSize: '0.85rem' }}
+                    >
+                      Onboard Another Employee
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {statusModalState === 'error' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  width: '60px', height: '60px', borderRadius: '50%',
+                  background: '#fee2e2', border: '2px solid #fca5a5',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1.75rem', color: '#dc2626'
+                }}>
+                  ⚠️
+                </div>
+                <div>
+                  <h3 style={{ margin: '0 0 8px', fontSize: '1.15rem', fontWeight: '700', color: '#dc2626' }}>
+                    Onboarding Failed
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text-main)', background: 'var(--bg-app)', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    {statusModalMessage}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setStatusModalOpen(false)}
+                  style={{ width: '100%', padding: '10px', fontSize: '0.88rem', marginTop: '8px' }}
+                >
+                  Close & Fix Inputs
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
         </div>
       </div>
@@ -803,11 +954,13 @@ function EmployeeCreateContent() {
         }
 
         .permissions-checklist-matrix {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 10px;
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 10px 14px;
+          align-items: center;
           margin-top: 15px;
-          padding: 10px;
+          padding: 12px;
           border-radius: var(--radius-sm);
           transition: var(--transition-fast);
         }
@@ -824,12 +977,19 @@ function EmployeeCreateContent() {
         }
 
         .matrix-item {
-          padding: 10px 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 14px;
           border: 1px solid var(--border);
           border-radius: var(--radius-sm);
           background-color: var(--bg-app);
+          font-size: 0.82rem;
+          font-weight: 500;
+          color: var(--text-main);
+          cursor: pointer;
+          white-space: nowrap;
           transition: var(--transition-fast);
-          width: 100%;
         }
 
         .matrix-item:hover:not(.disabled) {
@@ -879,11 +1039,17 @@ function EmployeeCreateContent() {
             gap: 12px;
           }
           .permissions-checklist-matrix {
-            grid-template-columns: 1fr;
-            padding: 8px;
-            max-height: 220px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            padding: 10px;
+            max-height: 280px;
             overflow-y: auto;
             border: 1px solid var(--border);
+          }
+          .matrix-item {
+            white-space: normal;
+            width: 100%;
           }
           .permissions-checklist-matrix::-webkit-scrollbar {
             width: 4px;

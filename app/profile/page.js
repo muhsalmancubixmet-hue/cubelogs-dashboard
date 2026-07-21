@@ -585,9 +585,18 @@ export default function PersonalProfile() {
         }
 
         .permissions-checklist-matrix {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-          gap: 10px;
+          display: flex;
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 10px 14px;
+          align-items: center;
+        }
+
+        .matrix-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          white-space: nowrap;
         }
 
         .permissions-checklist-matrix.locked .matrix-item.disabled {
@@ -598,6 +607,24 @@ export default function PersonalProfile() {
         .permissions-checklist-matrix.locked .matrix-item.active {
           background-color: var(--primary-light);
           border-color: var(--primary-border);
+        }
+
+        @media (max-width: 768px) {
+          .permissions-checklist-matrix {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .matrix-item {
+            white-space: normal;
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .permissions-checklist-matrix {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </PageWrapper>
