@@ -7,9 +7,9 @@ const withPWA = withPWAInit({
   skipWaiting: true,
 });
 
-/** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
 };
 
-export default withPWA(nextConfig);
+export default process.env.NODE_ENV === "development" ? nextConfig : withPWA(nextConfig);

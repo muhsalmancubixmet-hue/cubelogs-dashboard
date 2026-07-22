@@ -85,7 +85,11 @@ export default function Header({ title }) {
               backgroundColor: '#ef4444', 
               boxShadow: '0 0 8px #ef4444' 
             }}></span>
-            <span>Subscription ends in {subscriptionDays} days</span>
+            <span>
+              {subInfo?.isExpired 
+                ? `Subscription ended! Access locks in ${subscriptionDays} days`
+                : `${subscriptionDays} days left until sub end`}
+            </span>
           </div>
         )}
 

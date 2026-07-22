@@ -37,8 +37,13 @@ export default function BillingTab({
   PLANS,
   WalletIcon
 }) {
-  const isExpiring = currentUser?.subscription?.isExpiring ?? false;
-  const subscriptionDays = currentUser?.subscription?.subscriptionDays ?? 0;
+  const daysRemaining = currentUser?.subscription?.daysRemaining ?? 0;
+  const isExpired = currentUser?.subscription?.isExpired ?? false;
+  const isExpiring = isExpired || daysRemaining <= 15;
+  const subscriptionDays = daysRemaining;
+
+  const attPrice = wallet?.attendance_module_price ? parseFloat(wallet.attendance_module_price) : 100;
+  const tasksPrice = wallet?.tasks_module_price ? parseFloat(wallet.tasks_module_price) : 100;
 
   const transactions = wallet.transactions || [];
   const debitTransactions = transactions.filter(tx => tx.transactionType === 'Debit' && tx.status === 'Success');
@@ -81,10 +86,15 @@ export default function BillingTab({
               <WarningIcon size={28} />
             </div>
             <div className="banner-text-side">
-              <h4 style={{ margin: '0 0 4px' }}>Subscription Expiration Notice</h4>
+              <h4 style={{ margin: '0 0 4px' }}>
+                {currentUser?.subscription?.isExpired ? 'Subscription Expired Notice' : 'Subscription Expiration Notice'}
+              </h4>
               <p style={{ margin: 0, fontSize: '0.85rem' }}>
-                Your enterprise subscription is set to expire in <strong>{subscriptionDays} days</strong>. 
-                Renew immediately to ensure that coordinates checks and daily punches operate without interruptions.
+                {currentUser?.subscription?.isExpired ? (
+                  <>Subscription ended! Workspace access will lock in <strong>{subscriptionDays} days</strong> (grace period). Please deposit funds to avoid feature restriction.</>
+                ) : (
+                  <>Your enterprise subscription is set to expire in <strong>{subscriptionDays} days</strong>. Renew immediately to ensure continuous workforce tracking.</>
+                )}
               </p>
             </div>
           </div>
@@ -131,14 +141,17 @@ export default function BillingTab({
             {/* Module Selectors */}
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: '600', marginBottom: '12px', display: 'block' }}>
-                Select Premium Add-on Modules (₹100 / employee / mo each)
+                Select Premium Add-on Modules
               </label>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Attendance Management */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.25s ease', backgroundColor: premiumAddons.attendance ? 'var(--primary-light, #eff6ff)' : '#ffffff', borderColor: premiumAddons.attendance ? 'var(--primary-border, #bfdbfe)' : 'var(--border)' }}>
                   <div style={{ flex: 1 }}>
-                    <strong style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>Attendance Management</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)' }}>Attendance Management</strong>
+                      <span style={{ fontSize: '0.75rem', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>₹{attPrice} / employee / month</span>
+                    </div>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4', display: 'block' }}>Includes geofenced clocking, leave requests, leave approvals, shifts scheduling, and holiday calendar.</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -186,7 +199,10 @@ export default function BillingTab({
                 {/* Project & Tasks Management */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '16px', border: '1px solid var(--border)', borderRadius: '12px', transition: 'all 0.25s ease', backgroundColor: premiumAddons.project ? 'var(--primary-light, #eff6ff)' : '#ffffff', borderColor: premiumAddons.project ? 'var(--primary-border, #bfdbfe)' : 'var(--border)' }}>
                   <div style={{ flex: 1 }}>
-                    <strong style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)', marginBottom: '4px' }}>Project & Tasks Management</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '6px' }}>
+                      <strong style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-main)' }}>Project & Tasks Management</strong>
+                      <span style={{ fontSize: '0.75rem', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>₹{tasksPrice} / employee / month</span>
+                    </div>
                     <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: '1.4', display: 'block' }}>Includes assigning templates/roles, adding task workspaces, tracking goals, and task feeds.</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -244,14 +260,14 @@ export default function BillingTab({
               <div style={{ backgroundColor: 'var(--primary-light)', padding: '16px', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--primary-border)' }}>
                 <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: '4px' }}>Formula</span>
                 <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: '600' }}>
-                  {employeeCount} Employees × {((premiumAddons.attendance ? 1 : 0) + (premiumAddons.project ? 1 : 0)) * 100} INR
+                  {employeeCount} Employees × {((premiumAddons.attendance ? attPrice : 0) + (premiumAddons.project ? tasksPrice : 0))} INR
                 </div>
               </div>
 
               {/* Dynamic Cost */}
               <div className="dynamic-price-display" style={{ marginTop: '0', marginBottom: '16px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <span className="currency-symbol" style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)' }}>₹</span>
-                <span className="price-value" style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-main)' }}>{(employeeCount * (((premiumAddons.attendance ? 1 : 0) + (premiumAddons.project ? 1 : 0)) * 100)).toLocaleString('en-IN')}</span>
+                <span className="price-value" style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-main)' }}>{(employeeCount * ((premiumAddons.attendance ? attPrice : 0) + (premiumAddons.project ? tasksPrice : 0))).toLocaleString('en-IN')}</span>
                 <span className="price-period" style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>/ month</span>
               </div>
 

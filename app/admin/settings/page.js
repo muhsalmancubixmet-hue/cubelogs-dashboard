@@ -794,7 +794,10 @@ function SettingsHubContent() {
     const month = now.getMonth();
     const totalDays = new Date(year, month + 1, 0).getDate();
     const remainingDays = totalDays - now.getDate() + 1;
-    const proratedAmount = ((remainingDays / totalDays) * 100 * employeeCount).toFixed(2);
+    const basePrice = moduleName === 'attendance'
+      ? (wallet?.attendance_module_price ? parseFloat(wallet.attendance_module_price) : 100)
+      : (wallet?.tasks_module_price ? parseFloat(wallet.tasks_module_price) : 100);
+    const proratedAmount = ((remainingDays / totalDays) * basePrice * employeeCount).toFixed(2);
     
     const executeToggle = async () => {
       setModuleConfirm(prev => ({ ...prev, open: false }));
@@ -840,7 +843,7 @@ function SettingsHubContent() {
       setModuleConfirm({
         open: true,
         title: `Activate ${moduleName === 'attendance' ? 'Attendance Management' : 'Project & Tasks Management'}`,
-        message: `This will charge ₹${parseFloat(proratedAmount).toLocaleString('en-IN')} from your prepaid wallet for the remaining ${remainingDays} days of this month (prorated at ₹100/employee/month for ${employeeCount} employees). Do you want to proceed?`,
+        message: `This will charge ₹${parseFloat(proratedAmount).toLocaleString('en-IN')} from your prepaid wallet for the remaining ${remainingDays} days of this month (prorated at ₹${basePrice}/employee/month for ${employeeCount} employees). Do you want to proceed?`,
         confirmLabel: 'Activate Module',
         danger: false,
         onConfirm: executeToggle
@@ -962,7 +965,7 @@ function SettingsHubContent() {
 
     const interval = setInterval(() => {
       fetchWallet();
-    }, 4000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [currentTab]);
