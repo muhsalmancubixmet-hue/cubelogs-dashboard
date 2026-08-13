@@ -1,10 +1,92 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MODULES_MAP } from '@/context/AppContext';
 import { 
   CheckIcon, 
   WarningIcon, 
   EditIcon, 
   DeleteIcon 
 } from '@/components/Icons';
+import PermissionCategory from '@/components/admin/PermissionCategory';
+
+const getCategoryDescription = (catKey) => {
+  const descMap = {
+    dashboard_general: 'Access to the main dashboard and common application areas.',
+    audit_security: 'Review system activity and security records.',
+    employee_management: 'View and manage employees and employee records.',
+    roles_access: 'Manage roles, templates, and employee access permissions.',
+    org_settings: 'Manage organization-wide settings and locations.',
+    billing_subscription: 'Manage billing, subscriptions, and enabled modules.',
+    attendance_clocking: 'Access employee attendance and clocking features.',
+    attendance_admin: 'Manage attendance records, rules, and administrative views.',
+    leave_management: 'Apply, approve, and configure employee leave.',
+    holidays: 'View and configure organization holidays and holiday rules.',
+    project_access: 'View and manage Project records.',
+    project_members: 'Manage Project membership and assignments.',
+    epics_stories: 'Manage Project structure, Epics, Stories, and Backlog work.',
+    tasks_subtasks: 'Create, assign, update, and manage Project Tasks and Subtasks.',
+    project_statuses: 'Manage the custom Task Status Pool used by Projects and Scrum Boards.'
+  };
+  return descMap[catKey] || '';
+};
+
+const getCategorizedPermissions = (flags, activeTab, searchFilter = '') => {
+  const modules = [];
+  const moduleEntries = Object.entries(MODULES_MAP);
+  
+  for (const [modKey, modInfo] of moduleEntries) {
+    if (activeTab !== 'all' && activeTab !== modKey) {
+      continue;
+    }
+    
+    const modFlags = flags.filter(flag => modInfo.ids.includes(flag.id));
+    if (modFlags.length === 0) continue;
+    
+    const categoriesMap = {};
+    for (const flag of modFlags) {
+      if (searchFilter) {
+        const query = searchFilter.toLowerCase();
+        const matchesLabel = flag.label?.toLowerCase().includes(query);
+        const matchesCategory = flag.category_label?.toLowerCase().includes(query);
+        const matchesDesc = flag.description?.toLowerCase().includes(query);
+        const matchesId = flag.id?.toLowerCase().includes(query);
+        
+        if (!matchesLabel && !matchesCategory && !matchesDesc && !matchesId) {
+          continue;
+        }
+      }
+      
+      const catKey = flag.category || 'other';
+      if (!categoriesMap[catKey]) {
+        categoriesMap[catKey] = {
+          key: catKey,
+          title: flag.category_label || 'Other Settings',
+          icon: flag.icon || 'settings',
+          order: flag.category_order || 99,
+          description: getCategoryDescription(catKey),
+          permissions: []
+        };
+      }
+      categoriesMap[catKey].permissions.push(flag);
+    }
+    
+    const categories = Object.values(categoriesMap).map(cat => {
+      cat.permissions.sort((a, b) => (a.permission_order || 0) - (b.permission_order || 0));
+      return cat;
+    });
+    
+    categories.sort((a, b) => a.order - b.order);
+    
+    if (categories.length > 0) {
+      modules.push({
+        key: modKey,
+        label: modInfo.label,
+        categories
+      });
+    }
+  }
+  
+  return modules;
+};
 
 export default function TemplatesTab({
   templates,
@@ -31,6 +113,33 @@ export default function TemplatesTab({
   handleDeleteTemplate,
   MODULES_MAP
 }) {
+  const [expandedCategories, setExpandedCategories] = useState({});
+
+  const handleCategorySelectAll = (permissionIds, checked) => {
+    if (checked) {
+      const newPerms = new Set([...selectedPermissions, ...permissionIds]);
+      setSelectedPermissions(Array.from(newPerms));
+    } else {
+      setSelectedPermissions(selectedPermissions.filter(id => !permissionIds.includes(id)));
+    }
+  };
+
+  // Static helpers moved outside component
+
+  const categorizedModules = useMemo(() => {
+    return getCategorizedPermissions(visiblePermissionFlags, activeModuleTab, permSearchQuery);
+  }, [visiblePermissionFlags, activeModuleTab, permSearchQuery]);
+
+  useEffect(() => {
+    if (categorizedModules.length > 0 && categorizedModules[0].categories.length > 0) {
+      const firstCatKey = `${categorizedModules[0].key}_${categorizedModules[0].categories[0].key}`;
+      setExpandedCategories(prev => {
+        if (Object.keys(prev).length > 0) return prev;
+        return { [firstCatKey]: true };
+      });
+    }
+  }, [activeModuleTab, categorizedModules]);
+
   return (
     <div className="settings-grid">
       {/* Form Panel */}
@@ -52,14 +161,14 @@ export default function TemplatesTab({
             />
           </div>
 
-          {/* Search Bar for Modules */}
+          {/* Search Bar for Permissions */}
           <div className="form-group" style={{ marginBottom: '16px', marginTop: '12px' }}>
-            <label className="form-label" htmlFor="perm-search" style={{ fontSize: '0.82rem', fontWeight: '600' }}>Search Modules</label>
+            <label className="form-label" htmlFor="perm-search" style={{ fontSize: '0.82rem', fontWeight: '600' }}>Search Permissions</label>
             <input
               id="perm-search"
               type="text"
               className="form-input"
-              placeholder="Search modules by name (e.g. Attendance)..."
+              placeholder="Search permissions by label, category, description, or capability ID..."
               value={permSearchQuery}
               onChange={(e) => setPermSearchQuery(e.target.value)}
               style={{ height: '38px', fontSize: '0.85rem' }}
@@ -133,70 +242,70 @@ export default function TemplatesTab({
             )}
           </div>
 
-          {/* Module-Grouped Checklists */}
-          <div className="module-groups-stack" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '20px' }}>
-            {Object.entries(MODULES_MAP)
-              .filter(([key, mod]) => {
-                const matchesTab = activeModuleTab === 'all' || activeModuleTab === key;
-                const matchesSearch = permSearchQuery === '' || mod.label.toLowerCase().includes(permSearchQuery.toLowerCase());
-                return matchesTab && matchesSearch;
-              })
-              .map(([key, mod]) => {
-                const modPerms = visiblePermissionFlags.filter(flag => mod.ids.includes(flag.id));
-
-                if (modPerms.length === 0) return null;
-
+          {/* Categorized Collapsible Checklist */}
+          <div className="categories-checklist-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+            {(() => {
+              if (categorizedModules.length === 0) {
                 return (
-                  <div key={key} className="module-group-card" style={{ background: 'var(--primary-light)', padding: '14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)' }}>
-                    {(() => {
-                      const visibleIds = visiblePermissionFlags
-                        .filter(flag => mod.ids.includes(flag.id))
-                        .map(flag => flag.id);
-                      const isModuleAllSelected = visibleIds.length > 0 && visibleIds.every(id => selectedPermissions.includes(id));
-
-                      return (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                            <input
-                              type="checkbox"
-                              className="form-checkbox"
-                              checked={isModuleAllSelected}
-                              onChange={() => handleToggleModuleAll(mod.ids)}
-                            />
-                            <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                              {mod.label}
-                            </h4>
-                          </label>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-light)', fontWeight: '600', opacity: 0.8 }}>
-                            {modPerms.filter(p => selectedPermissions.includes(p.id)).length} of {modPerms.length} Active
-                          </span>
-                        </div>
-                      );
-                    })()}
-                    <div className="permissions-checklist-matrix">
-                      {modPerms.map((flag) => {
-                        const isChecked = selectedPermissions.includes(flag.id);
-                        return (
-                          <label className={`form-checkbox-container matrix-item ${isChecked ? 'active' : ''}`} key={flag.id}>
-                            <input
-                              type="checkbox"
-                              className="form-checkbox"
-                              checked={isChecked}
-                              onChange={() => handlePermissionCheckbox(flag.id)}
-                            />
-                            <span>{flag.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <p style={{ textAlign: 'center', padding: '20px 0', fontSize: '0.85rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
+                    No permissions match your search query.
+                  </p>
                 );
-              })}
-            {filteredVisibleFlags.length === 0 && (
-              <p style={{ textAlign: 'center', padding: '20px 0', fontSize: '0.85rem', color: 'var(--text-light)', fontStyle: 'italic' }}>
-                No permission flags match your search filters.
-              </p>
-            )}
+              }
+              
+              return categorizedModules.map((mod) => (
+                <div key={mod.key} className="module-section" style={{ marginBottom: '8px' }}>
+                  {/* Show module header only in 'All Modules' tab to avoid redundancy */}
+                  {activeModuleTab === 'all' && (
+                    <h4 style={{ 
+                      fontSize: '0.8rem', 
+                      fontWeight: '800', 
+                      color: 'var(--primary)', 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '0.05em',
+                      marginBottom: '10px',
+                      marginTop: '8px',
+                      borderBottom: '1px solid var(--border)',
+                      paddingBottom: '4px'
+                    }}>
+                      {mod.label}
+                    </h4>
+                  )}
+                  
+                  {mod.categories.map((cat) => {
+                    const uniqueCatKey = `${mod.key}_${cat.key}`;
+                    const isExpanded = !!permSearchQuery || !!expandedCategories[uniqueCatKey];
+                    
+                    return (
+                      <PermissionCategory
+                        key={cat.key}
+                        title={cat.title}
+                        description={cat.description}
+                        icon={cat.icon}
+                        permissions={cat.permissions}
+                        selectedPermissions={selectedPermissions}
+                        disabled={false}
+                        expanded={isExpanded}
+                        onToggle={() => {
+                          setExpandedCategories(prev => ({
+                            ...prev,
+                            [uniqueCatKey]: !prev[uniqueCatKey]
+                          }));
+                        }}
+                        onSelectAll={handleCategorySelectAll}
+                        onPermissionChange={(permId, checked) => {
+                          if (checked) {
+                            setSelectedPermissions([...selectedPermissions, permId]);
+                          } else {
+                            setSelectedPermissions(selectedPermissions.filter(id => id !== permId));
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ));
+            })()}
           </div>
 
           {tempSuccess && (

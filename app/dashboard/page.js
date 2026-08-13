@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 import { API_BASE_URL, apiFetch } from '@/lib/api';
+import { projectService } from '@/lib/services/projectService';
 import {
   EmployeesIcon,
   LeavesIcon,
@@ -21,6 +22,8 @@ import {
 import HolidaySlider from '@/components/HolidaySlider';
 import LeaveStatusBadge from '@/components/LeaveStatusBadge';
 import DashboardCalendar from '@/components/DashboardCalendar';
+import AdminProjectDashboard from '@/components/dashboard/AdminProjectDashboard';
+import TeamMemberProjectDashboard from '@/components/dashboard/TeamMemberProjectDashboard';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -32,6 +35,8 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [holidays, setHolidays] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [statuses, setStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -76,7 +81,7 @@ export default function Dashboard() {
       ciStream?.getTracks().forEach(t => t.stop());
       setCiStream(null);
     }
-  }, [ciModal]);
+  }, [ciModal, ciStream]);
 
   const ciHaversine = (lat1, lon1, lat2, lon2) => {
     const R = 6371000, toRad = d => d * Math.PI / 180;
@@ -223,7 +228,7 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -257,7 +262,9 @@ export default function Dashboard() {
         return [];
       };
 
-      const fetchTasks = apiFetch(`/tasks/${orgQuery}`).catch(catchUnlessAuthError);
+      const fetchTasks = userObj?.id
+        ? projectService.getEmployeeAssignments(userObj.id).then(d => d.tasks || []).catch(() => [])
+        : Promise.resolve([]);
       const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(catchUnlessAuthError);
       const fetchHolidays = apiFetch('/holidays/').catch(catchUnlessAuthError);
 
@@ -271,12 +278,22 @@ export default function Dashboard() {
         ? apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
 
-      const [tasksData, leavesData, holidaysData, employeesData, attendanceData] = await Promise.all([
+      const fetchProjects = (checkPerm('projects:view') || checkPerm('projects:create') || userObj.isSuperAdmin)
+        ? projectService.getProjects().catch(() => [])
+        : Promise.resolve([]);
+      const isProjEnabled = userObj?.subscription?.is_project_enabled || userObj?.is_project_enabled;
+      const fetchStatuses = isProjEnabled
+        ? projectService.getProjectStatuses().catch(() => [])
+        : Promise.resolve([]);
+
+      const [tasksData, leavesData, holidaysData, employeesData, attendanceData, projectsData, statusesData] = await Promise.all([
         fetchTasks,
         fetchLeaves,
         fetchHolidays,
         fetchEmployees,
-        fetchAttendance
+        fetchAttendance,
+        fetchProjects,
+        fetchStatuses
       ]);
 
       const mappedEmployees = getArrayData(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
@@ -304,13 +321,15 @@ export default function Dashboard() {
       setTasks(mappedTasks);
       setLeaves(mappedLeaves);
       setHolidays(mappedHolidays);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
+      setStatuses(Array.isArray(statusesData) ? statusesData : []);
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   const handleClockOut = async (employeeId) => {
     setLoading(true);
@@ -332,12 +351,35 @@ export default function Dashboard() {
   useEffect(() => {
     if (authStatus === 'authenticated') {
       fetchDashboardData();
-      apiFetch('/locations/').then(d => setOfficeLocations(d.map(l => ({ ...l, id: String(l.id) })))).catch(() => { });
+      apiFetch('/locations/').then(d => {
+        const list = Array.isArray(d) ? d : (d?.results || []);
+        setOfficeLocations(list.map(l => ({ ...l, id: String(l.id) })));
+      }).catch(() => { });
     }
-  }, [authStatus]);
+  }, [authStatus, fetchDashboardData]);
 
   const handleRowClick = (empId) => {
     router.push(`/admin/employees/profile?id=${empId}`);
+  };
+
+  const handleTaskStatusChange = async (taskId, statusId) => {
+    try {
+      await projectService.updateProjectTaskStatus(taskId, statusId);
+      await fetchDashboardData();
+    } catch (err) {
+      console.error('Failed to update task status:', err);
+    }
+  };
+
+  const handleLogHoursSubmit = async (task, hours) => {
+    try {
+      const currentLogged = Number(task.logged_hours || 0);
+      const additional = Number(hours) || 0;
+      await projectService.updateTask(task.id, { logged_hours: currentLogged + additional });
+      await fetchDashboardData();
+    } catch (err) {
+      console.error('Failed to log hours:', err);
+    }
   };
 
   useEffect(() => {
@@ -418,7 +460,7 @@ export default function Dashboard() {
   // Quick Navigation Permission Flags
   const canOnboard = hasPermission('admin:employees');
   const canManageTemplates = hasPermission('admin:templates');
-  const canAssignTasks = isProjectEnabled && hasPermission('tasks:create');
+  const canAssignTasks = isProjectEnabled && (hasPermission('projects:create') || hasPermission('project_tasks:create'));
   const canApproveLeaves = hasPermission('leaves:approve');
   const showQuickNavigation = canOnboard || canManageTemplates || canAssignTasks || canApproveLeaves;
 
@@ -624,8 +666,8 @@ export default function Dashboard() {
               required_subscription_flag: 'is_project_enabled'
             },
             functional_capabilities: [
-              { id: 'tasks:create', label: 'Add Task Workspace', path: '/tasks', tab: 'add' },
-              { id: 'tasks:view', label: 'My Tasks View', path: '/tasks', tab: 'my' }
+              { id: 'projects:view', label: 'View All Projects', path: '/projects' },
+              { id: 'projects:create', label: 'Create New Project', path: '/projects?modal=create' }
             ]
           }
         ];
@@ -968,57 +1010,35 @@ export default function Dashboard() {
                 );
               }
 
-              if (module.id === 'tasks') {
+              if (module.id === 'tasks' || module.id === 'projects' || module.id === 'project_management' || module.metadata?.name === 'Project Management') {
+                const isProjectAdmin = currentUser?.isSuperAdmin || hasPermission('projects:create') || hasPermission('projects:view');
+
                 return (
                   <div key={module.id} className="dashboard-module-section" style={{ marginBottom: '48px' }}>
-                    <div className="module-section-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '2px solid var(--border)', paddingBottom: '10px', marginBottom: '20px' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', color: 'var(--primary)' }}><TasksIcon size={22} /></span>
-                      <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', margin: 0 }}>Project Management</h2>
-                    </div>
-
-
-                    <div className="dashboard-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                      <div className="col-12">
-                        <div className="panel" style={{ marginBottom: 0 }}>
-                          <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <TasksIcon size={20} style={{ color: 'var(--primary)' }} />
-                              <span>My Task Objectives</span>
-                            </h3>
-                            <Link href="/tasks" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
-                              View All
-                            </Link>
-                          </div>
-
-                          <div className="task-summary-list" style={{ marginTop: '15px' }}>
-                            {myTasks.length === 0 ? (
-                              <p className="no-data-text">You have no tasks assigned currently.</p>
-                            ) : (
-                              myTasks.slice(0, 3).map(t => (
-                                <div className="task-summary-card" key={t.id}>
-                                  <div className="task-sum-title">
-                                    <strong>{t.title}</strong>
-                                    <span className={`badge ${t.status === 'Completed' ? 'badge-success' : t.status === 'In Progress' ? 'badge-info' : 'badge-pending'}`}>
-                                      {t.status}
-                                    </span>
-                                  </div>
-                                  <p className="task-sum-desc">{t.description}</p>
-                                  <span className="task-sum-date">Due: {t.dueDate}</span>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {canAssignTasks && (
-                        <div className="col-12" style={{ marginTop: '16px' }}>
-                          <Link href="/tasks?tab=add" className="btn btn-secondary full-width" style={{ textAlign: 'center', textDecoration: 'none' }}>
-                            Assign System Tasks
-                          </Link>
-                        </div>
-                      )}
-                    </div>
+                    {isProjectAdmin ? (
+                      <AdminProjectDashboard
+                        projects={projects}
+                        tasks={tasks}
+                        stories={[]}
+                        sprints={[]}
+                        loading={loading}
+                        error={error}
+                        onRetry={fetchDashboardData}
+                        canCreateProject={currentUser?.isSuperAdmin || hasPermission('projects:create')}
+                      />
+                    ) : (
+                      <TeamMemberProjectDashboard
+                        currentUser={currentUser}
+                        myTasks={myTasks}
+                        myProjects={projects}
+                        statuses={statuses}
+                        loading={loading}
+                        error={error}
+                        onRetry={fetchDashboardData}
+                        onTaskStatusChange={handleTaskStatusChange}
+                        onLogHoursSubmit={handleLogHoursSubmit}
+                      />
+                    )}
                   </div>
                 );
               }
@@ -1483,6 +1503,7 @@ export default function Dashboard() {
                     marginBottom: 16, border: '1px solid var(--border)'
                   }}>
                     {ciPhoto ? (
+                      /* eslint-disable-next-line @next/next/no-img-element -- Clock-in webcam captured photo */
                       <img src={ciPhoto} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : ciStream ? (
                       <>

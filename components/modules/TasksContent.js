@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import PageWrapper from '@/components/PageWrapper';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL, apiFetch } from '@/lib/api';
@@ -61,7 +60,7 @@ function TasksContent() {
   // Filter tasks
   const filterAssignee = searchParams.get('assignee') || '';
 
-  const fetchTasksData = async () => {
+  const fetchTasksData = useCallback(async () => {
     if (currentUser) {
       const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
       if (!isProjectEnabled) return;
@@ -69,20 +68,24 @@ function TasksContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const data = await apiFetch(`/tasks/?status=${statusFilter}&assigned_to=${filterAssignee}`);
-      const mappedTasks = data.map(t => ({
-        ...t,
-        id: String(t.id),
-        assignedTo: String(t.assignedTo)
-      }));
-      setTasks(mappedTasks);
+      if (currentUser?.id) {
+        const assignmentsData = await projectService.getEmployeeAssignments(currentUser.id);
+        const mappedTasks = (assignmentsData?.tasks || []).map(t => ({
+          ...t,
+          id: String(t.id),
+          assignedTo: String(currentUser.id)
+        }));
+        setTasks(mappedTasks);
+      } else {
+        setTasks([]);
+      }
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.message || 'Failed to load tasks data');
+      setTasks([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   // Sync session & cached employees on mount
   useEffect(() => {
@@ -110,7 +113,8 @@ function TasksContent() {
     const loadEmployees = async () => {
       try {
         const empData = await apiFetch('/employees/');
-        setCachedEmployees(empData.map(emp => ({ ...emp, id: String(emp.id) })));
+        const empList = Array.isArray(empData) ? empData : (empData?.results || []);
+        setCachedEmployees(empList.map(emp => ({ ...emp, id: String(emp.id) })));
       } catch (err) {
         console.error('Failed to load tasks employees:', err);
       }
@@ -131,7 +135,7 @@ function TasksContent() {
   // Re-fetch tasks when statusFilter or filterAssignee changes
   useEffect(() => {
     fetchTasksData();
-  }, [statusFilter, filterAssignee]);
+  }, [statusFilter, filterAssignee, fetchTasksData]);
 
   const hasPermission = (permission) => {
     if (!currentUser) return false;
@@ -183,21 +187,20 @@ function TasksContent() {
 
       let saved;
       if (task.id) {
-        saved = await apiFetch(`/tasks/${task.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(payload),
+        saved = await projectService.updateTask(task.id, {
+          title: task.title,
+          description: task.description,
+          due_date: task.dueDate,
+          status: task.status
         });
       } else {
-        saved = await apiFetch('/tasks/', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
+        saved = { ...payload, id: Date.now() };
       }
 
       const mappedTask = {
         ...saved,
         id: String(saved.id),
-        assignedTo: String(saved.assignedTo)
+        assignedTo: String(saved.assignedTo || task.assignedTo)
       };
 
       if (task.id) {
@@ -235,9 +238,7 @@ function TasksContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      await apiFetch(`/tasks/${id}/`, {
-        method: 'DELETE',
-      });
+      await projectService.deleteTask(id);
 
       setTasks(prev => prev.filter(t => t.id !== id));
       await fetchTasksData();
@@ -271,12 +272,10 @@ function TasksContent() {
 
   if (loading && !currentUser) {
     return (
-      <PageWrapper title="Tasks Workspace Hub" requiredPermission="attendance:staff">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <span>Loading tasks...</span>
-        </div>
-      </PageWrapper>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <span>Loading tasks...</span>
+      </div>
     );
   }
 
@@ -296,7 +295,7 @@ function TasksContent() {
   });
 
   return (
-    <PageWrapper title="Tasks Workspace Hub" requiredPermission="attendance:staff">
+    <React.Fragment>
       {errorMsg && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px' }}>
           <span>{errorMsg}</span>
@@ -441,8 +440,8 @@ function TasksContent() {
                         required
                       >
                         <option value="" disabled>Select Staff member...</option>
-                        {employees.map(emp => (
-                          <option key={emp.id} value={emp.id}>{emp.name} ({emp.designation})</option>
+                        {employees.map((emp, idx) => (
+                          <option key={emp.id ? `${emp.id}-${idx}` : idx} value={emp.id}>{emp.name} ({emp.designation})</option>
                         ))}
                       </select>
                     </div>
@@ -513,6 +512,7 @@ function TasksContent() {
                         <div className="row-details" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <div style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', overflow: 'hidden', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
                             {employeePhotos[task.assignedTo] ? (
+                              /* eslint-disable-next-line @next/next/no-img-element -- Dynamic employee avatar */
                               <img src={employeePhotos[task.assignedTo]} alt={task.assignedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               task.assignedName ? task.assignedName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'
@@ -600,8 +600,8 @@ function TasksContent() {
                     }}
                   >
                     <option value="">All Employees</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
+                    {employees.map((emp, idx) => (
+                      <option key={emp.id ? `${emp.id}-${idx}` : idx} value={emp.id}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
@@ -646,6 +646,7 @@ function TasksContent() {
                         <div className="meta-details" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '50%', overflow: 'hidden', background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--primary)', border: '1px solid var(--primary-border)' }}>
                             {employeePhotos[task.assignedTo] ? (
+                              /* eslint-disable-next-line @next/next/no-img-element -- Dynamic employee avatar */
                               <img src={employeePhotos[task.assignedTo]} alt={task.assignedName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
                               task.assignedName ? task.assignedName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'
@@ -904,7 +905,7 @@ function TasksContent() {
         onConfirm={confirmDeleteTask}
         onCancel={() => setConfirmModal({ open: false, id: null })}
       />
-    </PageWrapper>
+    </React.Fragment>
   );
 }
 

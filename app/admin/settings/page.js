@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useApp, PERMISSION_FLAGS, MODULES_MAP } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api';
 import PageWrapper from '@/components/PageWrapper';
@@ -27,8 +27,9 @@ const FEATURE_LABELS = {
   'holidays:view': 'View Holiday Calendar',
   'holidays:manage': 'Configure Holidays',
   'holidays:rules': 'Holiday Rule Engine',
-  'tasks:create': 'Add Task Workspace',
-  'tasks:view': 'My Tasks View',
+  'project_tasks:create': 'Create Project Tasks',
+  'project_tasks:view_all': 'View All Project Tasks',
+  'project_tasks:view_own': 'View Assigned Project Tasks',
 };
 
 const WalletIcon = ({ size = 16, ...props }) => (
@@ -124,8 +125,10 @@ function SettingsHubContent() {
         apiFetch('/templates/'),
         apiFetch('/locations/')
       ]);
-      setTemplates(templatesData.map(t => ({ ...t, id: String(t.id) })));
-      setOfficeLocations(locationsData.map(loc => ({ ...loc, id: String(loc.id) })));
+      const templatesList = Array.isArray(templatesData) ? templatesData : (templatesData?.results || []);
+      const locationsList = Array.isArray(locationsData) ? locationsData : (locationsData?.results || []);
+      setTemplates(templatesList.map(t => ({ ...t, id: String(t.id) })));
+      setOfficeLocations(locationsList.map(loc => ({ ...loc, id: String(loc.id) })));
     } catch (err) {
       console.error('Failed to load settings dependency data:', err);
     }
@@ -169,7 +172,8 @@ function SettingsHubContent() {
 
   const saveOfficeLocations = async (locations) => {
     try {
-      const current = await apiFetch('/locations/');
+      const response = await apiFetch('/locations/');
+      const current = Array.isArray(response) ? response : (response?.results || []);
       for (const loc of current) {
         await apiFetch(`/locations/${loc.id}/`, { method: 'DELETE' });
       }
@@ -214,6 +218,13 @@ function SettingsHubContent() {
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
 
+  const redirectToFirstAuthorized = useCallback(() => {
+    if (hasTemplatesPerm) router.replace('/admin/settings?tab=templates');
+    else if (hasLocationsPerm && isAttendanceEnabled) router.replace('/admin/settings?tab=locations');
+    else if (hasBrandingPerm) router.replace('/admin/settings?tab=branding');
+    else if (hasBillingPerm) router.replace('/admin/settings?tab=billing');
+  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, router]);
+
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
     if (isUnpaid) {
@@ -233,14 +244,7 @@ function SettingsHubContent() {
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
     }
-  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router, isUnpaid]);
-
-  const redirectToFirstAuthorized = () => {
-    if (hasTemplatesPerm) router.replace('/admin/settings?tab=templates');
-    else if (hasLocationsPerm && isAttendanceEnabled) router.replace('/admin/settings?tab=locations');
-    else if (hasBrandingPerm) router.replace('/admin/settings?tab=branding');
-    else if (hasBillingPerm) router.replace('/admin/settings?tab=billing');
-  };
+  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
 
   const handleTabChange = (tabName) => {
     router.push(`/admin/settings?tab=${tabName}`);
@@ -377,7 +381,7 @@ function SettingsHubContent() {
       };
       handleConfirm();
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, confirmSubscription, currentTab, showAlert]);
 
   // Helper: compress logo image preserving aspect ratio and transparency
   const cropAndCompressImage = (file) =>
@@ -466,11 +470,13 @@ function SettingsHubContent() {
 
   const filteredVisibleFlags = visiblePermissionFlags.filter(flag => {
     const matchesTab = activeModuleTab === 'all' || MODULES_MAP[activeModuleTab]?.ids.includes(flag.id);
-    const matchingModuleKeys = Object.entries(MODULES_MAP)
-      .filter(([key, mod]) => mod.label.toLowerCase().includes(permSearchQuery.toLowerCase()))
-      .map(([key]) => key);
-    const belongsToMatchingModule = permSearchQuery === '' || matchingModuleKeys.some(key => MODULES_MAP[key].ids.includes(flag.id));
-    return matchesTab && belongsToMatchingModule;
+    if (permSearchQuery === '') return matchesTab;
+    const query = permSearchQuery.toLowerCase();
+    const matchesLabel = flag.label?.toLowerCase().includes(query);
+    const matchesCategory = flag.category_label?.toLowerCase().includes(query);
+    const matchesDesc = flag.description?.toLowerCase().includes(query);
+    const matchesId = flag.id?.toLowerCase().includes(query);
+    return matchesTab && (matchesLabel || matchesCategory || matchesDesc || matchesId);
   });
 
   const isAllPermsSelected = filteredVisibleFlags.length > 0 && filteredVisibleFlags.every(p => selectedPermissions.includes(p.id));
@@ -781,7 +787,7 @@ function SettingsHubContent() {
       setAppliedCoupon(null);
       setCouponError('Amount changed. Please re-apply coupon code.');
     }
-  }, [topupAmount]);
+  }, [topupAmount, appliedCoupon]);
 
   const refreshUserSession = async () => {
     await refreshUser();

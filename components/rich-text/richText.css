@@ -1,0 +1,333 @@
+/* Tiptap Rich Text Custom Styles */
+
+.tiptap-wrapper {
+  background: var(--bg-card, #ffffff);
+  color: var(--text-primary, #0f172a);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tiptap-wrapper:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.ProseMirror {
+  outline: none;
+  min-height: 140px;
+  padding: 8px 4px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted, #94a3b8);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Headings with Modern Left Border Accent */
+.ProseMirror h1, .tiptap-readonly h1 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0f172a;
+  border-left: 4px solid #2563eb;
+  padding-left: 10px;
+  margin: 16px 0 8px;
+  letter-spacing: -0.01em;
+}
+
+.ProseMirror h2, .tiptap-readonly h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  border-left: 3px solid #3b82f6;
+  padding-left: 8px;
+  margin: 14px 0 6px;
+}
+
+.ProseMirror h3, .tiptap-readonly h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 12px 0 4px;
+}
+
+/* Lists & Task Lists */
+.ProseMirror ul, .tiptap-readonly ul { padding-left: 1.5rem; margin: 6px 0; }
+.ProseMirror ol, .tiptap-readonly ol { padding-left: 1.5rem; margin: 6px 0; }
+
+.ProseMirror ul[data-type="taskList"], .tiptap-readonly ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+  margin: 6px 0;
+}
+
+.ProseMirror li[data-type="taskItem"], .tiptap-readonly li[data-type="taskItem"] {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.ProseMirror li[data-type="taskItem"] > label, .tiptap-readonly li[data-type="taskItem"] > label {
+  margin-top: 3px;
+  user-select: none;
+}
+
+.ProseMirror li[data-type="taskItem"] > label input[type="checkbox"],
+.tiptap-readonly li[data-type="taskItem"] > label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+/* Blockquote Callout Box */
+.ProseMirror blockquote, .tiptap-readonly blockquote {
+  border-left: 4px solid #2563eb;
+  background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%);
+  padding: 14px 18px;
+  border-radius: 0 10px 10px 0;
+  margin: 14px 0;
+  color: #1e293b;
+  font-style: normal;
+  font-weight: 500;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.06);
+}
+
+/* Code & Code Blocks */
+.ProseMirror code, .tiptap-readonly code {
+  background: #f1f5f9;
+  color: #2563eb;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+}
+
+.ProseMirror pre, .tiptap-readonly pre {
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 14px 18px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 12px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+}
+
+.ProseMirror pre code, .tiptap-readonly pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  border: none;
+}
+
+/* Tables */
+.ProseMirror table, .tiptap-readonly table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 14px 0;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+
+.ProseMirror td, .ProseMirror th,
+.tiptap-readonly td, .tiptap-readonly th {
+  min-width: 1em;
+  border: 1px solid #cbd5e1;
+  padding: 10px 14px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.ProseMirror th, .tiptap-readonly th {
+  font-weight: bold;
+  text-align: left;
+  background-color: #f8fafc;
+}
+
+/* Links */
+.ProseMirror a, .tiptap-readonly a {
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Documentation File Attachment Cards */
+.ProseMirror a[data-attachment-id],
+.tiptap-readonly a[data-attachment-id] {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin: 4px 6px 4px 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.ProseMirror a[data-attachment-id]:hover,
+.tiptap-readonly a[data-attachment-id]:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+}
+
+/* Ultra-Compact Stacked Photo Album Deck (Jira/Linear/Apple Stack Style) */
+.rich-text-media-gallery {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  position: relative;
+  max-width: 100%;
+}
+
+.rich-text-media-gallery img {
+  height: 85px;
+  width: 115px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin: 0;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
+  border: 2px solid #ffffff;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Stacked Layer Effect: Images peek behind the cover photo */
+.rich-text-media-gallery img:nth-child(1) {
+  z-index: 3;
+}
+
+.rich-text-media-gallery img:nth-child(2) {
+  z-index: 2;
+  margin-left: -55px;
+  transform: rotate(3deg) scale(0.96);
+  opacity: 0.92;
+}
+
+.rich-text-media-gallery img:nth-child(3) {
+  z-index: 1;
+  margin-left: -55px;
+  transform: rotate(6deg) scale(0.92);
+  opacity: 0.82;
+}
+
+.rich-text-media-gallery img:nth-child(n+4) {
+  display: none;
+}
+
+/* Hover Fan-Out Transition */
+.rich-text-media-gallery:hover img:nth-child(2) {
+  margin-left: 6px;
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+.rich-text-media-gallery:hover img:nth-child(3) {
+  margin-left: 6px;
+  transform: rotate(0deg) scale(1);
+  opacity: 1;
+}
+
+/* Strict Max-Height Enforcement for ALL Read-Only Preview Images */
+.tiptap-readonly img {
+  max-height: 130px !important;
+  max-width: min(220px, 100%) !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: cover !important;
+  border-radius: 8px !important;
+  margin: 6px 8px 6px 0 !important;
+  display: inline-block !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+  cursor: pointer !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.tiptap-readonly img:hover {
+  transform: scale(1.04) !important;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.2) !important;
+  border-color: #3b82f6 !important;
+}
+
+.rich-text-media-gallery img:hover {
+  transform: translateY(-3px) scale(1.05) !important;
+  z-index: 10 !important;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+  border-color: #3b82f6;
+}
+
+.rich-text-media-gallery img:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  border-color: #93c5fd;
+}
+
+/* Standardized Images in Tiptap Editor & Read-Only Views */
+.ProseMirror img,
+.tiptap-readonly img {
+  max-width: 420px;
+  width: auto;
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: 10px;
+  margin: 10px 0;
+  display: block;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid var(--border-color, #cbd5e1);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.ProseMirror img:hover,
+.tiptap-readonly img:hover {
+  transform: scale(1.01);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.15);
+}
+
+.ProseMirror img.ProseMirror-selectednode {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Dark mode adjustments */
+:root.dark .tiptap-wrapper {
+  background: var(--bg-card, #1e293b);
+  color: var(--text-primary, #f8fafc);
+  border-color: var(--border-color, #334155);
+}
+
+:root.dark .tiptap-toolbar {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+:root.dark .ProseMirror code, :root.dark .tiptap-readonly code {
+  background: #334155;
+  color: #f8fafc;
+}
