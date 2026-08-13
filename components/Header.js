@@ -32,7 +32,7 @@ export default function Header({ title }) {
 
   return (
     <header className="header-bar">
-      <div className="header-title-section" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="header-title-section">
         <button 
           className="hamburger-toggle" 
           onClick={() => setSidebarOpen(prev => !prev)}
@@ -44,21 +44,7 @@ export default function Header({ title }) {
       </div>
       <div className="header-user-section">
         {isWarningActive && (
-          <div className="subscription-badge warning-urgent" style={{
-            marginRight: '12px',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.8rem',
-            fontWeight: '600',
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%)',
-            border: '1px solid #ef4444',
-            color: '#ef4444',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.25)',
-            animation: 'pulseBorder 1.5s infinite'
-          }}>
+          <div className="subscription-badge warning-urgent">
             <span className="status-pulse-dot" style={{ 
               backgroundColor: '#ef4444', 
               boxShadow: '0 0 8px #ef4444' 
@@ -67,20 +53,7 @@ export default function Header({ title }) {
           </div>
         )}
         {showNormalWarning && (
-          <div className="subscription-badge" style={{
-            marginRight: '12px',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-full)',
-            fontSize: '0.8rem',
-            fontWeight: '600',
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.06) 100%)',
-            border: '1px solid #ef4444',
-            color: '#ef4444',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.1)'
-          }}>
+          <div className="subscription-badge">
             <span className="status-pulse-dot" style={{ 
               backgroundColor: '#ef4444', 
               boxShadow: '0 0 8px #ef4444' 
@@ -98,32 +71,18 @@ export default function Header({ title }) {
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="theme-toggle-btn"
             aria-label="Toggle Theme"
-            style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              border: '1.5px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text-main)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: 'var(--shadow-sm)',
-              transition: 'all var(--transition-fast)',
-              padding: 0
-            }}
           >
             {theme === 'dark' ? <Sun size={18} style={{ color: '#fbbf24' }} /> : <Moon size={18} style={{ color: '#2563eb' }} />}
           </button>
         )}
         {!mounted && (
-          <div style={{ width: '38px', height: '38px', borderRadius: '50%', border: '1.5px solid var(--border)', background: 'var(--surface)' }} />
+          <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1.5px solid var(--border)', background: 'var(--surface)' }} />
         )}
 
         <Link href="/profile" style={{ textDecoration: 'none' }}>
           <div className="avatar-circle">
             {currentUser.profilePhoto ? (
+              /* eslint-disable-next-line @next/next/no-img-element -- Dynamic user profile photo */
               <img
                 src={currentUser.profilePhoto}
                 alt={currentUser.name}
@@ -147,14 +106,26 @@ export default function Header({ title }) {
           -webkit-backdrop-filter: blur(14px);
           border: 1px solid rgba(210, 224, 245, 0.6);
           border-radius: var(--radius-lg);
-          margin-bottom: 28px;
+          margin-bottom: 24px;
           box-shadow: 0 10px 30px -10px rgba(12, 30, 61, 0.07), 0 1px 3px rgba(12, 30, 61, 0.02);
           position: relative;
           z-index: 90;
           transition: all var(--transition-normal);
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+          min-width: 0;
+          gap: 12px;
+        }
+        .header-title-section {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          flex: 1;
         }
         .header-title-section h1 {
-          font-size: 1.45rem;
+          font-size: clamp(1.05rem, 3.5vw, 1.45rem);
           font-weight: 700;
           color: var(--text-main);
           font-family: var(--font-heading);
@@ -163,6 +134,9 @@ export default function Header({ title }) {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent !important;
           margin: 0;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          line-height: 1.25;
         }
         :global(.main-content) .header-title-section h1 {
           -webkit-text-fill-color: transparent !important;
@@ -171,11 +145,31 @@ export default function Header({ title }) {
         .header-user-section {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 10px;
+          flex-shrink: 0;
+        }
+        .subscription-badge {
+          margin-right: 8px;
+          padding: 6px 12px;
+          border-radius: var(--radius-full);
+          font-size: 0.8rem;
+          font-weight: 600;
+          background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(239, 68, 68, 0.06) 100%);
+          border: 1px solid #ef4444;
+          color: #ef4444;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 2px 4px rgba(239, 68, 68, 0.1);
+        }
+        .subscription-badge.warning-urgent {
+          background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.15) 100%);
+          box-shadow: 0 2px 4px rgba(239, 68, 68, 0.25);
+          animation: pulseBorder 1.5s infinite;
         }
         .avatar-circle {
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
           border-radius: 50%;
           background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
           display: flex;
@@ -204,13 +198,14 @@ export default function Header({ title }) {
           background: rgba(37, 99, 235, 0.06);
           border: 1.5px solid rgba(37, 99, 235, 0.15);
           cursor: pointer;
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
           align-items: center;
           justify-content: center;
           border-radius: var(--radius-md);
           transition: all var(--transition-fast);
           padding: 0;
+          flex-shrink: 0;
         }
         :global(.main-content) .hamburger-toggle {
           color: var(--primary) !important;
@@ -224,6 +219,23 @@ export default function Header({ title }) {
         }
         :global(.main-content) .hamburger-toggle:active {
           transform: scale(0.95);
+        }
+
+        .theme-toggle-btn {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 1.5px solid var(--border);
+          background: var(--surface);
+          color: var(--text-main);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: var(--shadow-sm);
+          transition: all var(--transition-fast);
+          padding: 0;
+          flex-shrink: 0;
         }
 
         .theme-toggle-btn:hover {
@@ -263,23 +275,21 @@ export default function Header({ title }) {
         }
         @media (max-width: 768px) {
           .header-bar {
-            padding: 12px 16px;
+            padding: 12px 14px;
             margin-bottom: 20px;
-          }
-          .header-title-section h1 {
-            font-size: 1.25rem;
           }
           .subscription-badge {
             display: none !important;
           }
         }
-        @media (max-width: 480px) {
-          .header-title-section h1 {
-            font-size: 1.05rem;
-            line-height: 1.2;
-            white-space: normal;
-            word-break: break-word;
-            max-width: none;
+        @media (max-width: 360px) {
+          .header-bar {
+            padding: 10px;
+            gap: 8px;
+          }
+          .avatar-circle, .theme-toggle-btn, .hamburger-toggle {
+            width: 40px;
+            height: 40px;
           }
         }
       `}</style>

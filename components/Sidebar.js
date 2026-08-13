@@ -60,6 +60,29 @@ const Sidebar = React.memo(function Sidebar() {
     }
   };
 
+  // Body scroll locking and Escape key handling for off-canvas drawer
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && sidebarOpen && window.innerWidth < 992) {
+        setSidebarOpen(false);
+      }
+    };
+
+    if (sidebarOpen && window.innerWidth < 992) {
+      document.body.classList.add('sidebar-open');
+    } else {
+      document.body.classList.remove('sidebar-open');
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.classList.remove('sidebar-open');
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sidebarOpen, setSidebarOpen]);
+
   if (!currentUser) return null;
 
   // Helper to check if route is active
@@ -81,7 +104,11 @@ const Sidebar = React.memo(function Sidebar() {
   };
 
   return (
-    <aside className={`sidebar-container ${sidebarOpen ? 'open' : ''}`}>
+    <aside
+      className={`sidebar-container ${sidebarOpen ? 'open' : ''}`}
+      role="navigation"
+      aria-label="Main Sidebar Navigation"
+    >
       <div className="brand-header">
         <span className="brand-logo" style={{ display: 'flex', alignItems: 'center', color: '#60a5fa' }}>
           <BrandLogo size={32} />
@@ -120,6 +147,8 @@ const Sidebar = React.memo(function Sidebar() {
             <span className="nav-text">Manage Employees</span>
           </Link>
         )}
+
+
 
         {/* Settings Accordion Dropdown */}
         {showSettingsSection && (
@@ -180,22 +209,12 @@ const Sidebar = React.memo(function Sidebar() {
                   <span className="sub-nav-text">Billing & Subscription</span>
                 </Link>
               )}
-              {hasAttendanceConfig && (
-                <Link
-                  href="/admin/settings?tab=attendance-config"
-                  className={`sub-nav-link ${pathname === '/admin/settings' && activeTab === 'attendance-config' ? 'active' : ''}`}
-                  onClick={handleNavLinkClick}
-                >
-                  <span className="dot"></span>
-                  <span className="sub-nav-text">Attendance Rules Config</span>
-                </Link>
-              )}
             </div>
           </div>
         )}
 
         {/* Audit Logs Link */}
-        {!isUnpaid && (
+        {!isUnpaid && hasPermission('audit_logs:view') && (
           <Link
             href="/audit-logs"
             className={`nav-link ${isActive('/audit-logs') ? 'active' : ''}`}
@@ -209,34 +228,55 @@ const Sidebar = React.memo(function Sidebar() {
         )}
 
         {/* --- Dropdown Modules (Accordions) dynamically populated --- */}
+        {/* NOTE: Renders module.navigation items — NOT functional_capabilities.
+            Capabilities are authorization definitions used for permission checks only.
+            Navigation uses the dedicated module.navigation array from feature_modules.json. */}
         {permissionsRegistry?.modules?.map(module => {
           if (isUnpaid) return null;
-          // 1. Subscription Check (Is the module enabled for the whole organization?)
-          const reqFlag = module.metadata.required_subscription_flag;
-          const hasAddon = reqFlag 
-            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag]) 
-            : true;
 
-          // If the organization hasn't enabled this module in the backoffice, hide it.
+          // 1. Subscription Check — is this module enabled for the organization?
+          const reqFlag = module.metadata.required_subscription_flag;
+          const hasAddon = reqFlag
+            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag])
+            : true;
           if (!hasAddon) return null;
 
-          // 2. Capabilities Check (Does THIS specific user have any permissions within it?)
-          let userCapabilities = currentUser?.isSuperAdmin
-            ? module.functional_capabilities
-            : module.functional_capabilities.filter(cap => hasPermission(cap.id));
+          // 2. Access Check — does this user have ANY capability inside this module?
+          const allCaps = module.functional_capabilities || [];
+          const hasAnyCapability = currentUser?.isSuperAdmin
+            ? allCaps.length > 0
+            : allCaps.some(cap => hasPermission(cap.id));
+          if (!hasAnyCapability) return null;
 
 
-          // Attendance Management Portal ('attendance:management_portal') is visible in the sidebar navigation list
+          // 4. Nav filtering — only show items the user has permission to see.
+          //    Items with no permission field are shown to any user with module access.
+          const navItems = module.navigation && module.navigation.length > 0
+            ? module.navigation
+            : (module.metadata.path
+                ? [{ id: module.id, label: module.metadata.name, path: module.metadata.path }]
+                : []);
 
-          if (userCapabilities.length === 0) return null;
+          if (navItems.length === 0) return null;
 
-          if (userCapabilities.length === 1) {
-            const cap = userCapabilities[0];
+          // Multiple nav items → accordion with sub-links
+          // Each nav item is rendered only if the user has the specific permission for that item.
+          // Nav items without a permission field are shown to all users with module access.
+          const visibleNavItems = navItems.filter(nav => {
+            if (!nav.permission) return true; // no restriction defined — show to all with module access
+            return currentUser?.isSuperAdmin || hasPermission(nav.permission);
+          });
+
+          if (visibleNavItems.length === 0) return null;
+
+          // If only one nav item remains after filtering, show as plain link (no accordion)
+          if (visibleNavItems.length === 1) {
+            const nav = visibleNavItems[0];
             return (
-              <Link 
+              <Link
                 key={module.id}
-                href={`${cap.path}${cap.tab ? `?tab=${cap.tab}` : ''}`}
-                className={`nav-link ${pathname === cap.path ? 'active' : ''}`}
+                href={nav.path}
+                className={`nav-link ${pathname === nav.path || pathname.startsWith(nav.path + '/') ? 'active' : ''}`}
                 onClick={handleNavLinkClick}
               >
                 <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
@@ -260,19 +300,31 @@ const Sidebar = React.memo(function Sidebar() {
                   <ChevronIcon direction={openSections[module.id] ? 'up' : 'down'} size={12} />
                 </span>
               </button>
-              
+
               <div className={`accordion-content ${openSections[module.id] ? 'open' : ''}`}>
-                {userCapabilities.map(cap => (
-                  <Link 
-                    key={cap.id}
-                    href={`${cap.path}${cap.tab ? `?tab=${cap.tab}` : ''}`} 
-                    className={`sub-nav-link ${pathname === cap.path && (cap.tab ? activeTab === cap.tab : (!activeTab || activeTab === '')) ? 'active' : ''}`}
-                    onClick={handleNavLinkClick}
-                  >
-                    <span className="dot"></span>
-                    <span className="sub-nav-text">{cap.label}</span>
-                  </Link>
-                ))}
+                {visibleNavItems.map(nav => {
+                  const [basePath, queryString] = nav.path.split('?');
+                  let isSubActive = false;
+                  if (queryString) {
+                    const params = new URLSearchParams(queryString);
+                    const navTab = params.get('tab');
+                    isSubActive = pathname === basePath && activeTab === navTab;
+                  } else {
+                    isSubActive = (pathname === basePath || pathname.startsWith(basePath + '/')) && !activeTab;
+                  }
+
+                  return (
+                    <Link
+                      key={nav.id}
+                      href={nav.path}
+                      className={`sub-nav-link ${isSubActive ? 'active' : ''}`}
+                      onClick={handleNavLinkClick}
+                    >
+                      <span className="dot"></span>
+                      <span className="sub-nav-text">{nav.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );
@@ -285,6 +337,7 @@ const Sidebar = React.memo(function Sidebar() {
           <div className="profile-details">
             <div className="avatar">
               {currentUser.profilePhoto ? (
+                /* eslint-disable-next-line @next/next/no-img-element -- Dynamic profile photo */
                 <img
                   src={currentUser.profilePhoto}
                   alt={currentUser.name}

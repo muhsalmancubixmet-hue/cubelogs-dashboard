@@ -1,39 +1,44 @@
 'use client';
 
-import React, { useContext } from 'react';
-import { notFound } from 'next/navigation';
+import React, { useContext, Suspense } from 'react';
+import { notFound, useSearchParams } from 'next/navigation';
 import { AppContext } from '../../context/AppContext';
 import ModuleRegistry from '../../components/ModuleRegistry';
 import PageWrapper from '../../components/PageWrapper';
 
-export default function ModulePage({ params }) {
-  const resolvedParams = React.use(params);
-  const { module: moduleSlug } = resolvedParams;
-  const { permissionsRegistry, isInitialized } = useContext(AppContext);
- 
-  if (!isInitialized) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
-        <div style={{ textAlign: 'center', color: 'var(--primary)' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid var(--primary-border)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-          Loading Module Configuration...
-        </div>
-      </div>
-    );
-  }
- 
+function ModulePageContent({ moduleSlug, permissionsRegistry }) {
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') || '';
+
   // Look up the module config
   const moduleConfig = permissionsRegistry?.modules?.find(m => m.id === moduleSlug);
- 
+
   if (!moduleConfig) {
     return notFound();
   }
+
+  // Look up matching capability for this path & tab
+  const matchingCap = moduleConfig.functional_capabilities?.find(cap => {
+    return (cap.tab || '') === activeTab;
+  });
+
+  // If no matching capability is found, fallback to all capability IDs for the module (requires ANY)
+  const requiredPermission = matchingCap
+    ? matchingCap.id
+    : (moduleConfig.functional_capabilities?.map(c => c.id) || '');
 
   // Check if we have a specific React component registered
   const ModuleComponent = ModuleRegistry[moduleSlug];
 
   if (ModuleComponent) {
-    return <ModuleComponent />;
+    return (
+      <PageWrapper
+        title={moduleConfig.metadata?.name || 'System Module'}
+        requiredPermission={requiredPermission}
+      >
+        <ModuleComponent />
+      </PageWrapper>
+    );
   }
 
   // If a new module is added to permission.json without React code deployed yet,
@@ -41,7 +46,7 @@ export default function ModulePage({ params }) {
   return (
     <PageWrapper 
       title={moduleConfig.metadata?.name || 'System Module'} 
-      requiredPermission={moduleConfig.functional_capabilities?.[0]?.id || ''}
+      requiredPermission={requiredPermission}
     >
       <div className="module-fallback-panel">
         <div className="icon-wrapper">
@@ -103,3 +108,34 @@ export default function ModulePage({ params }) {
     </PageWrapper>
   );
 }
+
+export default function ModulePage({ params }) {
+  const resolvedParams = React.use(params);
+  const { module: moduleSlug } = resolvedParams;
+  const { permissionsRegistry, isInitialized } = useContext(AppContext);
+
+  if (!isInitialized) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
+        <div style={{ textAlign: 'center', color: 'var(--primary)' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid var(--primary-border)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          Loading Module Configuration...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
+        <div style={{ textAlign: 'center', color: 'var(--primary)' }}>
+          <div style={{ width: 40, height: 40, border: '3px solid var(--primary-border)', borderTop: '3px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+          Loading Module...
+        </div>
+      </div>
+    }>
+      <ModulePageContent moduleSlug={moduleSlug} permissionsRegistry={permissionsRegistry} />
+    </Suspense>
+  );
+}
+

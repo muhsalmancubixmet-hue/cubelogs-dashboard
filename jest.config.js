@@ -10,6 +10,9 @@ const customJestConfig = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
+  transformIgnorePatterns: [
+    '/node_modules/(?!(lowlight|devlop|unist.*|hast.*|highlight.js)/)',
+  ],
 };
 
 module.exports = createJestConfig(customJestConfig);
