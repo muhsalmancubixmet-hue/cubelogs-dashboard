@@ -2,6 +2,7 @@ import React, { useContext, useEffect } from 'react';
 import { render, act } from '@testing-library/react';
 import { AppProvider, AppContext, useApp } from '../AppContext';
 import { apiFetch } from '../../lib/api';
+import { setTokens, clearTokens } from '../../lib/api/tokenStorage';
 import { authService, organizationService } from '../../lib/services/apiService';
 
 // Mock the services
@@ -25,6 +26,7 @@ describe('CubeLogs Authentication and Context Refactoring Tests', () => {
     jest.useFakeTimers();
     originalFetch = global.fetch;
     global.fetch = jest.fn();
+    setTokens('test-access-token', 'test-refresh-token');
 
     organizationService.fetchInitialData.mockResolvedValue([[], {}, null]);
 
@@ -51,6 +53,7 @@ describe('CubeLogs Authentication and Context Refactoring Tests', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     jest.useRealTimers();
+    clearTokens();
   });
 
   // Test Component to read state from AppContext
@@ -70,7 +73,8 @@ describe('CubeLogs Authentication and Context Refactoring Tests', () => {
     );
   }
 
-  test('apiFetch attaches CSRF header and sends credentials for SessionAuthentication', async () => {
+  test('apiFetch attaches Authorization and CSRF header', async () => {
+    setTokens('mock-access-token', 'mock-refresh-token');
     const mockTaskData = [{ id: 1, title: 'Test Task' }];
     global.fetch.mockResolvedValueOnce({
       ok: true,
@@ -84,12 +88,12 @@ describe('CubeLogs Authentication and Context Refactoring Tests', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, config] = global.fetch.mock.calls[0];
     expect(url).toContain('/tasks/');
-    expect(config.credentials).toBe('include');
-    expect(config.headers['X-CSRFToken']).toBe('mock-csrf-token');
+    expect(config.headers['Authorization']).toBe('Bearer mock-access-token');
     expect(res).toEqual(mockTaskData);
   });
 
   test('AppContext initialization sets authStatus to authenticated on successful profile fetch', async () => {
+    setTokens('valid-access-token', 'valid-refresh-token');
     authService.fetchMe.mockResolvedValueOnce({
       id: 42,
       email: 'test@example.com',
@@ -118,6 +122,7 @@ describe('CubeLogs Authentication and Context Refactoring Tests', () => {
   });
 
   test('AppContext initialization sets authStatus to unauthenticated on failed profile fetch', async () => {
+    setTokens('invalid-access-token', 'invalid-refresh-token');
     authService.fetchMe.mockRejectedValueOnce(new Error('Unauthorized'));
 
     let container;
