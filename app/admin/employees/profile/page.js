@@ -68,22 +68,29 @@ function EmployeeProfileContent() {
         apiFetch('/schedules/'),
       ]);
 
-      const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
-      const mappedTasks = tasksData.map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) }));
-      const mappedLeaves = leavesData.map(l => ({
+      const unpack = (res) =>
+        Array.isArray(res)
+          ? res
+          : Array.isArray(res?.results)
+            ? res.results
+            : [];
+
+      const mappedEmployees = unpack(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
+      const mappedTasks = unpack(tasksData).map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) }));
+      const mappedLeaves = unpack(leavesData).map(l => ({
         ...l,
         id: String(l.id),
         employeeId: String(l.employee),
         leaveTypeId: String(l.leaveType),
         leaveType: l.leaveTypeName
       }));
-      const mappedAttendance = attendanceData.map(log => ({
+      const mappedAttendance = unpack(attendanceData).map(log => ({
         ...log,
         id: String(log.id),
         employeeId: String(log.employee)
       }));
-      const mappedHolidays = holidaysData.map(h => ({ ...h, id: String(h.id) }));
-      const mappedSchedules = schedulesData.map(s => ({ ...s, id: String(s.id) }));
+      const mappedHolidays = unpack(holidaysData).map(h => ({ ...h, id: String(h.id) }));
+      const mappedSchedules = unpack(schedulesData).map(s => ({ ...s, id: String(s.id) }));
 
       const photoMap = {};
       mappedEmployees.forEach(emp => {
