@@ -717,6 +717,7 @@ export function AppProvider({ children }) {
       }
     } catch (e) {
       console.error('Error saving locations:', e);
+      throw e;
     }
   }, []);
 
@@ -772,23 +773,22 @@ export function AppProvider({ children }) {
 
   const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = []) => {
     try {
-      const response = await organizationService.saveSettings({ 
+      await organizationService.saveSettings({ 
         brandLogo: logoBase64, 
         companyName,
         default_weekly_holidays: defaultWeeklyHolidays
       });
-      setBrandLogo(response.brandLogo);
-      setCompanyName(response.companyName);
 
       await saveOfficeLocations([
         { name: companyName, lat, lon, radius: 100.0, isPrimary: true }
       ]);
-      setOrgProfileStatus('loaded');
+
+      await fetchInitialData(currentUser);
     } catch (e) {
       console.error('Error completing onboarding:', e);
       throw e;
     }
-  }, [saveOfficeLocations]);
+  }, [currentUser, saveOfficeLocations, fetchInitialData]);
 
   const renewSubscription = useCallback(async (packageName = null) => {
     try {
