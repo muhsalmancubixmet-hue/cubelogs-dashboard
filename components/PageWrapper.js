@@ -129,7 +129,7 @@ export default function PageWrapper({ children, title, requiredPermission }) {
   if (orgProfileStatus === 'loaded') {
     // Completeness check for organization profile
     const primaryLoc = officeLocations.find(loc => loc.isPrimary) || officeLocations[0];
-    const hasCustomLogo = !brandLogo;
+    const hasCustomLogo = !!brandLogo;
     const hasCustomLocation = primaryLoc && !(primaryLoc.name === 'Head Office' && primaryLoc.lat === 11.1143 && primaryLoc.lon === 76.2274);
     const isProfileComplete = hasCustomLogo && hasCustomLocation;
 
