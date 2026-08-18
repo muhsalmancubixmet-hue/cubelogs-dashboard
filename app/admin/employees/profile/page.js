@@ -33,7 +33,7 @@ function EmployeeProfileContent() {
   const { currentUser, authStatus } = useApp();
 
   // Local states
-  const [employees, setEmployees] = useState([]);
+  const [employee, setEmployee] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [leaves, setLeaves] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
@@ -41,6 +41,7 @@ function EmployeeProfileContent() {
   const [schedules, setSchedules] = useState([]);
   const [employeePhotos, setEmployeePhotos] = useState({});
   const [loading, setLoading] = useState(true);
+  const [errorState, setErrorState] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Edit Log State
@@ -56,16 +57,26 @@ function EmployeeProfileContent() {
 
   const fetchProfileData = async () => {
     if (authStatus !== 'authenticated') return;
+    if (!empId) {
+      setErrorState({ status: 400, message: 'No employee ID provided in the URL.' });
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setErrorState(null);
     setErrorMsg('');
     try {
-      const [employeesData, tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
-        apiFetch('/employees/'),
-        apiFetch('/tasks/'),
-        apiFetch('/leaves/'),
-        apiFetch('/attendance/'),
-        apiFetch('/holidays/'),
-        apiFetch('/schedules/'),
+      // 1. Authoritative direct profile lookup
+      const employeeData = await apiFetch(`/employees/${empId}/`);
+      const mappedEmployee = { ...employeeData, id: String(employeeData.id) };
+
+      // 2. Supporting list data with error isolation
+      const [tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
+        apiFetch('/tasks/').catch(() => []),
+        apiFetch('/leaves/').catch(() => []),
+        apiFetch('/attendance/').catch(() => []),
+        apiFetch('/holidays/').catch(() => []),
+        apiFetch('/schedules/').catch(() => []),
       ]);
 
       const unpack = (res) =>
@@ -75,7 +86,6 @@ function EmployeeProfileContent() {
             ? res.results
             : [];
 
-      const mappedEmployees = unpack(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
       const mappedTasks = unpack(tasksData).map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) }));
       const mappedLeaves = unpack(leavesData).map(l => ({
         ...l,
@@ -93,13 +103,11 @@ function EmployeeProfileContent() {
       const mappedSchedules = unpack(schedulesData).map(s => ({ ...s, id: String(s.id) }));
 
       const photoMap = {};
-      mappedEmployees.forEach(emp => {
-        if (emp.profilePhoto) {
-          photoMap[emp.id] = emp.profilePhoto;
-        }
-      });
+      if (mappedEmployee.profilePhoto) {
+        photoMap[mappedEmployee.id] = mappedEmployee.profilePhoto;
+      }
 
-      setEmployees(mappedEmployees);
+      setEmployee(mappedEmployee);
       setTasks(mappedTasks);
       setLeaves(mappedLeaves);
       setAttendanceLogs(mappedAttendance);
@@ -107,8 +115,12 @@ function EmployeeProfileContent() {
       setSchedules(mappedSchedules);
       setEmployeePhotos(photoMap);
     } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to load employee profile data');
+      console.error('Error loading employee profile:', err);
+      const status = err.status || (err.message && err.message.includes('404') ? 404 : 500);
+      setErrorState({
+        status,
+        message: err.message || 'Failed to load employee profile data'
+      });
     } finally {
       setLoading(false);
     }
@@ -126,17 +138,17 @@ function EmployeeProfileContent() {
     return currentUser.permissions && currentUser.permissions.includes(permission);
   };
 
-  const localSaveEmployee = async (employee) => {
+  const localSaveEmployee = async (updatedData) => {
     setLoading(true);
     setErrorMsg('');
     try {
-      const saved = await apiFetch(`/employees/${employee.id}/`, {
+      const saved = await apiFetch(`/employees/${updatedData.id}/`, {
         method: 'PUT',
-        body: JSON.stringify(employee),
+        body: JSON.stringify(updatedData),
       });
       const mappedSaved = { ...saved, id: String(saved.id) };
 
-      setEmployees(prev => prev.map(emp => emp.id === employee.id ? mappedSaved : emp));
+      setEmployee(mappedSaved);
       if (mappedSaved.profilePhoto) {
         setEmployeePhotos(prev => ({ ...prev, [mappedSaved.id]: mappedSaved.profilePhoto }));
       } else {
@@ -147,7 +159,7 @@ function EmployeeProfileContent() {
         });
       }
 
-      if (currentUser && currentUser.id === mappedSaved.id) {
+      if (currentUser && String(currentUser.id) === mappedSaved.id) {
         localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedSaved));
       }
     } catch (err) {
@@ -160,11 +172,11 @@ function EmployeeProfileContent() {
 
   const handleDeleteEmployee = async () => {
     if (!employee) return;
-    if (currentUser && currentUser.id === employee.id) {
+    if (currentUser && String(currentUser.id) === String(employee.id)) {
       alert("You cannot delete your own profile.");
       return;
     }
-    const confirmDelete = window.confirm(`Are you sure you want to delete ${employee.name}? This action cannot be undone.`);
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${employee.name || employee.email}? This action cannot be undone.`);
     if (!confirmDelete) return;
 
     setLoading(true);
@@ -253,9 +265,6 @@ function EmployeeProfileContent() {
   const [filterType, setFilterType] = useState('All'); // 'All', 'Present', 'Leave', 'Late', 'Absent'
   const [filterSearch, setFilterSearch] = useState('');
 
-  // Find employee details
-  const employee = employees.find(e => e.id === empId);
-
   if (loading) {
     return (
       <PageWrapper title="Employee Profile">
@@ -269,7 +278,26 @@ function EmployeeProfileContent() {
 
   if (!currentUser) return null;
 
-  if (!employee && !loading) {
+  if (errorState?.status === 403) {
+    return (
+      <PageWrapper title="Employee Profile">
+        <div className="panel alert-box alert-box-danger">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldIcon size={20} style={{ color: 'var(--danger)' }} />
+            <span>Access Denied</span>
+          </h3>
+          <p>You do not have permission to view this employee profile.</p>
+          <div style={{ marginTop: '16px' }}>
+            <button type="button" onClick={() => router.back()} className="btn btn-primary">
+              Return to Previous Page
+            </button>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  if (errorState?.status === 404 || (!employee && !errorState)) {
     return (
       <PageWrapper title="Employee Profile">
         <div className="panel alert-box alert-box-danger">
@@ -280,6 +308,28 @@ function EmployeeProfileContent() {
           <p>The employee profile with ID <code>{empId}</code> could not be located on the system.</p>
           <div style={{ marginTop: '16px' }}>
             <button type="button" onClick={() => router.back()} className="btn btn-primary">
+              Return to Previous Page
+            </button>
+          </div>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  if (errorState) {
+    return (
+      <PageWrapper title="Employee Profile">
+        <div className="panel alert-box alert-box-danger">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <WarningIcon size={20} style={{ color: 'var(--danger)' }} />
+            <span>Error Loading Profile</span>
+          </h3>
+          <p>{errorState.message || 'An unexpected error occurred while loading the employee profile.'}</p>
+          <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+            <button type="button" onClick={fetchProfileData} className="btn btn-primary">
+              Retry
+            </button>
+            <button type="button" onClick={() => router.back()} className="btn btn-secondary">
               Return to Previous Page
             </button>
           </div>
@@ -300,7 +350,8 @@ function EmployeeProfileContent() {
   const totalClockIns = empLogs.length;
 
   // Get initials
-  const initials = employee ? employee.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : '';
+  const displayName = employee.name?.trim() || employee.email || 'Employee';
+  const initials = displayName.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'EM';
 
   // Employee designation schedule configuration
   const rolesList = (employee?.designation || '').split(',').map(r => r.trim()).filter(Boolean);
@@ -418,7 +469,7 @@ function EmployeeProfileContent() {
   const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
 
   return (
-    <PageWrapper title={`${employee.name}'s Profile`}>
+    <PageWrapper title={`${displayName}'s Profile`}>
       {errorMsg && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px' }}>
           <span>{errorMsg}</span>
@@ -497,7 +548,7 @@ function EmployeeProfileContent() {
                 />
               )}
             </div>
-            <h2>{employee.name}</h2>
+            <h2>{displayName}</h2>
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
               {(employee.designation || '').split(',').map(r => r.trim()).filter(Boolean).map(role => (
                 <span key={role} className="badge badge-info designation-badge" style={{ margin: 0, color: '#1e40af', backgroundColor: '#dbeafe', border: '1px solid #93c5fd', fontWeight: '600' }}>{role}</span>
@@ -796,7 +847,7 @@ function EmployeeProfileContent() {
                   <span>Attendance & Leave Ledger</span>
                 </h2>
                 <p style={{ marginTop: '4px', marginBottom: 0, color: 'var(--text-muted)' }}>
-                  Monthly check-in records and applied leaves for <strong>{employee.name}</strong>
+                  Monthly check-in records and applied leaves for <strong>{displayName}</strong>
                 </p>
               </div>
 
