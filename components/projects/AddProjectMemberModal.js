@@ -2,12 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { projectService } from '../../lib/services/projectService';
+import { 
+  EmployeesIcon, 
+  CloseIcon, 
+  WarningIcon, 
+  TasksIcon, 
+  CheckIcon, 
+  DeclineIcon 
+} from '@/components/Icons';
 
 export default function AddProjectMemberModal({ projectId, onClose, onMemberAdded }) {
   const [employees, setEmployees] = useState([]);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [selectedUserIds, setSelectedUserIds] = useState([]);
-  const [projectRole, setProjectRole] = useState('Contributor');
+  const [projectRole, setProjectRole] = useState('');
+  const [isCustomRole, setIsCustomRole] = useState(false);
+  const [customRole, setCustomRole] = useState('');
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -53,19 +63,31 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
     }
   };
 
+  const handleRoleSelectChange = (e) => {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsCustomRole(true);
+      setProjectRole('');
+    } else {
+      setIsCustomRole(false);
+      setProjectRole(val);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedUserIds.length === 0) {
       setErrorMsg('Please select at least one employee.');
       return;
     }
+    const effectiveRole = isCustomRole ? (customRole.trim() || 'Contributor') : (projectRole || 'Contributor');
     try {
       setSubmitting(true);
       setErrorMsg('');
       await projectService.addProjectMember(projectId, {
         user_ids: selectedUserIds,
         members: selectedUserIds,
-        project_role: projectRole,
+        project_role: effectiveRole,
       });
       if (onMemberAdded) onMemberAdded();
       onClose();
@@ -100,7 +122,7 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
           bg: '#f8fafc',
           border: '#cbd5e1',
         };
-      default: // Contributor / Developer / QA / Designer
+      default: // Contributor / Developer / QA / Designer / Custom
         return {
           can: 'View Project & Backlog, work on assigned Tasks, submit Daily Stand-up, add Comments & Attachments, move own cards.',
           cannot: 'Manage Sprints, manage members, or move other users\' cards.',
@@ -110,7 +132,8 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
     }
   };
 
-  const rolePreview = getRolePreview(projectRole);
+  const displayedRole = isCustomRole ? (customRole.trim() || 'Custom Role') : (projectRole || 'Contributor');
+  const rolePreview = getRolePreview(displayedRole);
 
   const filteredEmployees = employees.filter((emp) => {
     const q = search.toLowerCase().trim();
@@ -129,20 +152,21 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', fontWeight: 800, fontSize: 16
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563eb', flexShrink: 0
             }}>
-              👥
+              <EmployeesIcon size={18} />
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Add Team Members</h3>
-              <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Select employees and assign a Project-specific Role.</p>
+              <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Select employees and assign an optional Project-specific Role.</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 18, cursor: 'pointer', minWidth: 44, minHeight: 44 }}
+            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44 }}
+            aria-label="Close modal"
           >
-            ✕
+            <CloseIcon size={18} />
           </button>
         </div>
 
@@ -150,43 +174,62 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {errorMsg && (
-              <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
-                ⚠️ {errorMsg}
+              <div style={{ padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', borderRadius: 8, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <WarningIcon size={16} />
+                <span>{errorMsg}</span>
               </div>
             )}
 
             {/* Project Role Selector */}
             <div>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                Project Role (Project-Specific) <span style={{ color: '#dc2626' }}>*</span>
+                Project Role (Optional)
               </label>
               <select
-                value={projectRole}
-                onChange={(e) => setProjectRole(e.target.value)}
+                value={isCustomRole ? '__custom__' : projectRole}
+                onChange={handleRoleSelectChange}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff' }}
               >
-                <option value="Contributor">Contributor / Member (Default)</option>
+                <option value="">Select Project Role (Default: Contributor)</option>
+                <option value="Contributor">Contributor / Member</option>
                 <option value="Developer">Developer / Engineer</option>
                 <option value="Team Lead">Team Lead</option>
                 <option value="QA Engineer">QA Engineer / Tester</option>
                 <option value="Designer">UI/UX Designer</option>
                 <option value="Product Owner">Product Owner</option>
                 <option value="Viewer">Viewer (Read-Only)</option>
+                <option value="__custom__">+ Add Custom Role...</option>
               </select>
+
+              {isCustomRole && (
+                <div style={{ marginTop: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Enter custom project role (e.g. DevOps, Scrum Master)..."
+                    value={customRole}
+                    onChange={(e) => setCustomRole(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #3b82f6', fontSize: 13, outline: 'none' }}
+                    autoFocus
+                  />
+                </div>
+              )}
             </div>
 
             {/* Project Role Access Summary Box */}
             <div style={{
               background: rolePreview.bg, border: `1px solid ${rolePreview.border}`, borderRadius: 10, padding: 12, fontSize: 12
             }}>
-              <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>
-                📋 {projectRole} Access Preview in this Project:
+              <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <TasksIcon size={14} style={{ color: '#2563eb' }} />
+                <span>{displayedRole} Access Preview in this Project:</span>
               </div>
-              <div style={{ color: '#16a34a', marginBottom: 2 }}>
-                ✓ <strong>Can:</strong> {rolePreview.can}
+              <div style={{ color: '#16a34a', marginBottom: 4, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <CheckIcon size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span><strong>Can:</strong> {rolePreview.can}</span>
               </div>
-              <div style={{ color: '#dc2626' }}>
-                ✕ <strong>Cannot:</strong> {rolePreview.cannot}
+              <div style={{ color: '#dc2626', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <DeclineIcon size={14} style={{ marginTop: 2, flexShrink: 0 }} />
+                <span><strong>Cannot:</strong> {rolePreview.cannot}</span>
               </div>
             </div>
 
@@ -272,7 +315,9 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
                         </div>
 
                         {isChecked && (
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', marginLeft: 8, flexShrink: 0 }}>✓ Selected</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#2563eb', marginLeft: 8, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <CheckIcon size={14} /> Selected
+                          </span>
                         )}
                       </label>
                     );

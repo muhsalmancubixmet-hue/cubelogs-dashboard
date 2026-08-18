@@ -689,7 +689,8 @@ export default function ProjectsPage() {
             {canCreate && (
               <button
                 onClick={openCreateModal}
-                style={{ padding: '10px 20px', borderRadius: 8, border: 'none', background: '#2563eb', color: '#ffffff', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+                className="btn btn-primary"
+                style={{ padding: '10px 20px', borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
               >
                 + Create Project
               </button>
@@ -914,7 +915,8 @@ export default function ProjectsPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', minHeight: 44 }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 18px', borderRadius: 6, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}
                   >
                     {submitting ? 'Creating...' : 'Create Project'}
                   </button>
@@ -973,7 +975,7 @@ export default function ProjectsPage() {
 
                 <div className="modal-footer">
                   <button type="button" onClick={() => setShowEditModal(false)} style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', color: '#475569', cursor: 'pointer', minHeight: 44 }}>Cancel</button>
-                  <button type="submit" disabled={submitting} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{submitting ? 'Saving...' : 'Save Changes'}</button>
+                  <button type="submit" disabled={submitting} className="btn btn-primary" style={{ padding: '8px 18px', borderRadius: 6, fontWeight: 600, cursor: 'pointer', minHeight: 44 }}>{submitting ? 'Saving...' : 'Save Changes'}</button>
                 </div>
               </form>
             </div>

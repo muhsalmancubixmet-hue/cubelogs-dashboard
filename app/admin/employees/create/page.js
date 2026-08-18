@@ -95,9 +95,9 @@ function EmployeeCreateContent() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const [employeesData, templatesData] = await Promise.all([
+      const [employeesData, rolesData] = await Promise.all([
         apiFetch('/employees/'),
-        apiFetch('/templates/'),
+        apiFetch('/roles/'),
       ]);
       
       const employeesList = Array.isArray(employeesData)
@@ -106,14 +106,19 @@ function EmployeeCreateContent() {
         ? employeesData.results
         : [];
 
-      const templatesList = Array.isArray(templatesData)
-        ? templatesData
-        : (templatesData && Array.isArray(templatesData.results))
-        ? templatesData.results
+      const rolesList = Array.isArray(rolesData)
+        ? rolesData
+        : (rolesData && Array.isArray(rolesData.results))
+        ? rolesData.results
         : [];
 
       const mappedEmployees = employeesList.map(emp => ({ ...emp, id: String(emp.id) }));
-      const mappedTemplates = templatesList.map(t => ({ ...t, id: String(t.id) }));
+      const mappedTemplates = rolesList.map(r => ({
+        ...r,
+        id: String(r.id),
+        name: r.name,
+        permissions: Array.isArray(r.permissions) ? r.permissions : (r.permission_keys || [])
+      }));
 
       const photoMap = {};
       mappedEmployees.forEach(emp => {
@@ -330,12 +335,23 @@ function EmployeeCreateContent() {
     e.preventDefault();
     if (!name || !email || !designation) return;
 
+    const primaryDesignation = designation.split(',')[0].trim();
+    const matchedRole = templates.find(t => 
+      t.name === primaryDesignation || 
+      t.label === primaryDesignation || 
+      t.name?.toLowerCase() === primaryDesignation.toLowerCase()
+    );
+
+    const existingEmp = editId ? employees.find(e => e.id === editId) : null;
+    const resolvedRoleId = matchedRole ? Number(matchedRole.id) : (existingEmp?.role ? Number(existingEmp.role) : null);
+
     const employeeData = {
       id: editId || null,
       name,
       email,
       phone,
       designation,
+      role: resolvedRoleId,
       useDefaultPermissions: useDefault,
       permissions: customPermissions,
       profilePhoto: profilePhoto || null,

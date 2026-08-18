@@ -283,18 +283,22 @@ body {
 /* ============================================================
    GLOBAL DARK-BLUE TEXT — overrides inline style= props too
    Scoped to main-content so sidebar white-text is unaffected
-   ============================================================ */
-
-/* Force ALL elements inside main content to dark blue (except specific excluded components) */
-.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.btn-primary):not(.btn-primary *):not(.btn-white-text):not(.btn-white-text *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.btn-danger):not(.btn-danger *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
+   ===========================================================/* Force ALL elements inside main content to dark blue (except specific excluded components) */
+.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.btn-primary):not(.btn-primary *):not([class*="btn-primary"]):not([class*="btn-primary"] *):not(.btn-white-text):not(.btn-white-text *):not(.pm-hero-btn):not(.pm-hero-btn *):not(.btn-submit):not(.btn-submit *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.btn-danger):not(.btn-danger *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
   color: var(--text-main) !important;
 }
 
 /* Restore WHITE text on primary / danger / white-text / blue-active buttons */
 .main-content .btn-primary,
 .main-content .btn-primary *,
+.main-content [class*="btn-primary"],
+.main-content [class*="btn-primary"] *,
 .main-content .btn-white-text,
 .main-content .btn-white-text *,
+.main-content .pm-hero-btn,
+.main-content .pm-hero-btn *,
+.main-content .btn-submit,
+.main-content .btn-submit *,
 .main-content .btn-blue-active,
 .main-content .btn-blue-active *,
 .main-content .active-blue-btn,
@@ -354,6 +358,8 @@ a.btn-primary,
 .btn-white-text,
 button.btn-white-text,
 a.btn-white-text,
+.pm-hero-btn,
+button.pm-hero-btn,
 .btn-blue-active,
 button.btn-blue-active,
 .active-blue-btn,
@@ -371,6 +377,8 @@ a.btn-primary:hover,
 .btn-white-text:hover,
 button.btn-white-text:hover,
 a.btn-white-text:hover,
+.pm-hero-btn:hover,
+button.pm-hero-btn:hover,
 .btn-blue-active:hover,
 button.btn-blue-active:hover,
 .active-blue-btn:hover,
@@ -389,6 +397,8 @@ a.btn-primary *,
 .btn-white-text *,
 button.btn-white-text *,
 a.btn-white-text *,
+.pm-hero-btn *,
+button.pm-hero-btn *,
 .btn-blue-active *,
 button.btn-blue-active *,
 .active-blue-btn *,

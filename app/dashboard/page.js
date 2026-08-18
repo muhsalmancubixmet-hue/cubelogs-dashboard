@@ -586,7 +586,7 @@ export default function Dashboard() {
               </Link>
             )}
             {isProjectEnabled && (
-              <Link href="/tasks?tab=add" className="metric-card">
+              <Link href="/projects" className="metric-card">
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><TasksIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Open Tasks</h4>
@@ -616,7 +616,10 @@ export default function Dashboard() {
               </Link>
             )}
             {isProjectEnabled && (
-              <Link href="/tasks?tab=my" className="metric-card">
+              <Link
+                href={projects.length === 1 ? `/projects/${projects[0].id}/tasks?filter=my` : '/projects'}
+                className="metric-card"
+              >
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><TasksIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>My Active Tasks</h4>

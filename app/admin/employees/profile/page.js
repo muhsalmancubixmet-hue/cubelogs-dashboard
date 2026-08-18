@@ -258,7 +258,7 @@ function EmployeeProfileContent() {
 
   if (loading) {
     return (
-      <PageWrapper title="Employee Profile" requiredPermission="admin:employees">
+      <PageWrapper title="Employee Profile">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
           <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
           <span>Loading employee profile...</span>
@@ -271,7 +271,7 @@ function EmployeeProfileContent() {
 
   if (!employee && !loading) {
     return (
-      <PageWrapper title="Employee Profile" requiredPermission="admin:employees">
+      <PageWrapper title="Employee Profile">
         <div className="panel alert-box alert-box-danger">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <DeclineIcon size={20} style={{ color: 'var(--danger)' }} />
@@ -279,9 +279,9 @@ function EmployeeProfileContent() {
           </h3>
           <p>The employee profile with ID <code>{empId}</code> could not be located on the system.</p>
           <div style={{ marginTop: '16px' }}>
-            <Link href="/admin/employees" className="btn btn-primary">
-              Return to Directory
-            </Link>
+            <button type="button" onClick={() => router.back()} className="btn btn-primary">
+              Return to Previous Page
+            </button>
           </div>
         </div>
       </PageWrapper>
@@ -415,8 +415,10 @@ function EmployeeProfileContent() {
   const lateCount = calendarDays.filter(d => d.log && isLate(d.log.clockIn)).length;
   const absentCount = calendarDays.filter(d => !d.log && !d.leave && !d.isWeekend && !d.holiday).length;
 
+  const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
+
   return (
-    <PageWrapper title={`${employee.name}'s Profile`} requiredPermission="admin:employees">
+    <PageWrapper title={`${employee.name}'s Profile`}>
       {errorMsg && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px' }}>
           <span>{errorMsg}</span>
@@ -426,25 +428,34 @@ function EmployeeProfileContent() {
         
         {/* Navigation Action Row */}
         <div className="nav-row">
-          <Link href="/admin/employees" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-            <BackIcon size={14} />
-            <span>Back to Directory</span>
-          </Link>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <Link href={`/admin/employees/create?id=${employee.id}`} className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-              <EditIcon size={14} />
-              <span>Edit Credentials</span>
+          {currentUser?.isSuperAdmin ? (
+            <Link href="/admin/employees" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <BackIcon size={14} />
+              <span>Back to Directory</span>
             </Link>
-            <button 
-              type="button" 
-              className="btn btn-danger btn-sm" 
-              onClick={handleDeleteEmployee} 
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-            >
-              <DeleteIcon size={14} />
-              <span>Delete Employee</span>
+          ) : (
+            <button type="button" onClick={() => router.back()} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <BackIcon size={14} />
+              <span>Back</span>
             </button>
-          </div>
+          )}
+          {currentUser?.isSuperAdmin && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Link href={`/admin/employees/create?id=${employee.id}`} className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <EditIcon size={14} />
+                <span>Edit Credentials</span>
+              </Link>
+              <button 
+                type="button" 
+                className="btn btn-danger btn-sm" 
+                onClick={handleDeleteEmployee} 
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              >
+                <DeleteIcon size={14} />
+                <span>Delete Employee</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Profile Card details */}
@@ -452,11 +463,12 @@ function EmployeeProfileContent() {
           
           {/* Card Left: Personal Info */}
           <div className="panel left-card">
-            {/* Clickable avatar – hover reveals camera overlay for in-place photo upload */}
+            {/* Clickable avatar – hover reveals camera overlay for in-place photo upload only if SuperAdmin */}
             <div
-              className="avatar-large-wrapper"
-              onClick={() => photoInputRef.current?.click()}
-              title="Click to change profile photo"
+              className={`avatar-large-wrapper ${isSuperAdmin ? 'editable' : ''}`}
+              onClick={() => isSuperAdmin && photoInputRef.current?.click()}
+              title={isSuperAdmin ? 'Click to change profile photo' : employee.name}
+              style={{ cursor: isSuperAdmin ? 'pointer' : 'default' }}
             >
               <div className="avatar-large">
                 {employeePhotos[employee.id] ? (
@@ -469,17 +481,21 @@ function EmployeeProfileContent() {
                   initials
                 )}
               </div>
-              <div className="avatar-camera-overlay">
-                <CameraIcon size={22} />
-                <span>Change Photo</span>
-              </div>
-              <input
-                ref={photoInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                style={{ display: 'none' }}
-                onChange={handleProfilePhotoChange}
-              />
+              {isSuperAdmin && (
+                <div className="avatar-camera-overlay">
+                  <CameraIcon size={22} />
+                  <span>Change Photo</span>
+                </div>
+              )}
+              {isSuperAdmin && (
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={handleProfilePhotoChange}
+                />
+              )}
             </div>
             <h2>{employee.name}</h2>
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
@@ -574,7 +590,7 @@ function EmployeeProfileContent() {
                     <TasksIcon size={20} style={{ color: 'var(--primary)' }} />
                     <span>Recent Assigned Project Tasks</span>
                   </h3>
-                  <Link href={`/tasks?tab=directory&assignee=${employee.id}`} className="btn btn-secondary btn-sm">
+                  <Link href="/projects" className="btn btn-secondary btn-sm">
                     View All
                   </Link>
                 </div>
@@ -582,18 +598,26 @@ function EmployeeProfileContent() {
                   {empTasks.length === 0 ? (
                     <p className="no-tasks-text">No tasks assigned to this employee.</p>
                   ) : (
-                    empTasks.map(t => (
-                      <div className="task-row-item" key={t.id}>
-                        <div className="left-info">
-                          <strong>{t.title}</strong>
-                          <span className="due-date">Due: {t.dueDate}</span>
+                    empTasks.map(t => {
+                      const taskProjectId = t.project_id || t.project || t.projectId;
+                      return (
+                        <div className="task-row-item" key={t.id}>
+                          <div className="left-info">
+                            <Link
+                              href={taskProjectId ? `/projects/${taskProjectId}/tasks` : '/projects'}
+                              style={{ textDecoration: 'none', color: 'inherit' }}
+                            >
+                              <strong>{t.title}</strong>
+                            </Link>
+                            <span className="due-date">Due: {t.dueDate}</span>
+                          </div>
+                          <span className={`badge ${
+                            t.status === 'Completed' ? 'badge-success' :
+                            t.status === 'In Progress' ? 'badge-info' : 'badge-pending'
+                          }`}>{t.status}</span>
                         </div>
-                        <span className={`badge ${
-                          t.status === 'Completed' ? 'badge-success' :
-                          t.status === 'In Progress' ? 'badge-info' : 'badge-pending'
-                        }`}>{t.status}</span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
