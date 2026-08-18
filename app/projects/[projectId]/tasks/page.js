@@ -41,13 +41,18 @@ export default function ProjectTasksPage() {
 
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState(filterQuery);
+  const [filter, setFilter] = useState(filterQuery === 'my' ? 'all' : filterQuery);
   const [search, setSearch] = useState('');
-  const [myTasksOnly, setMyTasksOnly] = useState(false);
+  const [myTasksOnly, setMyTasksOnly] = useState(filterQuery === 'my');
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setFilter(filterQuery);
+    if (filterQuery === 'my') {
+      setMyTasksOnly(true);
+      setFilter('all');
+    } else {
+      setFilter(filterQuery);
+    }
   }, [filterQuery]);
 
   const fetchProjectTasks = useCallback(async () => {

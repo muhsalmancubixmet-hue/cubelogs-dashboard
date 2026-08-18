@@ -27,11 +27,22 @@ function AuditLogsContent() {
   // Pagination
   const [visibleCount, setVisibleCount] = useState(25);
 
+  const unpackList = (res) => (
+    Array.isArray(res)
+      ? res
+      : Array.isArray(res?.results)
+        ? res.results
+        : Array.isArray(res?.data)
+          ? res.data
+          : []
+  );
+
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const data = await apiFetch('/employees/');
-        setEmployees(data.map(emp => ({ ...emp, id: String(emp.id) })));
+        const list = unpackList(data);
+        setEmployees(list.map(emp => ({ ...emp, id: String(emp.id) })));
       } catch (err) {
         console.error('Failed to load employees for audit logs:', err);
       }
@@ -51,7 +62,7 @@ function AuditLogsContent() {
       
       const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
       const data = await apiFetch(`/audit-logs/${queryString}`);
-      setLogs(data || []);
+      setLogs(unpackList(data));
     } catch (e) {
       console.error(e);
       setErrorMsg(e.message || 'Failed to fetch audit logs.');

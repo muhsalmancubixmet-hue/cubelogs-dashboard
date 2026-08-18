@@ -63,6 +63,10 @@ export default function TeamMemberProjectDashboard({
   const completedTasks = myTasks.filter(t => t.status === 'Completed' || t.status_detail?.category === 'completed');
   const overdueTasks = myTasks.filter(t => t.dueDate && t.dueDate < todayStr && t.status !== 'Completed' && t.status_detail?.category !== 'completed');
 
+  const myTasksHref = myProjects.length === 1
+    ? `/projects/${myProjects[0].id}/tasks?filter=my`
+    : '/projects';
+
   const handleModalSubmit = async (e) => {
     e.preventDefault();
     if (!loggingTask) return;
@@ -88,7 +92,7 @@ export default function TeamMemberProjectDashboard({
         padding: '24px 28px',
         boxShadow: '0 4px 16px -2px rgba(15, 23, 42, 0.04)',
         display: 'flex',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: 16
@@ -102,7 +106,7 @@ export default function TeamMemberProjectDashboard({
             border: '1px solid #bfdbfe',
             display: 'flex',
             alignItems: 'center',
-            justify: 'center',
+            justifyContent: 'center',
             color: '#2563eb',
             flexShrink: 0
           }}>
@@ -124,7 +128,7 @@ export default function TeamMemberProjectDashboard({
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href="/tasks" style={{ textDecoration: 'none', background: '#2563eb', color: '#fff', padding: '9px 18px', borderRadius: 8, fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Link href={myTasksHref} style={{ textDecoration: 'none', background: '#2563eb', color: '#fff', padding: '9px 18px', borderRadius: 8, fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             My Tasks Portal →
           </Link>
           <Link href="/projects" style={{ textDecoration: 'none', background: '#f8fafc', color: '#334155', padding: '9px 16px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: '1px solid #cbd5e1' }}>
@@ -170,7 +174,7 @@ export default function TeamMemberProjectDashboard({
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
               Today's Execution Tasks ({pendingTasks.length})
             </h3>
-            <Link href="/tasks" style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', textDecoration: 'none' }}>
+            <Link href={myTasksHref} style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', textDecoration: 'none' }}>
               View All Tasks →
             </Link>
           </div>
@@ -188,6 +192,7 @@ export default function TeamMemberProjectDashboard({
               {myTasks.slice(0, 5).map((t) => {
                 const priorityColor = t.priority === 'Critical' ? '#dc2626' : t.priority === 'High' ? '#ea580c' : '#475569';
                 const isTaskCompleted = t.status === 'Completed' || t.status_detail?.category === 'completed';
+                const taskProjectId = t.project_id || t.project || t.projectId;
                 return (
                   <div
                     key={t.id}
@@ -202,14 +207,17 @@ export default function TeamMemberProjectDashboard({
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <div>
+                      <Link
+                        href={taskProjectId ? `/projects/${taskProjectId}/tasks?filter=my` : myTasksHref}
+                        style={{ textDecoration: 'none', color: 'inherit' }}
+                      >
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: 4, marginRight: 6 }}>
                           {t.task_key || `TASK-${t.id}`}
                         </span>
                         <strong style={{ fontSize: 13, color: isTaskCompleted ? '#64748b' : '#0f172a', textDecoration: isTaskCompleted ? 'line-through' : 'none' }}>
                           {t.title}
                         </strong>
-                      </div>
+                      </Link>
                       <span style={{ fontSize: 10, fontWeight: 700, color: priorityColor, border: `1px solid ${priorityColor}`, padding: '1px 6px', borderRadius: 4, textTransform: 'uppercase' }}>
                         {t.priority || 'Medium'}
                       </span>
@@ -295,7 +303,7 @@ export default function TeamMemberProjectDashboard({
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
             <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Quick Shortcuts</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Link href="/tasks" style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link href={myTasksHref} style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TasksIcon size={16} style={{ color: '#2563eb' }} /> My Tasks
               </Link>
               <Link href="/projects" style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>

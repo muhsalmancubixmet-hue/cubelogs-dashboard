@@ -121,13 +121,18 @@ function SettingsHubContent() {
 
   const fetchSettingsData = async () => {
     try {
-      const [templatesData, locationsData] = await Promise.all([
-        apiFetch('/templates/'),
+      const [rolesData, locationsData] = await Promise.all([
+        apiFetch('/roles/'),
         apiFetch('/locations/')
       ]);
-      const templatesList = Array.isArray(templatesData) ? templatesData : (templatesData?.results || []);
+      const rolesList = Array.isArray(rolesData) ? rolesData : (rolesData?.results || []);
       const locationsList = Array.isArray(locationsData) ? locationsData : (locationsData?.results || []);
-      setTemplates(templatesList.map(t => ({ ...t, id: String(t.id) })));
+      setTemplates(rolesList.map(r => ({
+        ...r,
+        id: String(r.id),
+        name: r.name,
+        permissions: Array.isArray(r.permissions) ? r.permissions : (r.permission_keys || [])
+      })));
       setOfficeLocations(locationsList.map(loc => ({ ...loc, id: String(loc.id) })));
     } catch (err) {
       console.error('Failed to load settings dependency data:', err);
@@ -141,32 +146,47 @@ function SettingsHubContent() {
   const saveTemplate = async (template) => {
     try {
       let saved;
+      const rolePayload = {
+        name: template.name,
+        label: template.name,
+        permission_keys: template.permissions
+      };
       if (template.id) {
-        saved = await apiFetch(`/templates/${template.id}/`, {
-          method: 'PUT',
-          body: JSON.stringify(template),
+        saved = await apiFetch(`/roles/${template.id}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(rolePayload),
         });
-        setTemplates(prev => prev.map(t => t.id === template.id ? { ...saved, id: String(saved.id) } : t));
+        setTemplates(prev => prev.map(t => t.id === String(template.id) ? {
+          ...saved,
+          id: String(saved.id),
+          name: saved.name,
+          permissions: Array.isArray(saved.permissions) ? saved.permissions : (saved.permission_keys || template.permissions)
+        } : t));
       } else {
-        saved = await apiFetch('/templates/', {
+        saved = await apiFetch('/roles/', {
           method: 'POST',
-          body: JSON.stringify(template),
+          body: JSON.stringify(rolePayload),
         });
-        setTemplates(prev => [...prev, { ...saved, id: String(saved.id) }]);
+        setTemplates(prev => [...prev, {
+          ...saved,
+          id: String(saved.id),
+          name: saved.name,
+          permissions: Array.isArray(saved.permissions) ? saved.permissions : (saved.permission_keys || template.permissions)
+        }]);
       }
     } catch (e) {
-      console.error('Error saving template:', e);
-      showAlert('Error occurred while saving template.', 'Error', 'error');
+      console.error('Error saving role:', e);
+      showAlert(e.message || 'Error occurred while saving role.', 'Error', 'error');
     }
   };
 
   const deleteTemplate = async (id) => {
     try {
-      await apiFetch(`/templates/${id}/`, { method: 'DELETE' });
-      setTemplates(prev => prev.filter(t => t.id !== id));
+      await apiFetch(`/roles/${id}/`, { method: 'DELETE' });
+      setTemplates(prev => prev.filter(t => t.id !== String(id)));
     } catch (e) {
-      console.error('Error deleting template:', e);
-      showAlert('Error occurred while deleting template.', 'Error', 'error');
+      console.error('Error deleting role:', e);
+      showAlert(e.message || 'Error occurred while deleting role.', 'Error', 'error');
     }
   };
 
