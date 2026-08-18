@@ -100,8 +100,20 @@ function EmployeeCreateContent() {
         apiFetch('/templates/'),
       ]);
       
-      const mappedEmployees = employeesData.map(emp => ({ ...emp, id: String(emp.id) }));
-      const mappedTemplates = templatesData.map(t => ({ ...t, id: String(t.id) }));
+      const employeesList = Array.isArray(employeesData)
+        ? employeesData
+        : (employeesData && Array.isArray(employeesData.results))
+        ? employeesData.results
+        : [];
+
+      const templatesList = Array.isArray(templatesData)
+        ? templatesData
+        : (templatesData && Array.isArray(templatesData.results))
+        ? templatesData.results
+        : [];
+
+      const mappedEmployees = employeesList.map(emp => ({ ...emp, id: String(emp.id) }));
+      const mappedTemplates = templatesList.map(t => ({ ...t, id: String(t.id) }));
 
       const photoMap = {};
       mappedEmployees.forEach(emp => {

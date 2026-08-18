@@ -405,6 +405,7 @@ export function AppProvider({ children }) {
   const [companyName, setCompanyName] = useState('');
   const [subscriptionDays, setSubscriptionDays] = useState(12);
   const [authStatus, setAuthStatus] = useState('loading');
+  const [orgProfileStatus, setOrgProfileStatus] = useState('idle');
   const isInitialized = authStatus !== 'loading';
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [permissionsRegistry, setPermissionsRegistry] = useState(null);
@@ -420,7 +421,11 @@ export function AppProvider({ children }) {
   }, []);
 
   const fetchInitialData = useCallback(async (userObj) => {
-    if (!userObj) return;
+    if (!userObj) {
+      setOrgProfileStatus('idle');
+      return;
+    }
+    setOrgProfileStatus('loading');
     try {
       const orgId = userObj.organization;
       const orgQuery = orgId ? `?organization=${orgId}` : '';
@@ -440,16 +445,21 @@ export function AppProvider({ children }) {
       }
 
       if (settingsData && typeof settingsData === 'object') {
-        setBrandLogo(settingsData.brandLogo);
+        setBrandLogo(settingsData.brandLogo || null);
         setCompanyName(settingsData.companyName || '');
-        setSubscriptionDays(settingsData.subscriptionDays);
+        if (settingsData.subscriptionDays !== undefined) {
+          setSubscriptionDays(settingsData.subscriptionDays);
+        }
       }
 
       if (permissionsConfigData) {
         setPermissionsRegistry(permissionsConfigData);
       }
+
+      setOrgProfileStatus('loaded');
     } catch (e) {
       console.warn('Failed to fetch platform records:', e);
+      setOrgProfileStatus('error');
     }
   }, []);
 
@@ -458,6 +468,7 @@ export function AppProvider({ children }) {
     if (!hasToken) {
       setCurrentUser(null);
       setAuthStatus('unauthenticated');
+      setOrgProfileStatus('idle');
       return;
     }
 
@@ -481,6 +492,7 @@ export function AppProvider({ children }) {
         clearTokens();
         setCurrentUser(null);
         setAuthStatus('unauthenticated');
+        setOrgProfileStatus('idle');
       }
     } catch (e) {
       if (e && e.status === 401) {
@@ -490,6 +502,7 @@ export function AppProvider({ children }) {
           localStorage.removeItem('cubelogs_active_user');
         }
         setAuthStatus('unauthenticated');
+        setOrgProfileStatus('idle');
       } else {
         console.warn('Background user refresh skipped due to temporary network/server error:', e);
       }
@@ -508,6 +521,7 @@ export function AppProvider({ children }) {
           localStorage.removeItem('cubelogs_active_user');
         }
         setAuthStatus('unauthenticated');
+        setOrgProfileStatus('idle');
         return;
       }
 
@@ -525,6 +539,7 @@ export function AppProvider({ children }) {
         } else {
           clearTokens();
           setAuthStatus('unauthenticated');
+          setOrgProfileStatus('idle');
         }
       } catch (e) {
         if (cancelled) return;
@@ -538,12 +553,14 @@ export function AppProvider({ children }) {
           }
 
           setAuthStatus('unauthenticated');
+          setOrgProfileStatus('idle');
           return;
         }
 
         // Temporary server/network error:
         // don't destroy valid login tokens immediately
         setAuthStatus('unauthenticated');
+        setOrgProfileStatus('idle');
       }
     };
 
@@ -636,6 +653,7 @@ export function AppProvider({ children }) {
   const logout = useCallback(async () => {
     setCurrentUser(null);
     setAuthStatus('unauthenticated');
+    setOrgProfileStatus('idle');
 
     if (typeof window !== 'undefined') {
       try {
@@ -765,6 +783,7 @@ export function AppProvider({ children }) {
       await saveOfficeLocations([
         { name: companyName, lat, lon, radius: 100.0, isPrimary: true }
       ]);
+      setOrgProfileStatus('loaded');
     } catch (e) {
       console.error('Error completing onboarding:', e);
       throw e;
@@ -805,6 +824,8 @@ export function AppProvider({ children }) {
     currentUser,
     isInitialized,
     authStatus,
+    orgProfileStatus,
+    fetchInitialData,
     refreshUser,
     login,
     magicLogin,
@@ -837,6 +858,8 @@ export function AppProvider({ children }) {
     currentUser,
     isInitialized,
     authStatus,
+    orgProfileStatus,
+    fetchInitialData,
     refreshUser,
     login,
     magicLogin,
