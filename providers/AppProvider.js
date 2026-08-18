@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch, apiLogout } from '../lib/api/apiClient';
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../lib/api/tokenStorage';
 import { authService, organizationService, normalizePermissionRegistry } from '../lib/services/apiService';
 import CustomAlertModal from '../components/CustomAlertModal';
 
@@ -453,6 +454,13 @@ export function AppProvider({ children }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    const hasToken = getAccessToken() || getRefreshToken();
+    if (!hasToken) {
+      setCurrentUser(null);
+      setAuthStatus('unauthenticated');
+      return;
+    }
+
     try {
       const user = await authService.fetchMe();
       if (user && user.id) {
@@ -470,20 +478,39 @@ export function AppProvider({ children }) {
         }
         setAuthStatus('authenticated');
       } else {
+        clearTokens();
         setCurrentUser(null);
         setAuthStatus('unauthenticated');
       }
     } catch (e) {
-      setCurrentUser(null);
-      setAuthStatus('unauthenticated');
+      if (e && e.status === 401) {
+        clearTokens();
+        setCurrentUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cubelogs_active_user');
+        }
+        setAuthStatus('unauthenticated');
+      } else {
+        console.warn('Background user refresh skipped due to temporary network/server error:', e);
+      }
     }
   }, []);
 
-  // Initialize session on mount - relies on HttpOnly sessionid cookie
+  // Initialize session on mount - checks stored JWT tokens
   useEffect(() => {
     let cancelled = false;
 
     const initSession = async () => {
+      const hasToken = getAccessToken() || getRefreshToken();
+      if (!hasToken) {
+        setCurrentUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cubelogs_active_user');
+        }
+        setAuthStatus('unauthenticated');
+        return;
+      }
+
       try {
         const user = await authService.fetchMe();
         if (cancelled) return;
@@ -496,14 +523,26 @@ export function AppProvider({ children }) {
           await fetchInitialData(mappedUser);
           setAuthStatus('authenticated');
         } else {
+          clearTokens();
           setAuthStatus('unauthenticated');
         }
       } catch (e) {
         if (cancelled) return;
-        setCurrentUser(null);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('cubelogs_active_user');
+
+        if (e.status === 401) {
+          clearTokens();
+          setCurrentUser(null);
+
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('cubelogs_active_user');
+          }
+
+          setAuthStatus('unauthenticated');
+          return;
         }
+
+        // Temporary server/network error:
+        // don't destroy valid login tokens immediately
         setAuthStatus('unauthenticated');
       }
     };
@@ -549,9 +588,12 @@ export function AppProvider({ children }) {
   const login = useCallback(async (email, password) => {
     try {
       const data = await authService.login(email, password);
-      const { user } = data || {};
+      const { user, access, refresh } = data || {};
       if (!user) {
         throw new Error(data?.error || data?.detail || 'Invalid email or password.');
+      }
+      if (access || refresh) {
+        setTokens(access, refresh);
       }
       const mappedUser = mapEmployee(user);
       if (typeof window !== 'undefined') {
@@ -570,9 +612,12 @@ export function AppProvider({ children }) {
   const magicLogin = useCallback(async (token) => {
     try {
       const data = await authService.magicLogin(token);
-      const { user } = data || {};
+      const { user, access, refresh } = data || {};
       if (!user) {
         throw new Error(data?.error || data?.detail || 'Invalid or expired magic link.');
+      }
+      if (access || refresh) {
+        setTokens(access, refresh);
       }
       const mappedUser = mapEmployee(user);
       if (typeof window !== 'undefined') {
@@ -591,13 +636,17 @@ export function AppProvider({ children }) {
   const logout = useCallback(async () => {
     setCurrentUser(null);
     setAuthStatus('unauthenticated');
+
     if (typeof window !== 'undefined') {
       try {
         await apiLogout();
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        // ignore
+      }
+
       localStorage.removeItem('cubelogs_active_user');
     }
-  }, []);
+}, []);
 
   const requestPasswordReset = useCallback(async (email) => {
     try {
