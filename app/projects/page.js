@@ -300,9 +300,7 @@ export default function ProjectsPage() {
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showMembersModal, setShowMembersModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState(null);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
@@ -414,12 +412,6 @@ export default function ProjectsPage() {
       end_date: p.end_date || '',
     });
     setShowEditModal(true);
-  };
-
-  const openMembersModal = async (p, e) => {
-    e.stopPropagation();
-    setSelectedProject(p);
-    setShowMembersModal(true);
   };
 
   const handleDeleteProjectClick = (p, e) => {
@@ -767,7 +759,10 @@ export default function ProjectsPage() {
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         {canManageMembers && (
                           <ProjectActionButton
-                            onClick={(e) => openMembersModal(p, e)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/projects/${p.id}/team`);
+                            }}
                             title="Manage Members"
                           >
                             <EmployeesIcon size={14} />

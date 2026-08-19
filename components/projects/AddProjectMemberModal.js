@@ -339,6 +339,7 @@ export default function AddProjectMemberModal({ projectId, onClose, onMemberAdde
             <button
               type="submit"
               disabled={submitting || selectedUserIds.length === 0}
+              className="btn btn-primary btn-white-text"
               style={{
                 padding: '9px 20px', borderRadius: 8, border: 'none',
                 background: submitting || selectedUserIds.length === 0 ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
