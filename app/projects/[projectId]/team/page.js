@@ -181,6 +181,7 @@ export default function ProjectTeamPage() {
 
           <button
             onClick={() => setShowAddMemberModal(true)}
+            className="btn btn-primary btn-white-text"
             style={{
               padding: '9px 18px', borderRadius: 8, border: 'none',
               background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', color: '#ffffff',
