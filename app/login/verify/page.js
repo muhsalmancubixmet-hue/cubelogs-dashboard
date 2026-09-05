@@ -13,8 +13,13 @@ function VerifyMagicLinkContent() {
   const [error, setError] = useState(null);
   const [readyToRedirect, setReadyToRedirect] = useState(false);
 
+  const verificationAttempted = useRef(false);
+
   // Step 1: Run magic login once
   useEffect(() => {
+    if (verificationAttempted.current) return;
+    verificationAttempted.current = true;
+
     const token = searchParams.get('token');
     if (!token) {
       setError('Invalid link. No token provided.');

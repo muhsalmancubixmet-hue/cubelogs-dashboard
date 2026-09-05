@@ -1,11 +1,13 @@
 'use client';
 
-import React, { Suspense, useState, useRef, useEffect } from 'react';
+import React, { Suspense, useState, useRef, useEffect, useMemo } from 'react';
 import { useApp, PERMISSION_FLAGS } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { API_BASE_URL, apiFetch } from '@/lib/api';
+import SalaryCompensationTab from '@/components/SalaryCompensationTab';
+import AttendanceCalendar from '@/components/modules/attendance/AttendanceCalendar';
 import { 
   EmployeesIcon, 
   BackIcon, 
@@ -22,7 +24,9 @@ import {
   WarningIcon,
   SearchIcon,
   CloseIcon,
-  CameraIcon
+  CameraIcon,
+  CalendarIcon,
+  AuditIcon
 } from '@/components/Icons';
 
 function EmployeeProfileContent() {
@@ -31,6 +35,9 @@ function EmployeeProfileContent() {
   const empId = searchParams.get('id') || '';
 
   const { currentUser, authStatus } = useApp();
+
+  // View mode state: 'calendar' (default) | 'list'
+  const [attendanceViewMode, setAttendanceViewMode] = useState('calendar');
 
   // Local states
   const [employee, setEmployee] = useState(null);
@@ -72,7 +79,7 @@ function EmployeeProfileContent() {
 
       // 2. Supporting list data with error isolation
       const [tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
-        apiFetch('/tasks/').catch(() => []),
+        apiFetch('/project-tasks/').catch(() => []),
         apiFetch('/leaves/').catch(() => []),
         apiFetch('/attendance/').catch(() => []),
         apiFetch('/holidays/').catch(() => []),
@@ -137,6 +144,9 @@ function EmployeeProfileContent() {
     if (currentUser.isSuperAdmin) return true;
     return currentUser.permissions && currentUser.permissions.includes(permission);
   };
+
+  const canViewSalary = currentUser?.isSuperAdmin || hasPermission('salary:view') || hasPermission('salary:manage') || (currentUser?.id && String(currentUser.id) === String(employee?.id));
+  const canManageSalary = currentUser?.isSuperAdmin || hasPermission('salary:manage');
 
   const localSaveEmployee = async (updatedData) => {
     setLoading(true);
@@ -264,6 +274,30 @@ function EmployeeProfileContent() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [filterType, setFilterType] = useState('All'); // 'All', 'Present', 'Leave', 'Late', 'Absent'
   const [filterSearch, setFilterSearch] = useState('');
+
+  // Centralized backend monthly attendance summaries
+  const [monthlySummaries, setMonthlySummaries] = useState([]);
+  const [loadingSummaries, setLoadingSummaries] = useState(false);
+
+  useEffect(() => {
+    if (!employee?.id) return;
+    const fetchMonthly = async () => {
+      setLoadingSummaries(true);
+      try {
+        const yearStr = filterYear;
+        const monthStr = String(filterMonth + 1).padStart(2, '0');
+        const data = await apiFetch(`/attendance/daily-summary/?employee_id=${employee.id}&month=${yearStr}-${monthStr}`);
+        if (Array.isArray(data)) {
+          setMonthlySummaries(data);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch monthly attendance summaries:', err);
+      } finally {
+        setLoadingSummaries(false);
+      }
+    };
+    fetchMonthly();
+  }, [employee?.id, filterMonth, filterYear]);
 
   if (loading) {
     return (
@@ -397,19 +431,68 @@ function EmployeeProfileContent() {
     return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
-  const formatDurationStr = (secs) => {
-    if (!secs) return '—';
-    const hrs = Math.floor(secs / 3600);
-    const mins = Math.floor((secs % 3600) / 60);
+  const formatDurationStr = (logOrSecs, clockIn, clockOut) => {
+    let seconds = null;
+    if (typeof logOrSecs === 'number' && !isNaN(logOrSecs) && logOrSecs > 0) {
+      seconds = logOrSecs;
+    } else if (typeof logOrSecs === 'object' && logOrSecs !== null) {
+      const log = logOrSecs;
+      if (typeof log.totalDuration === 'number' && !isNaN(log.totalDuration) && log.totalDuration > 0) {
+        seconds = log.totalDuration;
+      } else if (typeof log.worked_minutes === 'number' && !isNaN(log.worked_minutes) && log.worked_minutes > 0) {
+        seconds = log.worked_minutes * 60;
+      } else if (typeof log.duration_minutes === 'number' && !isNaN(log.duration_minutes) && log.duration_minutes > 0) {
+        seconds = log.duration_minutes * 60;
+      } else if (log.clockIn && log.clockOut) {
+        const inTime = new Date(log.clockIn).getTime();
+        const outTime = new Date(log.clockOut).getTime();
+        if (!isNaN(inTime) && !isNaN(outTime) && outTime > inTime) {
+          seconds = (outTime - inTime) / 1000;
+        }
+      }
+    } else if (typeof logOrSecs === 'string') {
+      const parsedNum = Number(logOrSecs);
+      if (!isNaN(parsedNum) && parsedNum > 0) {
+        seconds = parsedNum;
+      }
+    }
+
+    if ((seconds === null || isNaN(seconds) || seconds <= 0) && clockIn && clockOut) {
+      const inTime = new Date(clockIn).getTime();
+      const outTime = new Date(clockOut).getTime();
+      if (!isNaN(inTime) && !isNaN(outTime) && outTime > inTime) {
+        seconds = (outTime - inTime) / 1000;
+      }
+    }
+
+    if (seconds === null || isNaN(seconds) || seconds <= 0) {
+      return '—';
+    }
+
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     return `${hrs}h ${mins}m`;
   };
 
-  // Recent logs sliced to 15
-  const recentLogs = [...empLogs]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 15);
+  // Full selected month logs (sorted newest first)
+  const logs = Array.isArray(empLogs) ? empLogs : [];
+  const validYear = Number(filterYear) || new Date().getFullYear();
+  const validMonth = typeof filterMonth === 'number' && !isNaN(filterMonth) ? filterMonth : new Date().getMonth();
+  const selectedMonthPrefix = `${validYear}-${String(validMonth + 1).padStart(2, '0')}`;
 
-  // Generate 30 days of selected month calendar days
+  const filteredMonthLogs = logs.filter(log => {
+    if (!log || typeof log.date !== 'string') return false;
+    if (log.date.startsWith(selectedMonthPrefix)) return true;
+    const d = new Date(log.date);
+    return !isNaN(d.getTime()) && d.getFullYear() === validYear && d.getMonth() === validMonth;
+  });
+
+  const monthLogsToUse = filteredMonthLogs.length > 0 ? filteredMonthLogs : logs;
+  const monthLogs = monthLogsToUse
+    .slice()
+    .sort((a, b) => String(b?.date || '').localeCompare(String(a?.date || '')));
+
+  // Generate days of selected month calendar days
   const calendarDays = [];
   const daysInMonthCount = new Date(filterYear, filterMonth + 1, 0).getDate();
   for (let i = 0; i < daysInMonthCount; i++) {
@@ -421,17 +504,20 @@ function EmployeeProfileContent() {
     const dateKey = `${yearStr}-${monthStr}-${dayStr}`;
     const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
     
-    const log = empLogs.find(l => l.date === dateKey);
+    const summary = monthlySummaries.find(s => s.date === dateKey);
+    const dayLogs = empLogs.filter(l => l.date === dateKey);
     const leave = empLeaves.find(l => dateKey >= l.startDate && dateKey <= l.endDate);
     const holiday = holidays.find(h => h.date === dateKey);
-    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+    const isWeekend = summary ? summary.is_weekly_off : (dateObj.getDay() === 0 || dateObj.getDay() === 6);
 
     calendarDays.push({
       dayNum,
       dateKey,
       weekday,
       dateObj,
-      log,
+      summary,
+      dayLogs,
+      log: dayLogs[0] || null,
       leave,
       holiday,
       isWeekend
@@ -440,31 +526,32 @@ function EmployeeProfileContent() {
 
   // Filtered calendar days for modal table
   const filteredDays = calendarDays.filter(day => {
-    if (filterType === 'Present' && !day.log) return false;
-    if (filterType === 'Leave' && !day.leave) return false;
-    if (filterType === 'Late' && (!day.log || !isLate(day.log.clockIn))) return false;
-    if (filterType === 'Absent') {
-      if (day.log || day.leave || day.isWeekend || day.holiday) return false;
-    }
+    const st = day.summary?.daily_status;
+    if (filterType === 'Present' && st !== 'Present' && st !== 'Half Day') return false;
+    if (filterType === 'Leave' && st !== 'Leave' && (!day.summary || day.summary.leave_fraction === 0)) return false;
+    if (filterType === 'Late' && !day.summary?.is_late) return false;
+    if (filterType === 'Absent' && st !== 'Absent') return false;
 
     if (filterSearch) {
       const query = filterSearch.toLowerCase();
       const matchDate = day.dateKey.includes(query) || day.weekday.toLowerCase().includes(query);
-      const matchLeave = day.leave ? (day.leave.leaveType.toLowerCase().includes(query) || day.leave.reason.toLowerCase().includes(query)) : false;
-      const matchHoliday = day.holiday ? day.holiday.name.toLowerCase().includes(query) : false;
-      const matchPunch = day.log ? (formatTimeStr(day.log.clockIn).toLowerCase().includes(query) || (day.log.clockOut ? formatTimeStr(day.log.clockOut).toLowerCase().includes(query) : 'active'.includes(query))) : false;
+      const matchStatus = st ? st.toLowerCase().includes(query) : false;
+      const matchLeave = day.summary?.leave_type ? day.summary.leave_type.toLowerCase().includes(query) : false;
+      const matchHoliday = day.summary?.holiday_name ? day.summary.holiday_name.toLowerCase().includes(query) : false;
       
-      return matchDate || matchLeave || matchHoliday || matchPunch;
+      return matchDate || matchStatus || matchLeave || matchHoliday;
     }
 
     return true;
   });
 
-  // Calculate monthly ledger metrics
-  const presentCount = calendarDays.filter(d => d.log).length;
-  const leaveCount = calendarDays.filter(d => d.leave).length;
-  const lateCount = calendarDays.filter(d => d.log && isLate(d.log.clockIn)).length;
-  const absentCount = calendarDays.filter(d => !d.log && !d.leave && !d.isWeekend && !d.holiday).length;
+  // Calculate monthly ledger metrics directly from backend summaries
+  const presentCount = monthlySummaries.filter(s => s.daily_status === 'Present').length;
+  const halfDayCount = monthlySummaries.filter(s => s.daily_status === 'Half Day').length;
+  const leaveCount = monthlySummaries.filter(s => s.daily_status === 'Leave' || s.leave_fraction > 0).length;
+  const lateCount = monthlySummaries.filter(s => s.is_late).length;
+  const absentCount = monthlySummaries.filter(s => s.daily_status === 'Absent').length;
+  const needsReviewCount = monthlySummaries.filter(s => !s.is_payroll_ready).length;
 
   const isSuperAdmin = Boolean(currentUser?.isSuperAdmin);
 
@@ -678,107 +765,222 @@ function EmployeeProfileContent() {
 
         </div>
 
-        {/* Daily Clock-In and Clock-Out Details Container */}
+        {/* Salary & Compensation Management Section */}
+        {canViewSalary && (
+          <SalaryCompensationTab 
+            employeeId={employee?.id} 
+            employeeName={displayName} 
+            canManage={canManageSalary} 
+          />
+        )}
+
+        {/* Attendance History Container with Segmented View Control */}
         <div className="panel daily-logs-container" style={{ marginTop: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
-              <span>Daily Clock-In & Clock-Out Logs (Last 15 Records)</span>
-            </h3>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Search date or time..."
-                value={recentLogsSearchQuery}
-                onChange={(e) => setRecentLogsSearchQuery(e.target.value)}
-                style={{ width: '200px', padding: '6px 12px', fontSize: '0.85rem' }}
-              />
-              <button 
-                type="button" 
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowMonthlyModal(true)}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
+                <span>Attendance History</span>
+              </h3>
+
+              {/* Segmented Control Toggle Buttons */}
+              <div
+                className="view-segmented-control"
+                role="tablist"
+                aria-label="Attendance view mode"
+                style={{
+                  display: 'inline-flex',
+                  padding: '3px',
+                  background: 'var(--bg-app)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  gap: '4px'
+                }}
               >
-                View All
-              </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={attendanceViewMode === 'calendar'}
+                  data-active-blue={attendanceViewMode === 'calendar' ? 'true' : undefined}
+                  className={`btn btn-sm ${attendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
+                  onClick={() => setAttendanceViewMode('calendar')}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    borderRadius: 'var(--radius-sm)',
+                    background: attendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
+                    color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
+                    border: attendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <CalendarIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
+                  <span style={{ color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
+                </button>
+
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={attendanceViewMode === 'list'}
+                  data-active-blue={attendanceViewMode === 'list' ? 'true' : undefined}
+                  className={`btn btn-sm ${attendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
+                  onClick={() => setAttendanceViewMode('list')}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    borderRadius: 'var(--radius-sm)',
+                    background: attendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
+                    color: attendanceViewMode === 'list' ? '#ffffff' : '#334155',
+                    border: attendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <AuditIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
+                  <span style={{ color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
+                </button>
+              </div>
             </div>
+
+            {/* Right side controls */}
+            {attendanceViewMode === 'list' && (
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search date or time..."
+                  value={recentLogsSearchQuery}
+                  onChange={(e) => setRecentLogsSearchQuery(e.target.value)}
+                  style={{ width: '200px', padding: '6px 12px', fontSize: '0.85rem' }}
+                />
+                <button 
+                  type="button" 
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowMonthlyModal(true)}
+                >
+                  View All
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Clock-In Time</th>
-                  <th>Clock-Out Time</th>
-                  <th>Net Work Duration</th>
-                  <th>Compliance Status</th>
-                  {hasPermission('attendance:admin') && <th>Actions / Override</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
+          {/* CALENDAR VIEW */}
+          {attendanceViewMode === 'calendar' && (
+            <div style={{ marginTop: '12px' }}>
+              <AttendanceCalendar
+                employeeId={employee?.id}
+                employeeName={displayName}
+                year={filterYear}
+                month={filterMonth}
+                dailySummaries={monthlySummaries}
+                attendanceLogs={empLogs}
+                onMonthChange={(y, m) => {
+                  setFilterYear(y);
+                  setFilterMonth(m);
+                }}
+              />
+            </div>
+          )}
+
+          {/* LIST VIEW */}
+          {attendanceViewMode === 'list' && (
+            <div
+              className="table-container"
+              style={{
+                maxHeight: 'clamp(360px, 48vh, 480px)',
+                overflowY: 'auto',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                position: 'relative',
+                scrollbarWidth: 'thin'
+              }}
+            >
+              <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
                   <tr>
-                    <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
-                      No attendance logs recorded matching search.
-                    </td>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-In Time</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-Out Time</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Net Work Duration</th>
+                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Compliance Status</th>
+                    {hasPermission('attendance:admin') && (
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Actions / Override</th>
+                    )}
                   </tr>
-                ) : (
-                  recentLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
-                    const wasLate = isLate(log.clockIn);
-                    return (
-                      <tr key={log.id}>
-                        <td><strong>{log.date}</strong></td>
-                        <td>
-                          <span className="time-in" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
-                            ↓ {formatTimeStr(log.clockIn)}
-                          </span>
-                        </td>
-                        <td>
-                          {log.clockOut ? (
-                            <span className="time-out" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
-                              ↑ {formatTimeStr(log.clockOut)}
-                            </span>
-                          ) : (
-                            <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Active Shift</span>
-                          )}
-                        </td>
-                        <td>{log.clockOut ? formatDurationStr(log.totalDuration) : 'Ticking...'}</td>
-                        <td>
-                          {wasLate ? (
-                            <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <ClockIcon size={12} />
-                              <span>Late check-in</span>
-                            </span>
-                          ) : (
-                            <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <CheckIcon size={12} />
-                              <span>On-time</span>
-                            </span>
-                          )}
-                        </td>
-                        {hasPermission('attendance:admin') && (
+                </thead>
+                <tbody>
+                  {monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
+                    <tr>
+                      <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
+                        No attendance logs recorded matching search.
+                      </td>
+                    </tr>
+                  ) : (
+                    monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
+                      const wasLate = isLate(log.clockIn);
+                      return (
+                        <tr key={log.id}>
+                          <td><strong>{log.date}</strong></td>
                           <td>
-                            <button
-                              type="button"
-                              className="btn btn-secondary btn-sm"
-                              onClick={() => {
-                                setEditingLog(log);
-                                setEditClockIn(formatDateTimeLocal(log.clockIn));
-                                setEditClockOut(log.clockOut ? formatDateTimeLocal(log.clockOut) : '');
-                              }}
-                            >
-                              Edit / Override
-                            </button>
+                            <span className="time-in" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
+                              ↓ {formatTimeStr(log.clockIn)}
+                            </span>
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                          <td>
+                            {log.clockOut ? (
+                              <span className="time-out" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
+                                ↑ {formatTimeStr(log.clockOut)}
+                              </span>
+                            ) : (
+                              <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Active Shift</span>
+                            )}
+                          </td>
+                          <td>{log.clockOut ? formatDurationStr(log, log.clockIn, log.clockOut) : 'Ticking...'}</td>
+                          <td>
+                            {wasLate ? (
+                              <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <ClockIcon size={12} />
+                                <span>Late check-in</span>
+                              </span>
+                            ) : (
+                              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckIcon size={12} />
+                                <span>On-time</span>
+                              </span>
+                            )}
+                          </td>
+                          {hasPermission('attendance:admin') && (
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => {
+                                  setEditingLog(log);
+                                  setEditClockIn(formatDateTimeLocal(log.clockIn));
+                                  setEditClockOut(log.clockOut ? formatDateTimeLocal(log.clockOut) : '');
+                                }}
+                              >
+                                Edit / Override
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* EDIT / OVERRIDE PANEL FOR ADMINS */}
@@ -858,6 +1060,10 @@ function EmployeeProfileContent() {
                   <span className="val" style={{ color: 'var(--success)' }}>{presentCount}</span>
                 </div>
                 <div className="mini-metric-box">
+                  <span className="lbl">Half Days</span>
+                  <span className="val" style={{ color: '#3730a3' }}>{halfDayCount}</span>
+                </div>
+                <div className="mini-metric-box">
                   <span className="lbl">Leaves Taken</span>
                   <span className="val" style={{ color: 'var(--primary)' }}>{leaveCount}</span>
                 </div>
@@ -866,9 +1072,15 @@ function EmployeeProfileContent() {
                   <span className="val" style={{ color: 'var(--danger)' }}>{lateCount}</span>
                 </div>
                 <div className="mini-metric-box">
-                  <span className="lbl">Unexcused Absences</span>
+                  <span className="lbl">Absences</span>
                   <span className="val" style={{ color: '#b91c1c' }}>{absentCount}</span>
                 </div>
+                {needsReviewCount > 0 && (
+                  <div className="mini-metric-box" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
+                    <span className="lbl" style={{ color: '#b45309' }}>Needs Review</span>
+                    <span className="val" style={{ color: '#b45309' }}>{needsReviewCount}</span>
+                  </div>
+                )}
               </div>
 
               {/* Filters Row */}
@@ -957,10 +1169,10 @@ function EmployeeProfileContent() {
                   <thead>
                     <tr style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                       <th style={{ background: 'var(--primary-light)' }}>Date</th>
-                      <th style={{ background: 'var(--primary-light)' }}>Status</th>
+                      <th style={{ background: 'var(--primary-light)' }}>Daily Status</th>
                       <th style={{ background: 'var(--primary-light)' }}>Punch-In</th>
                       <th style={{ background: 'var(--primary-light)' }}>Punch-Out</th>
-                      <th style={{ background: 'var(--primary-light)' }}>Hours</th>
+                      <th style={{ background: 'var(--primary-light)' }}>Worked Hours</th>
                       <th style={{ background: 'var(--primary-light)' }}>Details / Leave Info</th>
                     </tr>
                   </thead>
@@ -973,39 +1185,64 @@ function EmployeeProfileContent() {
                       </tr>
                     ) : (
                       filteredDays.map(day => {
+                        const sum = day.summary;
                         let statusBadge = null;
                         let punchInCell = '—';
                         let punchOutCell = '—';
                         let hoursCell = '—';
                         let detailsCell = '';
 
-                        if (day.holiday) {
+                        const st = sum?.daily_status || (day.holiday ? 'Holiday' : (day.leave ? 'Leave' : (day.log ? 'Present' : (day.isWeekend ? 'Weekly Off' : 'Absent'))));
+
+                        if (st === 'Holiday') {
                           statusBadge = <span className="badge" style={{ backgroundColor: '#fef3c7', color: '#d97706', border: '1px solid #fde68a' }}>Holiday</span>;
-                          detailsCell = `Corporate Observance: ${day.holiday.name}`;
-                        } else if (day.leave) {
-                          const isApproved = day.leave.status === 'Approved';
-                          statusBadge = (
-                            <span className={`badge ${isApproved ? 'badge-success' : 'badge-pending'}`}>
-                              Leave ({day.leave.status})
-                            </span>
-                          );
-                          detailsCell = `${day.leave.leaveType}${day.leave.dayType ? ` (${day.leave.dayType})` : ''} - "${day.leave.reason}"`;
-                        } else if (day.log) {
-                          const wasLate = isLate(day.log.clockIn);
-                          statusBadge = wasLate ? (
-                            <span className="badge badge-danger">Late Check-In</span>
-                          ) : (
-                            <span className="badge badge-success">Present</span>
-                          );
-                          punchInCell = formatTimeStr(day.log.clockIn);
-                          punchOutCell = day.log.clockOut ? formatTimeStr(day.log.clockOut) : 'Active Shift';
-                          hoursCell = day.log.clockOut ? formatDurationStr(day.log.totalDuration) : 'Ticking...';
-                        } else if (day.isWeekend) {
-                          statusBadge = <span className="badge" style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>Weekend</span>;
+                          detailsCell = sum?.holiday_name ? `Holiday: ${sum.holiday_name}` : (day.holiday?.name ? `Holiday: ${day.holiday.name}` : 'Holiday');
+                        } else if (st === 'Leave') {
+                          statusBadge = <span className="badge badge-success">Leave ({sum?.leave_fraction === 0.5 ? '0.5' : '1.0'})</span>;
+                          detailsCell = sum?.leave_type || day.leave?.leaveType || 'Approved Leave';
+                        } else if (st === 'Half Day') {
+                          statusBadge = <span className="badge" style={{ backgroundColor: '#e0e7ff', color: '#3730a3', border: '1px solid #c7d2fe' }}>Half Day</span>;
+                          detailsCell = sum?.leave_type ? `Half Day Leave: ${sum.leave_type}` : 'Half Day Worked';
+                        } else if (st === 'Present') {
+                          statusBadge = <span className="badge badge-success">Present</span>;
+                        } else if (st === 'Weekly Off') {
+                          statusBadge = <span className="badge" style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #e2e8f0' }}>Weekly Off</span>;
                           detailsCell = 'Off Duty';
+                        } else if (st === 'In Progress') {
+                          statusBadge = <span className="badge" style={{ backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }}>In Progress</span>;
+                          detailsCell = 'Active shift';
+                        } else if (st === 'Incomplete') {
+                          statusBadge = <span className="badge badge-danger">Incomplete</span>;
+                          detailsCell = 'Missing Clock-Out (Needs Review)';
                         } else {
                           statusBadge = <span className="badge badge-danger" style={{ backgroundColor: '#fef2f2', color: '#dc2626', borderColor: '#fecaca' }}>Absent</span>;
                           detailsCell = 'No punch-in recorded';
+                        }
+
+                        if (sum) {
+                          if (sum.first_clock_in) punchInCell = formatTimeStr(sum.first_clock_in);
+                          if (sum.is_open_session) punchOutCell = 'Active Shift';
+                          else if (sum.last_clock_out) punchOutCell = formatTimeStr(sum.last_clock_out);
+
+                          if (sum.worked_minutes > 0) {
+                            hoursCell = sum.worked_minutes >= 60 
+                              ? `${(sum.worked_minutes / 60).toFixed(1)}h (${sum.worked_minutes}m)`
+                              : `${sum.worked_minutes}m`;
+                          } else if (sum.is_open_session) {
+                            hoursCell = 'Ticking...';
+                          }
+
+                          if (sum.has_conflict) {
+                            detailsCell = `⚠️ Conflict: Attendance on Full-Day Leave`;
+                          } else if (sum.requires_admin_resolution) {
+                            detailsCell = `⚠️ Requires Admin Resolution`;
+                          } else if (sum.has_pending_approval) {
+                            detailsCell = `⏳ Pending Manager Approval`;
+                          }
+                        } else if (day.log) {
+                          punchInCell = formatTimeStr(day.log.clockIn);
+                          punchOutCell = day.log.clockOut ? formatTimeStr(day.log.clockOut) : 'Active Shift';
+                          hoursCell = day.log.clockOut ? formatDurationStr(day.log.totalDuration) : 'Ticking...';
                         }
 
                         return (
@@ -1013,7 +1250,21 @@ function EmployeeProfileContent() {
                             backgroundColor: day.isWeekend ? '#fafafa' : 'transparent'
                           }}>
                             <td><strong>{day.dateKey}</strong> <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', fontWeight: 'normal' }}>({day.weekday})</span></td>
-                            <td>{statusBadge}</td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {statusBadge}
+                                {sum?.is_late && (
+                                  <span className="badge" style={{ backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontSize: '0.68rem', width: 'fit-content' }}>
+                                    +{sum.minutes_late}m late
+                                  </span>
+                                )}
+                                {sum && !sum.is_payroll_ready && (
+                                  <span className="badge" style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', fontSize: '0.68rem', width: 'fit-content' }}>
+                                    Needs Review
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td>{punchInCell}</td>
                             <td>{punchOutCell}</td>
                             <td>{hoursCell}</td>

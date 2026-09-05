@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { API_BASE_URL, apiFetch } from '@/lib/api';
+import { API_BASE_URL, apiFetch, normalizeListResponse } from '@/lib/api';
 import { 
   LeavesIcon, 
   TasksIcon, 
@@ -71,7 +70,8 @@ function LeavesContent() {
     setErrorMsg('');
     try {
       const leavesData = await apiFetch(`/leaves/?status=${statusFilter}&employee_id=${employeeFilter}`);
-      const mappedLeaves = leavesData.map(l => ({
+      const leavesList = normalizeListResponse(leavesData);
+      const mappedLeaves = leavesList.map(l => ({
         ...l,
         id: String(l.id),
         employeeId: String(l.employee),
@@ -96,8 +96,10 @@ function LeavesContent() {
           apiFetch('/leave-types/'),
           apiFetch('/employees/')
         ]);
-        setLeaveTypes(ltData.map(lt => ({ ...lt, id: String(lt.id) })));
-        setCachedEmployees(empData.map(emp => ({ ...emp, id: String(emp.id) })));
+        const leaveTypesList = normalizeListResponse(ltData);
+        const employeesList = normalizeListResponse(empData);
+        setLeaveTypes(leaveTypesList.map(lt => ({ ...lt, id: String(lt.id) })));
+        setCachedEmployees(employeesList.map(emp => ({ ...emp, id: String(emp.id) })));
       } catch (err) {
         console.error('Failed to load leaves dependencies:', err);
       }
@@ -456,12 +458,10 @@ function LeavesContent() {
 
   if (loading && !currentUser) {
     return (
-      <PageWrapper title="Leave Management Center" requiredPermission={['leaves:apply', 'leaves:approve', 'leaves:manage', 'attendance:staff']}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <span>Loading leave data...</span>
-        </div>
-      </PageWrapper>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <span>Loading leave data...</span>
+      </div>
     );
   }
 
@@ -473,7 +473,7 @@ function LeavesContent() {
   const canManageLeaves = hasPermission('leaves:manage');
 
   return (
-    <PageWrapper title="Leave Management Center" requiredPermission={['leaves:apply', 'leaves:approve', 'leaves:manage', 'attendance:staff']}>
+    <div className="leaves-content-wrapper">
       
       {/* TABS NAVIGATION BAR */}
       <div className="tab-navigation-bar">
@@ -1263,7 +1263,7 @@ function LeavesContent() {
           }
         }
       `}</style>
-    </PageWrapper>
+    </div>
   );
 }
 

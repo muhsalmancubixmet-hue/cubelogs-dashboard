@@ -94,6 +94,60 @@ export const PERMISSION_FLAGS = [
     icon: 'billing'
   },
 
+  // Salary & Compensation Management
+  {
+    id: 'salary:view',
+    label: 'View Salary Structures',
+    category: 'salary_management',
+    category_label: 'Salary & Compensation',
+    category_order: 6.5,
+    permission_order: 1,
+    description: 'View employee salary structures and component breakdowns.',
+    icon: 'billing'
+  },
+  {
+    id: 'salary:manage',
+    label: 'Manage Salaries & Components',
+    category: 'salary_management',
+    category_label: 'Salary & Compensation',
+    category_order: 6.5,
+    permission_order: 2,
+    description: 'Assign and revise employee salary structures and configure catalog components.',
+    icon: 'billing'
+  },
+
+  // Monthly Payroll Processing
+  {
+    id: 'payroll:view',
+    label: 'View Monthly Payroll',
+    category: 'payroll_processing',
+    category_label: 'Payroll Processing',
+    category_order: 6.8,
+    permission_order: 1,
+    description: 'View monthly payroll periods, calculation summaries, and employee ledgers.',
+    icon: 'billing'
+  },
+  {
+    id: 'payroll:process',
+    label: 'Calculate & Process Payroll',
+    category: 'payroll_processing',
+    category_label: 'Payroll Processing',
+    category_order: 6.8,
+    permission_order: 2,
+    description: 'Run monthly payroll calculations, recalculations, and manage manual adjustments.',
+    icon: 'billing'
+  },
+  {
+    id: 'payroll:manage',
+    label: 'Finalize & Reopen Payroll',
+    category: 'payroll_processing',
+    category_label: 'Payroll Processing',
+    category_order: 6.8,
+    permission_order: 3,
+    description: 'Finalize and hard-lock monthly payroll periods or reopen finalized periods with reason.',
+    icon: 'billing'
+  },
+
   // Attendance Management
   { 
     id: 'attendance:staff', 
@@ -544,7 +598,11 @@ export function AppProvider({ children }) {
       } catch (e) {
         if (cancelled) return;
 
-        if (e.status === 401) {
+        const isAuthError = e && (
+          e.status === 401 ||
+          /401|unauthori[zs]ed|unauthenticated|not authenticated/i.test(String(e.message || ''))
+        );
+        if (isAuthError) {
           clearTokens();
           setCurrentUser(null);
 
@@ -557,9 +615,15 @@ export function AppProvider({ children }) {
           return;
         }
 
-        // Temporary server/network error:
-        // don't destroy valid login tokens immediately
-        setAuthStatus('unauthenticated');
+        // Temporary server/network or 404/500 error on initialization:
+        // preserve authentication if tokens exist in storage
+        console.warn('Session initialization warning (non-401 error):', e);
+        const token = getAccessToken() || getRefreshToken();
+        if (token) {
+          setAuthStatus('authenticated');
+        } else {
+          setAuthStatus('unauthenticated');
+        }
         setOrgProfileStatus('idle');
       }
     };
@@ -567,6 +631,27 @@ export function AppProvider({ children }) {
     initSession();
     return () => { cancelled = true; };
   }, [fetchInitialData]);
+
+  useEffect(() => {
+    const handleAuthUnauthenticated = () => {
+      clearTokens();
+      setCurrentUser(null);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cubelogs_active_user');
+      }
+      setAuthStatus('unauthenticated');
+      setOrgProfileStatus('idle');
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cubelogs:auth_unauthenticated', handleAuthUnauthenticated);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('cubelogs:auth_unauthenticated', handleAuthUnauthenticated);
+      }
+    };
+  }, []);
 
   const currentUserRef = React.useRef(currentUser);
   const subscriptionDaysRef = React.useRef(subscriptionDays);
@@ -752,9 +837,31 @@ export function AppProvider({ children }) {
     setCurrentUser(mapped);
   }, []);
 
-  const confirmSubscription = useCallback(async (sessionId) => {
+  const switchOrganization = useCallback(async (organizationId) => {
     try {
-      const response = await organizationService.confirmSubscription(sessionId);
+      const data = await authService.switchOrganization(organizationId);
+      const { user, access, refresh } = data || {};
+      if (!user) {
+        throw new Error(data?.error || data?.detail || 'Failed to switch organization.');
+      }
+      if (access || refresh) {
+        setTokens(access, refresh);
+      }
+      const mappedUser = mapEmployee(user);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+      }
+      setCurrentUser(mappedUser);
+      await fetchInitialData(mappedUser);
+      return { success: true, user: mappedUser };
+    } catch (e) {
+      return { success: false, message: e.message || 'Failed to switch organization.' };
+    }
+  }, [fetchInitialData]);
+
+  const verifyPayment = useCallback(async (payload) => {
+    try {
+      const response = await organizationService.verifyPayment(payload);
 
       const settingsData = await organizationService.fetchSettings();
       setBrandLogo(settingsData.brandLogo);
@@ -766,10 +873,14 @@ export function AppProvider({ children }) {
 
       return response;
     } catch (e) {
-      console.error('Error confirming subscription:', e);
+      console.error('Error verifying payment:', e);
       throw e;
     }
   }, [updateAuthSession]);
+
+  const confirmSubscription = useCallback(async (sessionId) => {
+    return verifyPayment({ razorpay_order_id: sessionId, payment_type: 'subscription' });
+  }, [verifyPayment]);
 
   const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = []) => {
     try {
@@ -849,10 +960,12 @@ export function AppProvider({ children }) {
     renewSubscription,
     completeOnboarding,
     confirmSubscription,
+    verifyPayment,
     alertModal,
     showAlert,
     closeAlert,
     updateAuthSession,
+    switchOrganization,
     permissionsRegistry,
   }), [
     currentUser,
@@ -882,10 +995,12 @@ export function AppProvider({ children }) {
     renewSubscription,
     completeOnboarding,
     confirmSubscription,
+    verifyPayment,
     alertModal,
     showAlert,
     closeAlert,
     updateAuthSession,
+    switchOrganization,
     permissionsRegistry
   ]);
 

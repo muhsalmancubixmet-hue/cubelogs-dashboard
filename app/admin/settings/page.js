@@ -52,8 +52,7 @@ const PLANS = [
       'Apply Leaves Portal',
       '1 Geofenced Office Location',
       'Up to 15 Employees Limit'
-    ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00'
+    ]
   },
   {
     name: 'Professional',
@@ -67,7 +66,6 @@ const PLANS = [
       'Multi-Location Geofences',
       'Up to 50 Employees Limit'
     ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00',
     popular: true
   },
   {
@@ -82,8 +80,7 @@ const PLANS = [
       'Unlimited Office Locations',
       'Unlimited Employees Limit',
       '24/7 Dedicated Support'
-    ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00'
+    ]
   }
 ];
 
@@ -97,18 +94,21 @@ import {
   WarningIcon,
   CloseIcon,
   ClockIcon,
-  CameraIcon
+  CameraIcon,
+  DollarIcon
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
 
 function SettingsHubContent() {
   const {
     currentUser,
+    authStatus,
     brandLogo,
     saveBrandLogo,
     companyName,
     saveCompanyName,
     confirmSubscription,
+    verifyPayment,
     subscriptionDays,
     renewSubscription,
     hasPermission,
@@ -116,14 +116,23 @@ function SettingsHubContent() {
     refreshUser
   } = useApp();
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [templates, setTemplates] = useState([]);
   const [officeLocations, setOfficeLocations] = useState([]);
 
   const fetchSettingsData = async () => {
     try {
       const [rolesData, locationsData] = await Promise.all([
-        apiFetch('/roles/'),
-        apiFetch('/locations/')
+        apiFetch('/roles/').catch(err => {
+          console.warn('Could not load roles dependency:', err);
+          return [];
+        }),
+        apiFetch('/locations/').catch(err => {
+          console.warn('Could not load locations dependency:', err);
+          return [];
+        })
       ]);
       const rolesList = Array.isArray(rolesData) ? rolesData : (rolesData?.results || []);
       const locationsList = Array.isArray(locationsData) ? locationsData : (locationsData?.results || []);
@@ -140,8 +149,16 @@ function SettingsHubContent() {
   };
 
   useEffect(() => {
-    fetchSettingsData();
-  }, []);
+    if (authStatus === 'authenticated' && currentUser) {
+      fetchSettingsData();
+    }
+  }, [authStatus, currentUser]);
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      router.replace('/login');
+    }
+  }, [authStatus, router]);
 
   const saveTemplate = async (template) => {
     try {
@@ -215,8 +232,7 @@ function SettingsHubContent() {
     }
   };
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
+
 
   // Confirm modal states
   const [templateConfirm, setTemplateConfirm] = useState({ open: false, id: null });
@@ -234,6 +250,7 @@ function SettingsHubContent() {
   const hasBrandingPerm = !isUnpaid && hasPermission('settings:branding');
   const hasBillingPerm = hasPermission('settings:billing');
   const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
+  const hasPayrollConfigPerm = !isUnpaid && (currentUser?.isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPermission('payroll:view'));
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
@@ -243,7 +260,8 @@ function SettingsHubContent() {
     else if (hasLocationsPerm && isAttendanceEnabled) router.replace('/admin/settings?tab=locations');
     else if (hasBrandingPerm) router.replace('/admin/settings?tab=branding');
     else if (hasBillingPerm) router.replace('/admin/settings?tab=billing');
-  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, router]);
+    else if (hasPayrollConfigPerm) router.replace('/admin/settings?tab=payroll-config');
+  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, router]);
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
@@ -261,10 +279,12 @@ function SettingsHubContent() {
       redirectToFirstAuthorized();
     } else if (currentTab === 'billing' && !hasBillingPerm) {
       redirectToFirstAuthorized();
+    } else if (currentTab === 'payroll-config' && !hasPayrollConfigPerm) {
+      redirectToFirstAuthorized();
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
     }
-  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
+  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
 
   const handleTabChange = (tabName) => {
     router.push(`/admin/settings?tab=${tabName}`);
@@ -275,8 +295,13 @@ function SettingsHubContent() {
   // -------------------------------------------------------------
   const [attendanceConfig, setAttendanceConfig] = useState({
     grace_period_minutes: 15,
+    full_day_minimum_minutes: 480,
+    half_day_minimum_minutes: 240,
     half_day_threshold_minutes: 240,
-    full_day_absent_threshold_minutes: 60,
+    minimum_session_minutes: 5,
+    break_duration_minutes: 60,
+    break_type: 'Unpaid',
+    default_weekly_holidays: ['Saturday', 'Sunday'],
     auto_approve_attendance: false,
   });
   const [attendanceConfigLoading, setAttendanceConfigLoading] = useState(false);
@@ -290,8 +315,13 @@ function SettingsHubContent() {
         const data = await apiFetch('/settings/current/');
         setAttendanceConfig({
           grace_period_minutes: data.grace_period_minutes ?? 15,
-          half_day_threshold_minutes: data.half_day_threshold_minutes ?? 240,
-          full_day_absent_threshold_minutes: data.full_day_absent_threshold_minutes ?? 60,
+          full_day_minimum_minutes: data.full_day_minimum_minutes ?? 480,
+          half_day_minimum_minutes: data.half_day_minimum_minutes ?? data.half_day_threshold_minutes ?? 240,
+          half_day_threshold_minutes: data.half_day_minimum_minutes ?? data.half_day_threshold_minutes ?? 240,
+          minimum_session_minutes: data.minimum_session_minutes ?? 5,
+          break_duration_minutes: data.break_duration_minutes ?? 60,
+          break_type: data.break_type ?? 'Unpaid',
+          default_weekly_holidays: Array.isArray(data.default_weekly_holidays) && data.default_weekly_holidays.length > 0 ? data.default_weekly_holidays : ['Saturday', 'Sunday'],
           auto_approve_attendance: data.auto_approve_attendance ?? false,
         });
       } catch (e) {
@@ -311,12 +341,66 @@ function SettingsHubContent() {
         method: 'PATCH',
         body: JSON.stringify(attendanceConfig),
       });
-      setAttendanceConfigSuccess('Attendance rules updated successfully.');
-      setTimeout(() => setAttendanceConfigSuccess(''), 4000);
+      setAttendanceConfigSuccess('These attendance rules will apply from tomorrow.');
+      setTimeout(() => setAttendanceConfigSuccess(''), 5000);
     } catch (err) {
       setAttendanceConfigError(err.message || 'Failed to save attendance configuration.');
     } finally {
       setAttendanceConfigLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // PAYROLL RULES CONFIG STATE & HANDLERS
+  // -------------------------------------------------------------
+  const [payrollConfig, setPayrollConfig] = useState({
+    payroll_currency: 'INR',
+    payroll_proration_basis: 'WORKING_DAYS',
+    daily_wage_paid_leave_eligible: true,
+    hourly_wage_paid_leave_eligible: true,
+  });
+  const [payrollConfigLoading, setPayrollConfigLoading] = useState(false);
+  const [payrollConfigSuccess, setPayrollConfigSuccess] = useState('');
+  const [payrollConfigError, setPayrollConfigError] = useState('');
+
+  useEffect(() => {
+    const loadPayrollConfig = async () => {
+      try {
+        const data = await apiFetch('/settings/current/');
+        setPayrollConfig({
+          payroll_currency: data.payroll_currency || 'INR',
+          payroll_proration_basis: data.payroll_proration_basis || 'WORKING_DAYS',
+          daily_wage_paid_leave_eligible: data.daily_wage_paid_leave_eligible !== undefined ? data.daily_wage_paid_leave_eligible : true,
+          hourly_wage_paid_leave_eligible: data.hourly_wage_paid_leave_eligible !== undefined ? data.hourly_wage_paid_leave_eligible : true,
+        });
+      } catch (e) {
+        console.warn('Could not load payroll config:', e);
+      }
+    };
+    if (hasPayrollConfigPerm) loadPayrollConfig();
+  }, [hasPayrollConfigPerm]);
+
+  const handleSavePayrollConfig = async (e) => {
+    e.preventDefault();
+    setPayrollConfigLoading(true);
+    setPayrollConfigError('');
+    setPayrollConfigSuccess('');
+    try {
+      await apiFetch('/settings/current/', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          payroll_currency: payrollConfig.payroll_currency,
+          payroll_proration_basis: payrollConfig.payroll_proration_basis,
+          daily_wage_paid_leave_eligible: payrollConfig.daily_wage_paid_leave_eligible,
+          hourly_wage_paid_leave_eligible: payrollConfig.hourly_wage_paid_leave_eligible,
+        }),
+      });
+      setPayrollConfigSuccess('Payroll configuration saved successfully.');
+      setTimeout(() => setPayrollConfigSuccess(''), 4000);
+    } catch (e) {
+      setPayrollConfigError(e.message || 'Failed to save payroll settings.');
+    } finally {
+      setPayrollConfigLoading(false);
     }
   };
 
@@ -368,40 +452,7 @@ function SettingsHubContent() {
   };
 
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-
-  useEffect(() => {
-    const status = searchParams.get('status');
-    const sessionId = searchParams.get('session_id');
-    if (status === 'success' && sessionId) {
-      const handleConfirm = async () => {
-        setConfirmingPayment(true);
-        try {
-          const result = await confirmSubscription(sessionId);
-          if (result.status === 'wallet_success') {
-            showAlert(
-              `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
-              'Wallet Deposited Successfully!',
-              'success'
-            );
-            router.replace('/admin/settings?tab=billing');
-          } else {
-            showAlert(
-              `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
-              'Subscription Activated Successfully!',
-              'success'
-            );
-            router.replace('/dashboard');
-          }
-        } catch (err) {
-          showAlert(err.message || 'Payment confirmation failed.', 'Confirmation Error', 'error');
-          router.replace(`/admin/settings?tab=${currentTab}`);
-        } finally {
-          setConfirmingPayment(false);
-        }
-      };
-      handleConfirm();
-    }
-  }, [searchParams, router, confirmSubscription, currentTab, showAlert]);
+  const walletSessionConfirmedRef = useRef('');
 
   // Helper: compress logo image preserving aspect ratio and transparency
   const cropAndCompressImage = (file) =>
@@ -641,8 +692,9 @@ function SettingsHubContent() {
     );
   };
 
-  const handleSaveLocation = (e) => {
+  const handleSaveLocation = async (e) => {
     e.preventDefault();
+    if (fetchingGeo) return; // Prevent double submission
     setLocError('');
     setLocSuccess('');
 
@@ -663,34 +715,47 @@ function SettingsHubContent() {
       setLocError('Longitude must be between -180 and 180.');
       return;
     }
-    if (isNaN(radiusMeters) || radiusMeters <= 0) {
-      setLocError('Radius must be a positive number of meters.');
+    if (isNaN(radiusMeters) || radiusMeters <= 0 || radiusMeters > 50000) {
+      setLocError('Radius must be a positive number of meters up to 50,000.');
       return;
     }
 
-    let updated;
-    if (editingLocId) {
-      updated = officeLocations.map(loc => 
-        loc.id === editingLocId 
-          ? { ...loc, name: locName.trim(), lat: latitude, lon: longitude, radius: radiusMeters }
-          : loc
-      );
-      setLocSuccess('Office location coordinates updated.');
-    } else {
-      const newLoc = {
-        id: 'loc_' + Date.now(),
+    setFetchingGeo(true);
+    try {
+      const locPayload = {
         name: locName.trim(),
         lat: latitude,
         lon: longitude,
         radius: radiusMeters
       };
-      updated = [...officeLocations, newLoc];
-      setLocSuccess('New office location coordinates added.');
-    }
 
-    saveOfficeLocations(updated);
-    handleCancelLocation();
-    setTimeout(() => setLocSuccess(''), 4000);
+      if (editingLocId) {
+        // Direct PATCH update of specific location
+        const updatedLoc = await apiFetch(`/locations/${editingLocId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(locPayload)
+        });
+        const mapped = { ...updatedLoc, id: String(updatedLoc.id) };
+        setOfficeLocations(prev => prev.map(loc => String(loc.id) === String(editingLocId) ? mapped : loc));
+        setLocSuccess('Office location coordinates updated.');
+      } else {
+        // Direct POST creation of new location
+        const createdLoc = await apiFetch('/locations/', {
+          method: 'POST',
+          body: JSON.stringify(locPayload)
+        });
+        const mapped = { ...createdLoc, id: String(createdLoc.id) };
+        setOfficeLocations(prev => [...prev, mapped]);
+        setLocSuccess('New office location coordinates added.');
+      }
+      handleCancelLocation();
+      setTimeout(() => setLocSuccess(''), 4000);
+    } catch (err) {
+      console.error('Error saving location:', err);
+      setLocError(err.message || 'Error occurred while saving office location.');
+    } finally {
+      setFetchingGeo(false);
+    }
   };
 
   const handleEditLocation = (loc) => {
@@ -703,22 +768,26 @@ function SettingsHubContent() {
   };
 
   const handleDeleteLocation = (id) => {
-    if (officeLocations.length <= 1) {
-      setLocError('Cannot remove the last geofenced office premises. Geofencing check requires at least one coordinates boundary.');
-      setTimeout(() => setLocError(''), 5000);
-      return;
-    }
     setLocationConfirm({ open: true, id });
   };
 
-  const confirmDeleteLocation = () => {
+  const confirmDeleteLocation = async () => {
     const id = locationConfirm.id;
-    const updated = officeLocations.filter(loc => loc.id !== id);
-    saveOfficeLocations(updated);
-    setLocSuccess('Office location removed.');
-    setTimeout(() => setLocSuccess(''), 4000);
-    if (editingLocId === id) handleCancelLocation();
-    setLocationConfirm({ open: false, id: null });
+    if (!id) return;
+    setFetchingGeo(true);
+    try {
+      await apiFetch(`/locations/${id}/`, { method: 'DELETE' });
+      setOfficeLocations(prev => prev.filter(loc => String(loc.id) !== String(id)));
+      setLocSuccess('Office location removed.');
+      setTimeout(() => setLocSuccess(''), 4000);
+      if (editingLocId === id) handleCancelLocation();
+    } catch (err) {
+      console.error('Failed to delete location:', err);
+      setLocError(err.message || 'Failed to delete office location.');
+    } finally {
+      setFetchingGeo(false);
+      setLocationConfirm({ open: false, id: null });
+    }
   };
 
   const handleCancelLocation = () => {
@@ -743,6 +812,7 @@ function SettingsHubContent() {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [requestingConsultation, setRequestingConsultation] = useState(false);
   const [employeeCount, setEmployeeCount] = useState(10);
+  const [billingEstimate, setBillingEstimate] = useState(null);
   const [premiumAddons, setPremiumAddons] = useState({
     attendance: false,
     project: false,
@@ -753,6 +823,102 @@ function SettingsHubContent() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [couponChecking, setCouponChecking] = useState(false);
+  const walletFetchInProgressRef = useRef(false);
+  const walletFailureCountRef = useRef(0);
+  const [walletUnavailable, setWalletUnavailable] = useState(false);
+
+  const fetchWallet = useCallback(async (sessionId = null, isManual = false) => {
+    if (walletFetchInProgressRef.current) return;
+    walletFetchInProgressRef.current = true;
+    try {
+      const url = sessionId ? `/wallet/current/?session_id=${encodeURIComponent(sessionId)}` : '/wallet/current/';
+      const data = await apiFetch(url);
+      if (data) {
+        setWallet(data);
+        setWalletUnavailable(false);
+        walletFailureCountRef.current = 0;
+      }
+      return data;
+    } catch (err) {
+      walletFailureCountRef.current += 1;
+      if (walletFailureCountRef.current === 1 || isManual) {
+        console.warn('Wallet service currently unavailable:', err?.message || err);
+      }
+      setWalletUnavailable(true);
+      setWallet(prev => (prev && prev.balance !== undefined ? prev : { balance: '0.00', transactions: [] }));
+    } finally {
+      walletFetchInProgressRef.current = false;
+    }
+  }, []);
+
+  const fetchBillingEstimateAndCount = useCallback(async () => {
+    try {
+      const estimate = await apiFetch('/billing-estimate/');
+      if (estimate && typeof estimate.billable_employee_count === 'number') {
+        setEmployeeCount(estimate.billable_employee_count);
+        setBillingEstimate(estimate);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch billing estimate:", e);
+    }
+    try {
+      const orgId = currentUser?.organization;
+      const orgQuery = orgId ? `?organization=${orgId}` : '';
+      const data = await apiFetch(`/employees/${orgQuery}`);
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.results)) ? data.results : [];
+      if (list.length > 0) {
+        setEmployeeCount(list.length);
+        return;
+      }
+    } catch (e) {
+      // Fallback to max_employees_allowed if API fails
+    }
+    if (currentUser?.subscription?.max_employees_allowed) {
+      setEmployeeCount(currentUser.subscription.max_employees_allowed);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !currentUser) return;
+
+    const status = searchParams.get('status');
+    const sessionId = searchParams.get('session_id');
+    const paymentType = searchParams.get('payment_type');
+    if (status === 'success' && sessionId && walletSessionConfirmedRef.current !== sessionId) {
+      walletSessionConfirmedRef.current = sessionId;
+      const isWalletSession = paymentType === 'wallet' || sessionId.includes('wallet') || sessionId.includes('topup') || sessionId.startsWith('mock_wallet_topup_');
+
+      const handleConfirm = async () => {
+        setConfirmingPayment(true);
+        try {
+          if (isWalletSession) {
+            await fetchWallet(sessionId);
+            showAlert(
+              `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+              'Wallet Deposited Successfully!',
+              'success'
+            );
+            router.replace('/admin/settings?tab=billing');
+          } else {
+            const result = await confirmSubscription(sessionId);
+            showAlert(
+              `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+              'Subscription Activated Successfully!',
+              'success'
+            );
+            router.replace('/dashboard');
+          }
+        } catch (err) {
+          showAlert(err.message || 'Payment confirmation failed.', 'Confirmation Error', 'error');
+          router.replace(`/admin/settings?tab=${currentTab}`);
+        } finally {
+          setConfirmingPayment(false);
+        }
+      };
+      handleConfirm();
+    }
+  }, [authStatus, currentUser, searchParams, router, confirmSubscription, currentTab, showAlert, fetchWallet]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode || !couponCode.trim()) {
@@ -847,6 +1013,7 @@ function SettingsHubContent() {
         setPremiumAddons(prev => ({ ...prev, [moduleName]: targetState }));
         await refreshUserSession();
         await fetchWallet();
+        await fetchBillingEstimateAndCount();
         
         showAlert(
           res.message || 'Module status updated successfully.',
@@ -890,26 +1057,8 @@ function SettingsHubContent() {
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchActualEmployeeCount = async () => {
-      try {
-        const orgId = currentUser?.organization;
-        const orgQuery = orgId ? `?organization=${orgId}` : '';
-        const data = await apiFetch(`/employees/${orgQuery}`);
-        const list = Array.isArray(data) ? data : (data && Array.isArray(data.results)) ? data.results : [];
-        if (list.length > 0) {
-          setEmployeeCount(list.length);
-          return;
-        }
-      } catch (e) {
-        // Fallback to max_employees_allowed if API fails
-      }
-      if (currentUser?.subscription?.max_employees_allowed) {
-        setEmployeeCount(currentUser.subscription.max_employees_allowed);
-      }
-    };
-
     if (currentUser) {
-      fetchActualEmployeeCount();
+      fetchBillingEstimateAndCount();
       if (currentUser?.subscription) {
         setPremiumAddons({
           attendance: currentUser.subscription.is_attendance_enabled || false,
@@ -917,20 +1066,23 @@ function SettingsHubContent() {
         });
       }
     }
-  }, [currentUser]);
+  }, [currentUser, fetchBillingEstimateAndCount]);
 
 
 
-  const fetchWallet = async () => {
-    try {
-      const data = await apiFetch('/wallet/current/');
-      if (data) {
-        setWallet(data);
+
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window !== 'undefined' && window.Razorpay) {
+        return resolve(true);
       }
-    } catch (err) {
-      console.error('Failed to fetch wallet:', err);
-      setWallet({ balance: '0.00', transactions: [] });
-    }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
   const handleTopup = async (e) => {
@@ -954,8 +1106,73 @@ function SettingsHubContent() {
         },
         body: JSON.stringify(payload)
       });
-      if (data && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+
+      if (data && (data.is_mock || (data.order_id && data.order_id.startsWith('mock_')))) {
+        await verifyPayment({
+          razorpay_order_id: data.order_id,
+          payment_type: 'wallet'
+        });
+        await fetchWallet();
+        showAlert(
+          `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+          'Wallet Deposited Successfully!',
+          'success'
+        );
+        setTopupModalOpen(false);
+        setTopupAmount('');
+        setAppliedCoupon(null);
+        setTopupLoading(false);
+        return;
+      }
+
+      if (data && data.gateway === 'razorpay') {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          setWalletError('Failed to load Razorpay payment SDK.');
+          setTopupLoading(false);
+          return;
+        }
+
+        const options = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: data.name || 'CubeLogs',
+          description: data.description || 'Wallet Top-up',
+          order_id: data.order_id,
+          handler: async function (response) {
+            setTopupLoading(true);
+            try {
+              await verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                payment_type: 'wallet'
+              });
+              await fetchWallet();
+              showAlert(
+                `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+                'Wallet Deposited Successfully!',
+                'success'
+              );
+              setTopupModalOpen(false);
+              setTopupAmount('');
+              setAppliedCoupon(null);
+            } catch (err) {
+              setWalletError(err.message || 'Deposit verification failed.');
+            } finally {
+              setTopupLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setTopupLoading(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else {
         setWalletError('Failed to initiate deposit. Please try again.');
         setTopupLoading(false);
@@ -973,28 +1190,62 @@ function SettingsHubContent() {
   }, [currentTab, router]);
 
   useEffect(() => {
-    if (currentTab === 'billing') {
+    if (authStatus === 'authenticated' && currentUser && currentTab === 'billing') {
       fetchWallet();
       const status = searchParams.get('status');
       if (status === 'success') {
         setWalletSuccess('Payment processed successfully! Your balance has been updated.');
         router.replace('/admin/settings?tab=billing');
       } else if (status === 'cancel') {
-        setWalletError('Stripe checkout was cancelled.');
+        setWalletError('Payment checkout was cancelled.');
         router.replace('/admin/settings?tab=billing');
       }
     }
-  }, [currentTab, searchParams, router]);
+  }, [authStatus, currentUser, currentTab, searchParams, router, fetchWallet]);
 
   useEffect(() => {
-    if (currentTab !== 'billing') return;
+    if (authStatus !== 'authenticated' || !currentUser || currentTab !== 'billing') return;
 
-    const interval = setInterval(() => {
-      fetchWallet();
-    }, 15000);
+    let timeoutId = null;
+    let isCancelled = false;
 
-    return () => clearInterval(interval);
-  }, [currentTab]);
+    const poll = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        timeoutId = setTimeout(poll, 15000);
+        return;
+      }
+
+      if (!isCancelled) {
+        await fetchWallet();
+      }
+
+      if (!isCancelled) {
+        const delay = walletFailureCountRef.current > 2 ? 45000 : 15000;
+        timeoutId = setTimeout(poll, delay);
+      }
+    };
+
+    timeoutId = setTimeout(poll, 15000);
+
+    return () => {
+      isCancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [authStatus, currentUser, currentTab, fetchWallet]);
+
+  if (authStatus === 'loading') {
+    return (
+      <PageWrapper>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <p style={{ color: 'var(--text-muted, #94a3b8)' }}>Loading settings...</p>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  if (authStatus === 'unauthenticated') {
+    return null;
+  }
 
   const handleDynamicCheckout = async () => {
     setCheckoutLoading(true);
@@ -1014,8 +1265,67 @@ function SettingsHubContent() {
         })
       });
 
-      if (data && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      if (data && (data.is_mock || (data.order_id && data.order_id.startsWith('mock_')) || data.status === 'subscription_success')) {
+        if (data.order_id) {
+          await verifyPayment({
+            razorpay_order_id: data.order_id,
+            payment_type: 'subscription'
+          });
+        }
+        showAlert(
+          `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+          'Subscription Activated Successfully!',
+          'success'
+        );
+        router.replace('/dashboard');
+        return;
+      }
+
+      if (data && data.gateway === 'razorpay') {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          showAlert('Failed to load Razorpay payment SDK.', 'Error', 'error');
+          setCheckoutLoading(false);
+          return;
+        }
+
+        const options = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: data.name || 'CubeLogs',
+          description: data.description || 'Dynamic Subscription Plan',
+          order_id: data.order_id,
+          handler: async function (response) {
+            setCheckoutLoading(true);
+            try {
+              await verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                payment_type: 'subscription'
+              });
+              showAlert(
+                `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+                'Subscription Activated Successfully!',
+                'success'
+              );
+              router.replace('/dashboard');
+            } catch (err) {
+              showAlert(err.message || 'Subscription verification failed.', 'Error', 'error');
+            } finally {
+              setCheckoutLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setCheckoutLoading(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else {
         showAlert('Failed to initiate checkout. Please try again.', 'Checkout Failed', 'error');
         setCheckoutLoading(false);
@@ -1050,7 +1360,7 @@ function SettingsHubContent() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '16px' }}>
           <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ color: 'var(--text-main)' }}>Verifying Payment Status...</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Please wait while we confirm your Stripe payment transaction.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Please wait while we verify your payment transaction.</p>
           <style jsx>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
@@ -1127,6 +1437,15 @@ function SettingsHubContent() {
               <span>Attendance Rules</span>
             </button>
           )}
+          {hasPayrollConfigPerm && (
+            <button 
+              className={`tab-link ${currentTab === 'payroll-config' ? 'active' : ''}`}
+              onClick={() => handleTabChange('payroll-config')}
+            >
+              <DollarIcon size={16} />
+              <span>Payroll Settings</span>
+            </button>
+          )}
         </div>
 
         {/* Tab Contents */}
@@ -1138,71 +1457,172 @@ function SettingsHubContent() {
               <div className="panel settings-panel-card">
                 <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <ClockIcon size={18} />
-                  Attendance Time Rules
+                  Attendance & Shift Policy
                 </h3>
                 <p className="tab-desc">
-                  Configure the time thresholds that determine how clock-in records are categorised — Late, Half Day, or Absent — during HR review.
+                  Configure organization-wide attendance rules, thresholds, and break policies. Changes take effect from tomorrow.
                 </p>
 
                 <form onSubmit={handleSaveAttendanceConfig} className="settings-form">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="grace-period">
-                      Grace Period (minutes)
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      Number of minutes after shift start that an employee can clock in without being flagged as Late.
-                    </p>
-                    <input
-                      id="grace-period"
-                      type="number"
-                      className="form-input"
-                      min="0"
-                      max="120"
-                      value={attendanceConfig.grace_period_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, grace_period_minutes: parseInt(e.target.value) || 0 }))}
-                      required
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="grace-period">
+                        Grace Period (minutes)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Allowed clock-in delay after shift start without being marked Late.
+                      </p>
+                      <input
+                        id="grace-period"
+                        type="number"
+                        className="form-input"
+                        min="0"
+                        max="180"
+                        value={attendanceConfig.grace_period_minutes}
+                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, grace_period_minutes: Math.max(0, parseInt(e.target.value) || 0) }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="min-session">
+                        Minimum Session Before Clock Out (minutes)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Minimum time an employee must remain clocked in before Clock Out is permitted.
+                      </p>
+                      <input
+                        id="min-session"
+                        type="number"
+                        className="form-input"
+                        min="0"
+                        max="180"
+                        value={attendanceConfig.minimum_session_minutes}
+                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, minimum_session_minutes: Math.max(0, parseInt(e.target.value) || 0) }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="break-duration">
+                        Break Duration (minutes)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Standard shift break duration (e.g. 60 min for lunch).
+                      </p>
+                      <input
+                        id="break-duration"
+                        type="number"
+                        className="form-input"
+                        min="0"
+                        max="180"
+                        value={attendanceConfig.break_duration_minutes}
+                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, break_duration_minutes: parseInt(e.target.value) || 0 }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="break-type">
+                        Break Type
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Whether breaks are paid or deducted from required shift span.
+                      </p>
+                      <select
+                        id="break-type"
+                        className="form-input"
+                        value={attendanceConfig.break_type || 'Unpaid'}
+                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, break_type: e.target.value }))}
+                      >
+                        <option value="Unpaid">Unpaid Break</option>
+                        <option value="Paid">Paid Break</option>
+                      </select>
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="half-day-threshold">
-                      Half Day Threshold (minutes worked)
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      Minimum total minutes on-site for a session to count as a Half Day (rather than Absent). Typically 4 hours = 240 min.
-                    </p>
-                    <input
-                      id="half-day-threshold"
-                      type="number"
-                      className="form-input"
-                      min="1"
-                      max="480"
-                      value={attendanceConfig.half_day_threshold_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, half_day_threshold_minutes: parseInt(e.target.value) || 240 }))}
-                      required
-                    />
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="full-day-min">
+                        Full Day Minimum ({Math.floor(attendanceConfig.full_day_minimum_minutes / 60)}h {attendanceConfig.full_day_minimum_minutes % 60 ? (attendanceConfig.full_day_minimum_minutes % 60) + 'm' : ''} / {attendanceConfig.full_day_minimum_minutes} min)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Minimum worked time to qualify for 1.0 full day attendance credit.
+                      </p>
+                      <input
+                        id="full-day-min"
+                        type="number"
+                        className="form-input"
+                        min="60"
+                        max="720"
+                        value={attendanceConfig.full_day_minimum_minutes}
+                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, full_day_minimum_minutes: parseInt(e.target.value) || 480 }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="half-day-threshold">
+                        Half Day Minimum ({Math.floor(attendanceConfig.half_day_minimum_minutes / 60)}h {attendanceConfig.half_day_minimum_minutes % 60 ? (attendanceConfig.half_day_minimum_minutes % 60) + 'm' : ''} / {attendanceConfig.half_day_minimum_minutes} min)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Minimum worked time for Half Day (0.5 day credit). Below this is marked Absent.
+                      </p>
+                      <input
+                        id="half-day-threshold"
+                        type="number"
+                        className="form-input"
+                        min="30"
+                        max="480"
+                        value={attendanceConfig.half_day_minimum_minutes}
+                        onChange={(e) => setAttendanceConfig(prev => {
+                          const val = parseInt(e.target.value) || 240;
+                          return { ...prev, half_day_minimum_minutes: val, half_day_threshold_minutes: val };
+                        })}
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="absent-threshold">
-                      Full-Day Absent Threshold (minutes after shift start)
+                  <div className="form-group" style={{ marginBottom: '20px' }}>
+                    <label className="form-label">
+                      Weekly Off Days
                     </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      If an employee clocks in more than this many minutes after shift start without prior leave, they may be marked Absent.
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px', opacity: 0.7 }}>
+                      Standard weekly recurring non-working days for staff.
                     </p>
-                    <input
-                      id="absent-threshold"
-                      type="number"
-                      className="form-input"
-                      min="1"
-                      max="480"
-                      value={attendanceConfig.full_day_absent_threshold_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, full_day_absent_threshold_minutes: parseInt(e.target.value) || 60 }))}
-                      required
-                    />
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
+                        const isSelected = attendanceConfig.default_weekly_holidays?.includes(day);
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => {
+                              setAttendanceConfig(prev => {
+                                const current = prev.default_weekly_holidays || [];
+                                const next = current.includes(day)
+                                  ? current.filter(d => d !== day)
+                                  : [...current, day];
+                                return { ...prev, default_weekly_holidays: next };
+                              });
+                            }}
+                            className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: '20px',
+                              fontWeight: isSelected ? '700' : '500',
+                              fontSize: '0.8rem'
+                            }}
+                          >
+                            {day.slice(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="form-group" style={{ marginBottom: '20px', marginTop: '20px' }}>
+                  <div className="form-group" style={{ marginBottom: '20px', marginTop: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)' }}>
                       <div style={{ flex: 1, paddingRight: '16px' }}>
                         <label className="form-label" style={{ fontSize: '0.9rem', fontWeight: '750', color: 'var(--text-main)', marginBottom: '4px', display: 'block', cursor: 'pointer' }} htmlFor="auto-approve-toggle">
@@ -1260,7 +1680,7 @@ function SettingsHubContent() {
 
                   <div className="form-actions-row">
                     <button type="submit" className="btn btn-primary" disabled={attendanceConfigLoading}>
-                      {attendanceConfigLoading ? 'Saving...' : 'Save Attendance Rules'}
+                      {attendanceConfigLoading ? 'Saving Policy...' : 'Save Attendance Policy'}
                     </button>
                   </div>
                 </form>
@@ -1293,6 +1713,169 @@ function SettingsHubContent() {
                     </strong>
                     <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
                       The maximum delay allowed after shift start. Arrivals beyond this point without prior approved leave are considered fully absent for HR review.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PAYROLL SETTINGS CONFIG */}
+          {currentTab === 'payroll-config' && hasPayrollConfigPerm && (
+            <div className="settings-grid">
+              <div className="panel settings-panel-card">
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <DollarIcon size={18} />
+                  Payroll & Currency Settings
+                </h3>
+                <p className="tab-desc">
+                  Configure organization-wide default currency and salary proration basis for monthly payroll generation.
+                </p>
+
+                <form onSubmit={handleSavePayrollConfig} className="settings-form">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '20px' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="payroll-currency">
+                        Payroll Currency
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Source of truth currency for newly created salary structures and payroll cycles.
+                      </p>
+                      <select
+                        id="payroll-currency"
+                        className="form-input"
+                        value={payrollConfig.payroll_currency}
+                        onChange={(e) => setPayrollConfig(prev => ({ ...prev, payroll_currency: e.target.value }))}
+                        disabled={payrollConfigLoading}
+                      >
+                        <option value="INR">INR — Indian Rupee (₹)</option>
+                        <option value="USD">USD — US Dollar ($)</option>
+                        <option value="AED">AED — UAE Dirham (AED)</option>
+                        <option value="SAR">SAR — Saudi Riyal (SAR)</option>
+                        <option value="EUR">EUR — Euro (€)</option>
+                        <option value="GBP">GBP — British Pound (£)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="proration-basis">
+                        Proration Basis (Monthly Salary Only)
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
+                        Divisor used to calculate daily rate from contractual basic salary for attendance deductions.
+                      </p>
+                      <select
+                        id="proration-basis"
+                        className="form-input"
+                        value={payrollConfig.payroll_proration_basis}
+                        onChange={(e) => setPayrollConfig(prev => ({ ...prev, payroll_proration_basis: e.target.value }))}
+                        disabled={payrollConfigLoading}
+                      >
+                        <option value="WORKING_DAYS">Working Days (Dynamic working days in month)</option>
+                        <option value="CALENDAR_DAYS">Calendar Days (All days in month: 28-31)</option>
+                        <option value="FIXED_30">Fixed 30 Days (Standard corporate 30-day divisor)</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="daily-wage-paid-leave" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          id="daily-wage-paid-leave"
+                          checked={payrollConfig.daily_wage_paid_leave_eligible}
+                          onChange={(e) => setPayrollConfig(prev => ({ ...prev, daily_wage_paid_leave_eligible: e.target.checked }))}
+                          disabled={payrollConfigLoading}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <span>Paid Leave for Daily Wage Employees</span>
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 0, opacity: 0.7, marginLeft: '24px' }}>
+                        When enabled, approved paid leave is paid at the employee&apos;s daily wage rate.
+                      </p>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label" htmlFor="hourly-wage-paid-leave" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          id="hourly-wage-paid-leave"
+                          checked={payrollConfig.hourly_wage_paid_leave_eligible}
+                          onChange={(e) => setPayrollConfig(prev => ({ ...prev, hourly_wage_paid_leave_eligible: e.target.checked }))}
+                          disabled={payrollConfigLoading}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <span>Paid Leave for Hourly Wage Employees</span>
+                      </label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 0, opacity: 0.7, marginLeft: '24px' }}>
+                        When enabled, approved paid leave scheduled hours are included in payable work hours.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Contextual Policy Guidance Box */}
+                  <div style={{ backgroundColor: 'var(--surface-elevated, #f8fafc)', border: '1px solid var(--border)', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
+                      Policy Reference & Examples:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
+                      <li>
+                        <strong>Working Days:</strong> Monthly salary is divided by actual scheduled working days (e.g. ₹30,000 / 22 working days = ₹1,363.64/day).
+                      </li>
+                      <li>
+                        <strong>Calendar Days:</strong> Monthly salary is divided by all calendar days in that month (e.g. ₹30,000 / 31 days = ₹967.74/day).
+                      </li>
+                      <li>
+                        <strong>Fixed 30 Days:</strong> Monthly salary is always divided by 30 (e.g. ₹30,000 / 30 = ₹1,000.00/day).
+                      </li>
+                      <li style={{ marginTop: '4px', color: 'var(--text-muted)' }}>
+                        <em>Note: Proration basis applies to Monthly Salary employees only. Daily Wage employees always use their contractual daily rate.</em>
+                      </li>
+                      <li style={{ marginTop: '2px', color: 'var(--text-muted)' }}>
+                        <em>Paid Leave for Daily Wage: When enabled, approved paid leave earns the normal daily wage; when disabled, only days actually worked earn daily wage.</em>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {payrollConfigSuccess && (
+                    <div className="tab-alert success">
+                      <CheckIcon size={14} />
+                      <span>{payrollConfigSuccess}</span>
+                    </div>
+                  )}
+                  {payrollConfigError && (
+                    <div className="tab-alert error">
+                      <WarningIcon size={14} />
+                      <span>{payrollConfigError}</span>
+                    </div>
+                  )}
+
+                  <div className="form-actions-row">
+                    <button type="submit" className="btn btn-primary" disabled={payrollConfigLoading}>
+                      {payrollConfigLoading ? 'Saving Settings...' : 'Save Payroll Settings'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Info panel */}
+              <div className="panel settings-panel-card">
+                <h3>How Payroll Policies Work</h3>
+                <p className="tab-desc">Deterministic rules governing salary calculations and historical snapshots.</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+                  <div style={{ padding: '14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '1rem' }}>₹</span> Organization Payroll Currency
+                    </strong>
+                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
+                      Controls the default currency for the entire organization. Historical finalized payroll periods and issued payslips remain frozen in their original currency.
+                    </p>
+                  </div>
+                  <div style={{ padding: '14px', background: 'rgba(234, 179, 8, 0.08)', borderRadius: '10px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '1rem' }}>➗</span> Proration Basis
+                    </strong>
+                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
+                      Working Days calculates daily rate as Proratable Gross divided by working days (excluding weekly offs and holidays). Calendar Days divides by total days in the month.
                     </p>
                   </div>
                 </div>
@@ -1391,6 +1974,7 @@ function SettingsHubContent() {
               checkoutLoading={checkoutLoading}
               employeeCount={employeeCount}
               setEmployeeCount={setEmployeeCount}
+              billingEstimate={billingEstimate}
               premiumAddons={premiumAddons}
               setPremiumAddons={setPremiumAddons}
               toggleLoading={toggleLoading}
@@ -2409,7 +2993,7 @@ function SettingsHubContent() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Payment Channel</span>
                         <strong style={{ color: 'var(--text-main)' }}>
-                          {isDebit ? 'Prepaid Wallet Balance' : 'Stripe e-Wallet'}
+                          {isDebit ? 'Prepaid Wallet Balance' : 'Razorpay Gateway'}
                         </strong>
                       </div>
                     </div>
@@ -2439,7 +3023,7 @@ function SettingsHubContent() {
                         className="btn btn-primary"
                         style={{ flex: 1, padding: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
                       >
-                        <span>Stripe Receipt ↗</span>
+                        <span>Payment Receipt ↗</span>
                       </a>
                     )}
                   </div>

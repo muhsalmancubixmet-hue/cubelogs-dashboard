@@ -27,7 +27,6 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
   const [statusForm, setStatusForm] = useState({
     name: '',
     code: '',
-    category: 'pending',
     scope: 'all',
     order: 0,
     progress_percentage: 0,
@@ -56,7 +55,7 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
 
   const resetForm = () => {
     setEditingId(null);
-    setStatusForm({ name: '', code: '', category: 'pending', scope: 'all', order: 0, progress_percentage: 0 });
+    setStatusForm({ name: '', code: '', scope: 'all', order: 0, progress_percentage: 0 });
     setErrorMsg('');
   };
 
@@ -65,7 +64,6 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
     setStatusForm({
       name: status.name,
       code: status.code,
-      category: status.category,
       scope: status.scope,
       order: status.order || 0,
       progress_percentage: status.progress_percentage ?? (status.category === 'completed' ? 100 : status.category === 'active' ? 50 : 0),
@@ -73,18 +71,11 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
     setErrorMsg('');
   };
 
-  const handleCategoryChange = (e) => {
-    const newCat = e.target.value;
-    let suggestedPct = statusForm.progress_percentage;
-    if (newCat === 'pending') suggestedPct = 0;
-    else if (newCat === 'completed') suggestedPct = 100;
-    else if (newCat === 'active') suggestedPct = 50;
-
-    setStatusForm({
-      ...statusForm,
-      category: newCat,
-      progress_percentage: suggestedPct
-    });
+  const deriveCategory = (pct) => {
+    const p = Number(pct) || 0;
+    if (p <= 0) return 'pending';
+    if (p >= 100) return 'completed';
+    return 'active';
   };
 
   const handleSubmit = async (e) => {
@@ -95,9 +86,13 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
       setSubmitting(true);
       setErrorMsg('');
 
+      const pct = Math.min(100, Math.max(0, Number(statusForm.progress_percentage) || 0));
+      const derivedCategory = deriveCategory(pct);
+
       const payload = {
         ...statusForm,
-        progress_percentage: Number(statusForm.progress_percentage) || 0
+        category: derivedCategory,
+        progress_percentage: pct
       };
 
       if (editingId) {
@@ -265,19 +260,7 @@ export default function ManageStatusesModal({ isOpen, onClose, onStatusesUpdated
             </div>
           </div>
 
-          <div className="sm-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-            <div className="form-group">
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Category *</label>
-              <select
-                value={statusForm.category}
-                onChange={handleCategoryChange}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', boxSizing: 'border-box', background: '#fff' }}
-              >
-                <option value="pending">Pending</option>
-                <option value="active">Active / In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-            </div>
+          <div className="sm-form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div className="form-group">
               <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Progress Percentage *</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

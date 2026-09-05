@@ -50,26 +50,30 @@ export default function LocationsTab({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '16px' }}>
             <div className="form-group">
-              <label className="form-label" htmlFor="loc-lat">Latitude</label>
+              <label className="form-label" htmlFor="loc-lat">Latitude (-90 to 90)</label>
               <input
                 id="loc-lat"
                 type="number"
                 step="any"
+                min="-90"
+                max="90"
                 className="form-input"
-                placeholder="e.g. 11.114300"
+                placeholder="e.g. 25.204800"
                 value={locLat}
                 onChange={(e) => setLocLat(e.target.value)}
                 required
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor="loc-lon">Longitude</label>
+              <label className="form-label" htmlFor="loc-lon">Longitude (-180 to 180)</label>
               <input
                 id="loc-lon"
                 type="number"
                 step="any"
+                min="-180"
+                max="180"
                 className="form-input"
-                placeholder="e.g. 76.227400"
+                placeholder="e.g. 55.270800"
                 value={locLon}
                 onChange={(e) => setLocLon(e.target.value)}
                 required
@@ -83,6 +87,7 @@ export default function LocationsTab({
               id="loc-radius"
               type="number"
               min="5"
+              max="50000"
               className="form-input"
               placeholder="100"
               value={locRadius}
@@ -101,12 +106,12 @@ export default function LocationsTab({
             {fetchingGeo ? (
               <>
                 <div className="btn-spinner"></div>
-                <span>Acquiring Coordinates...</span>
+                <span>Acquiring Current Location...</span>
               </>
             ) : (
               <>
                 <LocationIcon size={14} />
-                <span>Autofill Browser Coordinates</span>
+                <span>Use My Current Location</span>
               </>
             )}
           </button>
@@ -144,33 +149,41 @@ export default function LocationsTab({
         <p className="tab-desc">Locations active in corporate geofence validations.</p>
 
         <div className="locations-stack">
-          {officeLocations.map(loc => (
-            <div className={`location-item-card ${editingLocId === loc.id ? 'active-edit' : ''}`} key={loc.id}>
-              <div className="card-top">
-                <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <LocationIcon size={14} style={{ color: 'var(--primary)' }} />
-                  <span>{loc.name}</span>
-                </h4>
-                <span className="badge badge-info">{loc.radius}m Radius</span>
-              </div>
-              
-              <div className="coord-details-box">
-                <div><strong>Latitude:</strong> {loc.lat.toFixed(6)}° N</div>
-                <div><strong>Longitude:</strong> {loc.lon.toFixed(6)}° E</div>
-              </div>
-
-              <div className="card-actions-row">
-                <button className="btn btn-secondary btn-sm" onClick={() => handleEditLocation(loc)}>
-                  <EditIcon size={12} />
-                  <span>Edit</span>
-                </button>
-                <button className="btn btn-danger btn-sm" onClick={() => handleDeleteLocation(loc.id)}>
-                  <DeleteIcon size={12} />
-                  <span>Delete</span>
-                </button>
-              </div>
+          {officeLocations.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
+              <LocationIcon size={24} style={{ opacity: 0.5, marginBottom: '8px' }} />
+              <p style={{ margin: 0, fontWeight: '600', fontSize: '0.9rem' }}>No office locations configured yet.</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', opacity: 0.8 }}>Use the form on the left to add your first geofenced premises boundary.</p>
             </div>
-          ))}
+          ) : (
+            officeLocations.map(loc => (
+              <div className={`location-item-card ${editingLocId === loc.id ? 'active-edit' : ''}`} key={loc.id}>
+                <div className="card-top">
+                  <h4 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <LocationIcon size={14} style={{ color: 'var(--primary)' }} />
+                    <span>{loc.name}</span>
+                  </h4>
+                  <span className="badge badge-info">{loc.radius}m Radius</span>
+                </div>
+                
+                <div className="coord-details-box">
+                  <div><strong>Latitude:</strong> {typeof loc.lat === 'number' ? loc.lat.toFixed(6) : loc.lat}° N</div>
+                  <div><strong>Longitude:</strong> {typeof loc.lon === 'number' ? loc.lon.toFixed(6) : loc.lon}° E</div>
+                </div>
+
+                <div className="card-actions-row">
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleEditLocation(loc)}>
+                    <EditIcon size={12} />
+                    <span>Edit</span>
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteLocation(loc.id)}>
+                    <DeleteIcon size={12} />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -9,10 +9,11 @@ import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 
 export default function Header({ title }) {
-  const { currentUser, logout, setSidebarOpen, subscriptionDays } = useApp();
+  const { currentUser, logout, setSidebarOpen, subscriptionDays, switchOrganization } = useApp();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -30,6 +31,27 @@ export default function Header({ title }) {
   const secondsRemaining = subInfo?.secondsRemaining || 0;
   const showNormalWarning = currentUser?.isSuperAdmin && !isWarningActive && subscriptionDays <= 15;
 
+  const availableMemberships = currentUser?.available_memberships || [];
+  const activeOrgId = currentUser?.active_organization?.id || currentUser?.organization;
+
+  const handleOrgSwitch = async (e) => {
+    const targetOrgId = e.target.value;
+    if (!targetOrgId || targetOrgId === String(activeOrgId)) return;
+    setSwitching(true);
+    try {
+      const res = await switchOrganization(targetOrgId);
+      if (res && res.success) {
+        window.location.reload();
+      } else {
+        alert(res?.message || 'Failed to switch organization');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
   return (
     <header className="header-bar">
       <div className="header-title-section">
@@ -43,6 +65,24 @@ export default function Header({ title }) {
         <h1>{title}</h1>
       </div>
       <div className="header-user-section">
+        {availableMemberships.length > 1 && (
+          <div className="workspace-switcher-container">
+            <select
+              value={String(activeOrgId)}
+              onChange={handleOrgSwitch}
+              disabled={switching}
+              className="workspace-switcher-select"
+              aria-label="Switch Workspace"
+            >
+              {availableMemberships.map(m => (
+                <option key={m.id} value={String(m.organization_id)}>
+                  {m.organization_name} {m.role ? `(${m.role})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {isWarningActive && (
           <div className="subscription-badge warning-urgent">
             <span className="status-pulse-dot" style={{ 

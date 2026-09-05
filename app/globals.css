@@ -198,6 +198,277 @@
   border: 1px solid var(--border);
 }
 
+/* ==========================================================================
+   Shared Calendar 7-Column Grid Core System
+   ========================================================================== */
+.shared-calendar-container,
+.calendar-panel {
+  width: 100%;
+  position: relative;
+}
+
+.shared-calendar-header,
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shared-calendar-title,
+.calendar-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.shared-calendar-subtitle,
+.calendar-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.shared-calendar-nav,
+.calendar-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.shared-calendar-month-year,
+.calendar-month-year {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-main);
+  min-width: 130px;
+  text-align: center;
+}
+
+.shared-calendar-grid-header,
+.calendar-grid-header {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.shared-calendar-grid,
+.calendar-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px;
+  width: 100%;
+}
+
+.shared-calendar-cell {
+  position: relative;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.day-short {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .day-long {
+    display: none !important;
+  }
+  .day-short {
+    display: inline !important;
+  }
+  .shared-calendar-grid-header,
+  .calendar-grid-header {
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+  .shared-calendar-grid,
+  .calendar-grid {
+    gap: 4px !important;
+  }
+}
+
+/* Attendance Summary Cards Strip */
+.attendance-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.summary-card .summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.summary-card .summary-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.summary-card.metric-present .summary-value { color: #16a34a; }
+.summary-card.metric-half .summary-value { color: #4f46e5; }
+.summary-card.metric-leave .summary-value { color: #9333ea; }
+.summary-card.metric-late .summary-value { color: #d97706; }
+.summary-card.metric-absent .summary-value { color: #dc2626; }
+.summary-card.metric-review .summary-value { color: #ea580c; }
+.summary-card.metric-payable .summary-value { color: var(--primary); font-size: 22px; font-weight: 800; }
+
+@media (max-width: 1024px) {
+  .attendance-summary-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .attendance-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .summary-card {
+    padding: 8px 6px;
+  }
+  .summary-card .summary-value {
+    font-size: 1.1rem;
+  }
+}
+
+/* Lightened Status Legend */
+.attendance-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 0 4px 12px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Calendar Grid Header & Grid Geometry */
+.shared-calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  column-gap: 5px;
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shared-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  column-gap: 5px;
+  row-gap: 5px;
+}
+
+/* Responsive Attendance Calendar Cell Styles */
+.attendance-day-cell {
+  min-height: 88px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.attendance-day-cell:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+  transform: none !important;
+}
+
+@media (min-width: 1200px) {
+  .attendance-day-cell {
+    min-height: 88px !important;
+    padding: 9px 10px !important;
+  }
+  .attendance-day-cell .status-inline-row {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .attendance-day-cell {
+    min-height: 82px !important;
+    padding: 6px 8px !important;
+  }
+  .attendance-day-cell .status-inline-row {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .attendance-day-cell {
+    min-height: 64px !important;
+    padding: 4px 6px !important;
+  }
+  .attendance-day-cell .day-num {
+    font-size: 0.8rem !important;
+  }
+  .attendance-day-cell .status-inline-row {
+    display: none !important;
+  }
+  .attendance-day-cell .mobile-status-icon {
+    display: flex !important;
+  }
+  .attendance-day-cell .cell-duration-row {
+    display: none !important;
+  }
+}
+
+
 :root.dark .data-table tr:hover {
   background-color: rgba(255, 255, 255, 0.03);
 }
@@ -1056,7 +1327,7 @@ h1, h2, h3, h4, h5 {
 }
 
 .accordion-content.open {
-  max-height: 450px; /* higher target for flexible heights */
+  max-height: 1200px; /* target height for multi-category sections */
   transition: max-height var(--transition-normal) ease-in-out;
 }
 
@@ -1092,6 +1363,23 @@ h1, h2, h3, h4, h5 {
   border-radius: 50%;
   background-color: currentColor;
   opacity: 0.5;
+}
+
+/* Visual category heading inside an accordion — not a link */
+.sidebar-nav-category {
+  padding: 12px 14px 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.28);
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* First category heading inside accordion gets less top padding */
+.accordion-content .sidebar-nav-category:first-child {
+  padding-top: 4px;
 }
 
 /* Profile Section at the bottom */

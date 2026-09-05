@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 const ModuleRegistry = {
   attendance: dynamic(() => import('./modules/AttendanceModule')),
   project_management: dynamic(() => import('./modules/ProjectsModule')),
+  payroll: dynamic(() => import('./modules/PayrollContent')),
 };
 
 export default ModuleRegistry;

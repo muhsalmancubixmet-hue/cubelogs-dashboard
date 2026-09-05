@@ -9,7 +9,7 @@ import {
   CloseIcon 
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, normalizeListResponse } from '@/lib/api';
 
 export default function ConfigureLeavesTab() {
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -18,7 +18,8 @@ export default function ConfigureLeavesTab() {
   const fetchLeaveTypes = async () => {
     try {
       const data = await apiFetch('/leave-types/');
-      setLeaveTypes(data.map(lt => ({ ...lt, id: String(lt.id) })));
+      const list = normalizeListResponse(data);
+      setLeaveTypes(list.map(lt => ({ ...lt, id: String(lt.id) })));
     } catch (e) {
       console.error('Error fetching leave types:', e);
     } finally {
@@ -73,6 +74,7 @@ export default function ConfigureLeavesTab() {
   const [maxLimit, setMaxLimit] = useState(12);
   const [carryForward, setCarryForward] = useState(false);
   const [maxCarryForward, setMaxCarryForward] = useState(0);
+  const [isPaid, setIsPaid] = useState(true);
   const [status, setStatus] = useState('Active');
 
   // Restricted dates states
@@ -94,6 +96,7 @@ export default function ConfigureLeavesTab() {
       setMaxLimit(editingType.maxLimit !== undefined && editingType.maxLimit !== null ? editingType.maxLimit : 12);
       setCarryForward(!!editingType.carryForward);
       setMaxCarryForward(editingType.maxCarryForward || 0);
+      setIsPaid(editingType.is_paid !== undefined ? !!editingType.is_paid : true);
       setStatus(editingType.status || 'Active');
       setRestrictedDates(editingType.restrictedDates || []);
     } else {
@@ -109,6 +112,7 @@ export default function ConfigureLeavesTab() {
     setMaxLimit(12);
     setCarryForward(false);
     setMaxCarryForward(0);
+    setIsPaid(true);
     setStatus('Active');
     setRestrictedDates([]);
     setNewRestrictedDate('');
@@ -171,6 +175,7 @@ export default function ConfigureLeavesTab() {
       maxLimit: parseInt(maxLimit, 10),
       carryForward,
       maxCarryForward: carryForward ? parseInt(maxCarryForward, 10) : 0,
+      is_paid: isPaid,
       status,
       restrictedDates,
     };
@@ -249,6 +254,30 @@ export default function ConfigureLeavesTab() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
+              </div>
+
+              {/* Leave Pay Type Toggle: Paid vs Unpaid (LWP) */}
+              <div className="form-group">
+                <label className="form-label">Compensation / Pay Type</label>
+                <div className="limit-period-toggle">
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${isPaid ? 'active' : ''}`}
+                    onClick={() => setIsPaid(true)}
+                  >
+                    Paid Leave
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`toggle-btn ${!isPaid ? 'active' : ''}`}
+                    onClick={() => setIsPaid(false)}
+                  >
+                    Unpaid (LWP)
+                  </button>
+                </div>
+                <span className="field-hint" style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: '4px', display: 'block' }}>
+                  {isPaid ? 'Employees receive normal attendance pay credit for approved leave days.' : 'Employees do not receive salary pay credit for approved leave days (Unpaid Leave).'}
+                </span>
               </div>
 
               {/* Monthly vs Yearly Switch Toggle */}
@@ -426,7 +455,12 @@ export default function ConfigureLeavesTab() {
                 leaveTypes.map((type) => (
                   <div className={`leave-type-item-card ${type.status === 'Inactive' ? 'inactive' : ''}`} key={type.id}>
                     <div className="card-top">
-                      <h4>{type.name}</h4>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h4>{type.name}</h4>
+                        <span className={`badge ${type.is_paid !== false ? 'badge-primary' : 'badge-warning'}`} style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px' }}>
+                          {type.is_paid !== false ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </div>
                       <span className={`badge ${type.status === 'Active' ? 'badge-success' : 'badge-danger'}`}>
                         {type.status}
                       </span>

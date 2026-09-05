@@ -80,6 +80,14 @@ export const LogoutIcon = (props) => (
   </SvgBase>
 );
 
+export const PayrollIcon = (props) => (
+  <SvgBase {...props}>
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+    <line x1="2" y1="10" x2="22" y2="10" />
+    <circle cx="7" cy="15" r="1" />
+  </SvgBase>
+);
+
 export const BrandLogo = ({ size = 20, style, ...props }) => {
   let customLogo = null;
   try {
@@ -470,4 +478,35 @@ export const UserCheckIcon = (props) => (
     <polyline points="17 11 19 13 23 9" />
   </SvgBase>
 );
+
+export const DollarIcon = (props) => (
+  <SvgBase {...props}>
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </SvgBase>
+);
+
+export const ChevronLeftIcon = (props) => (
+  <SvgBase {...props}>
+    <polyline points="15 18 9 12 15 6" />
+  </SvgBase>
+);
+
+export const ChevronRightIcon = (props) => (
+  <SvgBase {...props}>
+    <polyline points="9 18 15 12 9 6" />
+  </SvgBase>
+);
+
+export const ReceiptIcon = (props) => (
+  <SvgBase {...props}>
+    <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z" />
+    <line x1="8" y1="6" x2="16" y2="6" />
+    <line x1="8" y1="10" x2="16" y2="10" />
+    <line x1="8" y1="14" x2="12" y2="14" />
+  </SvgBase>
+);
+
+
+
 

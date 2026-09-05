@@ -21,6 +21,7 @@ export default function BillingTab({
   checkoutLoading,
   employeeCount,
   setEmployeeCount,
+  billingEstimate,
   premiumAddons,
   setPremiumAddons,
   toggleLoading,
@@ -119,11 +120,11 @@ export default function BillingTab({
           <div className="panel calculator-panel" style={{ border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: '#ffffff', padding: '24px' }}>
             <h4 style={{ fontSize: '1.1rem', fontWeight: '700', marginBottom: '16px', color: 'var(--text-main)' }}>Configure Workspace Tiers</h4>
             
-            {/* Team Size Display (Fixed based on registered company employees) */}
+            {/* Registered Employee Count Display */}
             <div className="form-group" style={{ marginBottom: '24px' }}>
-              <label className="form-label" htmlFor="team-size" style={{ fontWeight: '600', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Registered Company Employee Count</span>
-                <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>🔒 Fixed</span>
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: '600', marginBottom: '8px' }}>
+                <span>Billable Employee Count</span>
+                <span style={{ fontSize: '0.75rem', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 8px', borderRadius: '12px', fontWeight: '700' }}>🔒 Canonical</span>
               </label>
               <input
                 id="team-size"
@@ -134,7 +135,7 @@ export default function BillingTab({
                 style={{ border: '1px solid var(--border)', backgroundColor: '#f8fafc', color: 'var(--text-main)', padding: '12px', borderRadius: '8px', fontSize: '1.05rem', fontWeight: '700', width: '100%', cursor: 'not-allowed' }}
               />
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '6px', display: 'block' }}>
-                Fixed count of registered users in your company. Base core features (Dashboard, Employees, Settings, Audit Logs) are included free.
+                Canonical count of billable employees used for billing calculation (excluding SuperAdmin and inactive memberships). Base core features are included free.
               </span>
             </div>
 
@@ -256,18 +257,40 @@ export default function BillingTab({
               <h4 style={{ fontSize: '1.2rem', fontWeight: '850', marginBottom: '8px', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>Subscription Summary</h4>
               <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginBottom: '24px' }}>Metered plan customized specifically for your team size.</p>
 
-              {/* Formula Visual */}
-              <div style={{ backgroundColor: 'var(--primary-light)', padding: '16px', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--primary-border)' }}>
-                <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: '4px' }}>Formula</span>
-                <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: 'var(--primary-dark)', fontWeight: '600' }}>
-                  {employeeCount} Employees × {((premiumAddons.attendance ? attPrice : 0) + (premiumAddons.project ? tasksPrice : 0))} INR
+              {/* Formula Visual & Itemized Breakdown */}
+              <div style={{ backgroundColor: 'var(--primary-light)', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid var(--primary-border)' }}>
+                <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                  Per-Employee Monthly Breakdown ({employeeCount} Seats)
+                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.85rem', color: 'var(--primary-dark)', fontWeight: '600' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Employee Seats:</span>
+                    <span>{employeeCount} × ₹{billingEstimate?.employee_rate || '50.00'} = ₹{billingEstimate ? (parseFloat(billingEstimate.employee_charge) || 0).toLocaleString('en-IN') : (employeeCount * 50).toLocaleString('en-IN')}</span>
+                  </div>
+                  {premiumAddons.attendance && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Attendance Module:</span>
+                      <span>{employeeCount} × ₹{billingEstimate?.attendance_rate || attPrice || '99.00'} = ₹{billingEstimate ? (parseFloat(billingEstimate.attendance_charge) || 0).toLocaleString('en-IN') : (employeeCount * (attPrice || 99)).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {premiumAddons.project && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Projects Module:</span>
+                      <span>{employeeCount} × ₹{billingEstimate?.project_rate || tasksPrice || '56.00'} = ₹{billingEstimate ? (parseFloat(billingEstimate.project_charge) || 0).toLocaleString('en-IN') : (employeeCount * (tasksPrice || 56)).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Dynamic Cost */}
               <div className="dynamic-price-display" style={{ marginTop: '0', marginBottom: '16px', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                 <span className="currency-symbol" style={{ fontSize: '1.5rem', fontWeight: '700', color: 'var(--primary)' }}>₹</span>
-                <span className="price-value" style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-main)' }}>{(employeeCount * ((premiumAddons.attendance ? attPrice : 0) + (premiumAddons.project ? tasksPrice : 0))).toLocaleString('en-IN')}</span>
+                <span className="price-value" style={{ fontSize: '2.5rem', fontWeight: '800', color: 'var(--text-main)' }}>
+                  {billingEstimate && typeof billingEstimate.estimated_next_total === 'number'
+                    ? billingEstimate.estimated_next_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : (employeeCount * (50 + (premiumAddons.attendance ? (attPrice || 99) : 0) + (premiumAddons.project ? (tasksPrice || 56) : 0))).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  }
+                </span>
                 <span className="price-period" style={{ fontSize: '0.9rem', color: 'var(--text-light)' }}>/ month</span>
               </div>
 
@@ -440,16 +463,31 @@ export default function BillingTab({
                             </span>
                           </td>
                           <td>
-                            <div onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => setSelectedReceipt(tx)}
-                                style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
-                              >
-                                View
-                              </button>
-                            </div>
+                              <div style={{ display: 'flex', gap: '8px' }} onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => setSelectedReceipt(tx)}
+                                  style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
+                                >
+                                  View
+                                </button>
+                                {tx.invoice_id ? (
+                                  <a
+                                    href={`/api/monthly-invoices/${tx.invoice_id}/pdf/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary btn-sm"
+                                    style={{ padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                                  >
+                                    Download PDF
+                                  </a>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-light)', alignSelf: 'center', padding: '0 4px' }}>
+                                    Receipt
+                                  </span>
+                                )}
+                              </div>
                           </td>
                         </tr>
                       ))
@@ -510,7 +548,7 @@ export default function BillingTab({
                                   className="btn btn-secondary btn-sm"
                                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none', padding: '6px 12px', fontSize: '0.8rem', fontWeight: '600' }}
                                 >
-                                  <span>Stripe</span>
+                                  <span>Receipt</span>
                                   <span>↗</span>
                                 </a>
                               ) : null}

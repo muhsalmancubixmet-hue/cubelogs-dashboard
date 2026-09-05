@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect } from 'react';
 import { HolidaysIcon } from './Icons';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, normalizeListResponse } from '@/lib/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -16,7 +16,8 @@ const HolidaySlider = () => {
     const fetchHolidays = async () => {
       try {
         const data = await apiFetch('/holidays/');
-        setHolidays(data.map(h => ({ ...h, id: String(h.id) })));
+        const holidaysList = normalizeListResponse(data);
+        setHolidays(holidaysList.map(h => ({ ...h, id: String(h.id) })));
       } catch (err) {
         console.error('Failed to fetch holidays in slider:', err);
       } finally {

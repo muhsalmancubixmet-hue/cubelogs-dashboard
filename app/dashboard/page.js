@@ -25,9 +25,28 @@ import DashboardCalendar from '@/components/DashboardCalendar';
 import AdminProjectDashboard from '@/components/dashboard/AdminProjectDashboard';
 import TeamMemberProjectDashboard from '@/components/dashboard/TeamMemberProjectDashboard';
 
+const formatLocalTime = (value) => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { currentUser, authStatus, permissionsRegistry } = useApp();
+
+  const isAttendanceEnabled = currentUser?.is_superuser
+    ? true
+    : (currentUser?.is_attendance_enabled !== false &&
+       currentUser?.subscription?.is_attendance_enabled !== false &&
+       Boolean(currentUser?.subscription?.is_attendance_enabled ?? currentUser?.is_attendance_enabled ?? false));
 
   // Local state for dashboard data
   const [employees, setEmployees] = useState([]);
@@ -40,11 +59,62 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Search filter
-  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  // Dashboard corporate calendar logged-in user attendance state
+  const [userAttendanceSummaries, setUserAttendanceSummaries] = useState([]);
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
   // Live local system clock state
-  const [currentTime, setCurrentTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loggedInEmpId = currentUser?.employeeId || currentUser?.id;
+    if (!loggedInEmpId || !isAttendanceEnabled) {
+      setUserAttendanceSummaries([]);
+      return;
+    }
+
+    const fetchUserAttendance = async () => {
+      try {
+        const y = typeof calendarYear === 'number' ? calendarYear : new Date().getFullYear();
+        const m = typeof calendarMonth === 'number' ? calendarMonth : new Date().getMonth();
+        const validDate = new Date(y, m, 1);
+        const yearStr = validDate.getFullYear();
+        const monthStr = String(validDate.getMonth() + 1).padStart(2, '0');
+        const data = await apiFetch(`/attendance/daily-summary/?employee_id=${loggedInEmpId}&month=${yearStr}-${monthStr}`);
+        if (Array.isArray(data)) {
+          setUserAttendanceSummaries(data);
+        } else if (data && Array.isArray(data?.results)) {
+          setUserAttendanceSummaries(data.results);
+        } else {
+          setUserAttendanceSummaries([]);
+        }
+      } catch (err) {
+        const isPlanError = err?.message?.includes('subscription plan') || err?.message?.includes('403');
+        if (!isPlanError) {
+          console.warn('Failed to fetch user attendance summary for dashboard calendar:', err);
+        }
+        setUserAttendanceSummaries([]);
+      }
+    };
+
+    fetchUserAttendance();
+  }, [currentUser?.id, currentUser?.employeeId, calendarYear, calendarMonth, isAttendanceEnabled]);
+
+  const handleCalendarMonthChange = (newYear, newMonth) => {
+    setCalendarYear(newYear);
+    setCalendarMonth(newMonth);
+  };
+
+  // Search filter
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
 
   const hasPermission = (permissionName) => {
     if (!currentUser) return false;
@@ -249,7 +319,7 @@ export default function Dashboard() {
 
       const catchUnlessAuthError = (err) => {
         const msg = err.message || '';
-        const isAuthError = msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Credentials') || msg.includes('Authentication') || msg.includes('PermissionDenied');
+        const isAuthError = msg.includes('401') || msg.includes('Unauthorized') || msg.includes('Credentials') || msg.includes('Authentication');
         if (isAuthError) {
           throw err;
         }
@@ -265,8 +335,12 @@ export default function Dashboard() {
       const fetchTasks = userObj?.id
         ? projectService.getEmployeeAssignments(userObj.id).then(d => d.tasks || []).catch(() => [])
         : Promise.resolve([]);
-      const fetchLeaves = apiFetch(`/leaves/${orgQuery}`).catch(catchUnlessAuthError);
-      const fetchHolidays = apiFetch('/holidays/').catch(catchUnlessAuthError);
+      const fetchLeaves = isAttendanceEnabled
+        ? apiFetch(`/leaves/${orgQuery}`).catch(catchUnlessAuthError)
+        : Promise.resolve([]);
+      const fetchHolidays = isAttendanceEnabled
+        ? apiFetch('/holidays/').catch(catchUnlessAuthError)
+        : Promise.resolve([]);
 
       const hasEmployeesPerm = checkPerm('admin:employees') || checkPerm('attendance:admin');
       const fetchEmployees = hasEmployeesPerm
@@ -274,7 +348,7 @@ export default function Dashboard() {
         : Promise.resolve([]);
 
       const hasAttendancePerm = checkPerm('attendance:admin') || checkPerm('attendance:staff');
-      const fetchAttendance = hasAttendancePerm
+      const fetchAttendance = (isAttendanceEnabled && hasAttendancePerm)
         ? apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
 
@@ -329,7 +403,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, isAttendanceEnabled]);
 
   const handleClockOut = async (employeeId) => {
     setLoading(true);
@@ -351,12 +425,14 @@ export default function Dashboard() {
   useEffect(() => {
     if (authStatus === 'authenticated') {
       fetchDashboardData();
-      apiFetch('/locations/').then(d => {
-        const list = Array.isArray(d) ? d : (d?.results || []);
-        setOfficeLocations(list.map(l => ({ ...l, id: String(l.id) })));
-      }).catch(() => { });
+      if (isAttendanceEnabled) {
+        apiFetch('/locations/').then(d => {
+          const list = Array.isArray(d) ? d : (d?.results || []);
+          setOfficeLocations(list.map(l => ({ ...l, id: String(l.id) })));
+        }).catch(() => { });
+      }
     }
-  }, [authStatus, fetchDashboardData]);
+  }, [authStatus, fetchDashboardData, isAttendanceEnabled]);
 
   const handleRowClick = (empId) => {
     router.push(`/admin/employees/profile?id=${empId}`);
@@ -380,19 +456,6 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Failed to log hours:', err);
     }
-  };
-
-  useEffect(() => {
-    setCurrentTime(new Date());
-    const clockInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(clockInterval);
-  }, []);
-
-  const formatLocalTime = (date) => {
-    if (!date) return '';
-    return date.toLocaleTimeString([], { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   // Live active user's clock status
@@ -455,7 +518,6 @@ export default function Dashboard() {
   const isAdminView = currentUser?.isSuperAdmin || hasPermission('attendance:admin');
 
   const isProjectEnabled = currentUser?.subscription?.is_project_enabled || currentUser?.is_project_enabled;
-  const isAttendanceEnabled = currentUser?.subscription?.is_attendance_enabled || currentUser?.is_attendance_enabled;
 
   // Quick Navigation Permission Flags
   const canOnboard = hasPermission('admin:employees');
@@ -678,6 +740,9 @@ export default function Dashboard() {
         // Filter active modules based on subscription and user permissions
         const activeModules = modulesList.filter(module => {
           const reqFlag = module.metadata?.required_subscription_flag;
+          if (reqFlag === 'is_attendance_enabled' && !isAttendanceEnabled) {
+            return false;
+          }
           const hasAddon = reqFlag
             ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag])
             : true;
@@ -878,11 +943,31 @@ export default function Dashboard() {
                                 <button className="btn btn-primary btn-lg full-width" onClick={handleDashboardClockIn}>
                                   Clock In
                                 </button>
-                              ) : (
-                                <button className="btn btn-danger full-width" onClick={() => handleClockOut(currentUser.id)}>
-                                  Clock Out
-                                </button>
-                              )}
+                              ) : (() => {
+                                const minMins = activeLog?.minimum_session_minutes || 5;
+                                const minSecs = minMins * 60;
+                                const remSecs = Math.max(0, minSecs - workSeconds);
+                                const isAvailable = remSecs === 0;
+                                const remM = Math.floor(remSecs / 60);
+                                const remS = String(remSecs % 60).padStart(2, '0');
+
+                                return (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                                    <button 
+                                      className={`btn ${isAvailable ? 'btn-danger' : 'btn-secondary'} full-width`} 
+                                      onClick={() => handleClockOut(currentUser.id)}
+                                      style={{ opacity: isAvailable ? 1 : 0.85, cursor: 'pointer' }}
+                                    >
+                                      {isAvailable ? 'Clock Out' : `Clock Out (Available in ${remM}:${remS})`}
+                                    </button>
+                                    {!isAvailable && (
+                                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                        Minimum session before clock out is {minMins} minutes.
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
@@ -890,7 +975,11 @@ export default function Dashboard() {
                       </div>
                       <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div style={{ marginBottom: 0 }}>
-                          <DashboardCalendar holidays={holidays} />
+                          <DashboardCalendar
+                            holidays={holidays}
+                            attendanceSummaries={userAttendanceSummaries}
+                            onMonthChange={handleCalendarMonthChange}
+                          />
                         </div>
 
                         <div className="panel" style={{ marginBottom: 0 }}>

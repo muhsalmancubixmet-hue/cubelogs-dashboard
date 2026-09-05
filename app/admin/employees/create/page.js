@@ -692,14 +692,8 @@ function EmployeeCreateContent() {
               </div>
             </div>
 
-            {!isEditing && currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit && (
-              <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', fontSize: '0.88rem' }}>
-                <span>⚠️ Onboarding seat limit reached ({employees.length} / {currentUser.subscription.employeeLimit} slots). Please upgrade your subscription tier via settings to onboard more personnel.</span>
-              </div>
-            )}
-
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px 24px' }} disabled={(!isEditing && currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit) || loading}>
+              <button type="submit" className="btn btn-primary" style={{ padding: '12px 24px' }} disabled={loading}>
                 {isEditing ? 'Save Profile adjustments' : 'Onboard & Register Staff'}
               </button>
               <Link href="/admin/employees" className="btn btn-secondary" style={{ padding: '12px 24px' }}>

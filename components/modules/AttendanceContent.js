@@ -2,11 +2,11 @@
 
 import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import PageWrapper from '@/components/PageWrapper';
 import VerifierModal from './attendance/VerifierModal';
 import PhotoViewerModal from './attendance/PhotoViewerModal';
 import { useApp } from '@/context/AppContext';
 import { API_BASE_URL, apiFetch } from '@/lib/api';
+import AttendanceCalendar from './attendance/AttendanceCalendar';
 import { 
   ClockIcon, 
   HolidaysIcon, 
@@ -20,8 +20,17 @@ import {
   SearchIcon,
   LocationIcon,
   CameraIcon,
-  CheckIcon
+  CheckIcon,
+  CalendarIcon,
+  AuditIcon
 } from '@/components/Icons';
+
+const unpackList = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.results)) return response.results;
+  if (Array.isArray(response?.data)) return response.data;
+  return [];
+};
 
 function AttendanceContent() {
   const searchParams = useSearchParams();
@@ -33,6 +42,7 @@ function AttendanceContent() {
   const [currentUser, setCurrentUser] = useState(null);
   const [cachedEmployees, setCachedEmployees] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [dailySummaries, setDailySummaries] = useState([]);
   const [roleTemplates, setRoleTemplates] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [facingMode, setFacingMode] = useState('user');
@@ -42,6 +52,7 @@ function AttendanceContent() {
   // Selected month & year defined at the top for fetch visibility
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth()); // 0-11
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [myAttendanceViewMode, setMyAttendanceViewMode] = useState('calendar');
 
   const employees = cachedEmployees;
 
@@ -62,16 +73,32 @@ function AttendanceContent() {
     setErrorMsg('');
     try {
       let path = `/attendance/?month=${selectedMonth + 1}&year=${selectedYear}`;
+      const monthStr = String(selectedMonth + 1).padStart(2, '0');
+      let summaryPath = `/attendance/daily-summary/?month=${selectedYear}-${monthStr}`;
       if (!hasPermission('attendance:admin')) {
         path += `&employee_id=${currentUser.id}`;
+        summaryPath += `&employee_id=${currentUser.id}`;
       }
-      const data = await apiFetch(path);
-      const mappedAttendance = data.map(log => ({
-        ...log,
-        id: String(log.id),
-        employeeId: String(log.employee)
-      }));
-      setAttendanceLogs(mappedAttendance);
+
+      const [logsRes, summaryRes] = await Promise.allSettled([
+        apiFetch(path),
+        apiFetch(summaryPath)
+      ]);
+
+      if (logsRes.status === 'fulfilled') {
+        const attendanceList = unpackList(logsRes.value);
+        const mappedAttendance = attendanceList.map(log => ({
+          ...log,
+          id: String(log.id),
+          employeeId: String(log.employee)
+        }));
+        setAttendanceLogs(mappedAttendance);
+      }
+
+      if (summaryRes.status === 'fulfilled') {
+        const summaryList = unpackList(summaryRes.value);
+        setDailySummaries(Array.isArray(summaryList) ? summaryList : []);
+      }
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'Failed to fetch attendance data');
@@ -192,10 +219,15 @@ function AttendanceContent() {
           apiFetch('/schedules/').catch(() => []),
           apiFetch('/templates/').catch(() => [])
         ]);
-        setOfficeLocations(Array.isArray(locsData) ? locsData.map(loc => ({ ...loc, id: String(loc.id) })) : []);
-        setCachedEmployees(Array.isArray(empsData) ? empsData.map(emp => ({ ...emp, id: String(emp.id) })) : []);
-        setSchedules(Array.isArray(schedsData) ? schedsData.map(sched => ({ ...sched, id: String(sched.id) })) : []);
-        setRoleTemplates(Array.isArray(tmplsData) ? tmplsData.map(t => ({ ...t, id: String(t.id) })) : []);
+        const locsList = unpackList(locsData);
+        const empsList = unpackList(empsData);
+        const schedsList = unpackList(schedsData);
+        const tmplsList = unpackList(tmplsData);
+
+        setOfficeLocations(locsList.map(loc => ({ ...loc, id: String(loc.id) })));
+        setCachedEmployees(empsList.map(emp => ({ ...emp, id: String(emp.id) })));
+        setSchedules(schedsList.map(sched => ({ ...sched, id: String(sched.id) })));
+        setRoleTemplates(tmplsList.map(t => ({ ...t, id: String(t.id) })));
       } catch (err) {
         console.error('Failed to load attendance dependencies:', err);
       }
@@ -574,49 +606,24 @@ function AttendanceContent() {
         throw new Error('Could not capture photo. Ensure live camera is active or upload a photo file.');
       }
 
-      let coords = null;
-      if (verifierLocation) {
-        coords = {
-          lat: verifierLocation.lat,
-          lon: verifierLocation.lon,
-          distance: verifierDistance,
-          locationName: closestLocation?.name || 'Office'
-        };
-      } else if (navigator.geolocation) {
-        try {
-          const pos = await getCoordinates(6000);
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          
-          let minDistance = Infinity;
-          let closestLocObj = null;
-          officeLocations.forEach(loc => {
-            const dist = getDistanceInMeters(lat, lon, loc.lat, loc.lon);
-            if (dist < minDistance) {
-              minDistance = dist;
-              closestLocObj = loc;
-            }
-          });
-
-          coords = { lat, lon, distance: minDistance, locationName: closestLocObj?.name || 'Office' };
-          setVerifierLocation({ lat, lon });
-          setVerifierDistance(minDistance);
-          setClosestLocation(closestLocObj);
-        } catch (e) {
-          console.warn('Geolocation failed during webcam punch-in:', e);
-        }
-      }
+      // DO NOT fetch location again. Use existing cached verifierLocation or fallback metadata.
+      const coords = verifierLocation ? {
+        lat: verifierLocation.lat,
+        lon: verifierLocation.lon,
+        distance: verifierDistance,
+        locationName: closestLocation?.name || 'Camera Fallback'
+      } : { lat: 0, lon: 0, distance: 9999, locationName: 'Camera Fallback' };
 
       const result = await localClockIn(currentUser.id, {
         photo,
-        coords: coords || { lat: 0, lon: 0, distance: 9999, locationName: 'Unknown' }
+        coords
       });
 
       if (result.success) {
         stopWebcam();
         setVerifierStep('success');
       } else {
-        setVerifierStep('failed');
+        setVerifierError(result.error || 'Clock in failed with verification photo.');
       }
     } catch (err) {
       setVerifierError(err.message || 'Verification failed.');
@@ -641,13 +648,18 @@ function AttendanceContent() {
     setClosestLocation(null);
     stopWebcam();
 
+    const triggerCameraFallback = (errorMsg) => {
+      setVerifierError(errorMsg);
+      setVerifierStep('camera');
+      startWebcam('user');
+    };
+
     if (!navigator.geolocation) {
-      setVerifierError('Geolocation is not supported by your browser.');
-      setVerifierStep('failed');
+      triggerCameraFallback('Geolocation is not supported on your browser. Camera photo fallback active.');
       return;
     }
 
-    getCoordinates(8000).then(
+    getCoordinates(6000).then(
       (position) => {
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
@@ -673,6 +685,7 @@ function AttendanceContent() {
           setClosestLocation(closestLocObj);
 
           if (isWithinGeofence) {
+            // Valid Location -> Clock In automatically (NO camera, NO photo required)
             localClockIn(currentUser.id, {
               photo: null,
               coords: { lat, lon, distance: minDistance, locationName: closestLocObj?.name || 'Office' }
@@ -680,14 +693,15 @@ function AttendanceContent() {
               if (result.success) {
                 setVerifierStep('success');
               } else {
-                setVerifierStep('failed');
+                triggerCameraFallback('Location verification failed. Camera photo fallback active.');
               }
             });
           } else {
-            setVerifierError(`You are outside the geofence boundary. Closest location: ${closestLocObj?.name || 'Office'} is ${minDistance.toFixed(1)}m away (limit is ${closestLocObj?.radius || 100}m).`);
-            setVerifierStep('failed');
+            // Outside Geofence -> Transition into Camera Fallback automatically
+            triggerCameraFallback(`You are outside the office geofence (${minDistance.toFixed(1)}m away). Live photo verification required.`);
           }
         } else {
+          // Organization has no office locations -> Direct/Remote clock in without photo
           localClockIn(currentUser.id, {
             photo: null,
             coords: { lat, lon, distance: 0, locationName: 'Remote/Direct' }
@@ -695,25 +709,22 @@ function AttendanceContent() {
             if (result.success) {
               setVerifierStep('success');
             } else {
-              setVerifierStep('failed');
+              triggerCameraFallback('Direct clock in failed. Camera photo fallback active.');
             }
           });
         }
       },
       (err) => {
-        let msg = 'Failed to verify location.';
+        let msg = 'Location unavailable. Live photo verification required.';
         if (err.code === 1) {
-          msg = 'Location permission denied. Please allow location access in your browser settings to verify your coordinates.';
+          msg = 'Location permission denied. Live photo verification required.';
         } else if (err.code === 2) {
-          msg = 'Location unavailable. GPS or network positioning is disabled or inactive on your device.';
+          msg = 'GPS or positioning is disabled on your device. Live photo verification required.';
         } else if (err.code === 3) {
-          msg = 'Location request timed out. Please check your network and GPS signal.';
-        } else {
-          msg = `Failed to fetch location: ${err.message}`;
+          msg = 'Location request timed out. Live photo verification required.';
         }
-        setVerifierError(msg);
-        setVerifierStep('failed');
         setClosestLocation(null);
+        triggerCameraFallback(msg);
       }
     );
   }
@@ -800,19 +811,17 @@ function AttendanceContent() {
 
   if (loading && !currentUser) {
     return (
-      <PageWrapper title="Attendance Monitor & Logger">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-          <span>Syncing attendance configurations...</span>
-        </div>
-      </PageWrapper>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+        <span>Syncing attendance configurations...</span>
+      </div>
     );
   }
 
   if (!currentUser) return null;
 
   return (
-    <PageWrapper title="Attendance Monitor & Logger">
+    <div className="attendance-content-wrapper">
       
       {errorMsg && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px' }}>
@@ -886,79 +895,209 @@ function AttendanceContent() {
                 >
                   Clock In
                 </button>
-              ) : (
-                <button className="btn btn-danger btn-lg" onClick={handleClockOut}>
-                  Clock Out
-                </button>
-              )}
+              ) : (() => {
+                const minMins = activeLog?.minimum_session_minutes || 5;
+                const minSecs = minMins * 60;
+                const remSecs = Math.max(0, minSecs - workSeconds);
+                const isAvailable = remSecs === 0;
+                const remM = Math.floor(remSecs / 60);
+                const remS = String(remSecs % 60).padStart(2, '0');
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
+                    <button 
+                      className={`btn ${isAvailable ? 'btn-danger' : 'btn-secondary'} btn-lg`} 
+                      onClick={handleClockOut}
+                      style={{ opacity: isAvailable ? 1 : 0.85, cursor: 'pointer' }}
+                    >
+                      {isAvailable ? 'Clock Out' : `Clock Out (Available in ${remM}:${remS})`}
+                    </button>
+                    {!isAvailable && (
+                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        Minimum session before clock out is {minMins} minutes.
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Employee's Own Logs List */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '56px', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-              <h4 style={{ margin: 0 }}>My Recent Punch History</h4>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="Search history by date..."
-                value={myAttendanceSearchQuery}
-                onChange={(e) => setMyAttendanceSearchQuery(e.target.value)}
-                style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }}
-              />
-            </div>
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>In Time</th>
-                    <th>Out Time</th>
-                    <th>Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="no-data-text" style={{ padding: '20px 0' }}>No logs recorded matching search.</td>
-                    </tr>
-                  ) : (
-                    myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).map(log => (
-                      <tr key={log.id}>
-                        <td>{log.date}</td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>{new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {log.verificationPhoto && (
-                              <button 
-                                type="button"
-                                title="View Punch-In Photo Verification" 
-                                onClick={() => {
-                                  setActivePhotoModal(log.verificationPhoto);
-                                  setActivePhotoLocation(log.verificationLocation);
-                                }}
-                                style={{ 
-                                  display: 'inline-flex', 
-                                  color: 'var(--primary)', 
-                                  cursor: 'pointer',
-                                  background: 'none',
-                                  border: 'none',
-                                  padding: 0
-                                }}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                  <circle cx="12" cy="13" r="4" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                        <td>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="badge badge-success">Active</span>}</td>
-                        <td>{log.clockOut ? formatTime(log.totalDuration) : 'Ticking...'}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+            {/* Employee's Own Logs & Attendance History */}
+            <div style={{ marginTop: '48px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ClockIcon size={18} style={{ color: 'var(--primary)' }} />
+                  <span>My Attendance History</span>
+                </h4>
+
+                <div
+                  role="tablist"
+                  aria-label="Attendance view mode"
+                  style={{
+                    display: 'flex',
+                    gap: '4px',
+                    background: 'var(--bg-app)',
+                    padding: '3px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)'
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={myAttendanceViewMode === 'calendar'}
+                    data-active-blue={myAttendanceViewMode === 'calendar' ? 'true' : undefined}
+                    className={`btn btn-sm ${myAttendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setMyAttendanceViewMode('calendar')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: myAttendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
+                      color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
+                      border: myAttendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <CalendarIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={myAttendanceViewMode === 'list'}
+                    data-active-blue={myAttendanceViewMode === 'list' ? 'true' : undefined}
+                    className={`btn btn-sm ${myAttendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setMyAttendanceViewMode('list')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: myAttendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
+                      color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155',
+                      border: myAttendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <AuditIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
+                  </button>
+                </div>
+              </div>
+
+              {myAttendanceViewMode === 'calendar' ? (
+                <AttendanceCalendar
+                  employeeId={currentUser?.id}
+                  employeeName={currentUser?.name}
+                  year={selectedYear}
+                  month={selectedMonth}
+                  dailySummaries={dailySummaries}
+                  attendanceLogs={myLogs}
+                  onMonthChange={(y, m) => {
+                    setSelectedYear(y);
+                    setSelectedMonth(m);
+                  }}
+                />
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Search history by date..."
+                      value={myAttendanceSearchQuery}
+                      onChange={(e) => setMyAttendanceSearchQuery(e.target.value)}
+                      style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div
+                    className="table-container"
+                    style={{
+                      maxHeight: 'clamp(360px, 48vh, 480px)',
+                      overflowY: 'auto',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      position: 'relative',
+                      scrollbarWidth: 'thin'
+                    }}
+                  >
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
+                        <tr>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>In Time</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Out Time</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).length === 0 ? (
+                          <tr>
+                            <td colSpan="4" className="no-data-text" style={{ padding: '20px 0' }}>No logs recorded matching search.</td>
+                          </tr>
+                        ) : (
+                          myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).map(log => {
+                            let durationText = '—';
+                            if (log.clockOut) {
+                              const sec = typeof log.totalDuration === 'number' && !isNaN(log.totalDuration) && log.totalDuration > 0
+                                ? log.totalDuration
+                                : (new Date(log.clockOut) - new Date(log.clockIn)) / 1000;
+                              if (!isNaN(sec) && sec > 0) {
+                                const h = Math.floor(sec / 3600);
+                                const m = Math.floor((sec % 3600) / 60);
+                                durationText = `${h}h ${m}m`;
+                              }
+                            }
+                            return (
+                              <tr key={log.id}>
+                                <td>{log.date}</td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    {log.verificationPhoto && (
+                                      <button 
+                                        type="button"
+                                        title="View Punch-In Photo Verification" 
+                                        onClick={() => {
+                                          setActivePhotoModal(log.verificationPhoto);
+                                          setActivePhotoLocation(log.verificationLocation);
+                                        }}
+                                        style={{ 
+                                          display: 'inline-flex', 
+                                          color: 'var(--primary)', 
+                                          cursor: 'pointer',
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0
+                                        }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                          <circle cx="12" cy="13" r="4" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="badge badge-success">Active</span>}</td>
+                                <td>{log.clockOut ? durationText : 'Ticking...'}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1477,11 +1616,27 @@ function AttendanceContent() {
 
         .attendance-layout-grid {
           display: flex;
-          gap: 48px;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 32px;
           width: 100%;
           max-width: 100%;
           min-width: 0;
+        }
+
+        @media (min-width: 1150px) {
+          .attendance-layout-grid {
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 32px;
+          }
+          .action-panel {
+            flex: 1.85;
+            min-width: 680px;
+          }
+          .admin-view-wrapper {
+            flex: 1;
+            min-width: 350px;
+          }
         }
 
         .filters-row {
@@ -1517,7 +1672,7 @@ function AttendanceContent() {
         }
 
         .action-panel {
-          flex: 1;
+          width: 100%;
           min-width: 0;
           max-width: 100%;
           padding: 24px !important;
@@ -1525,7 +1680,7 @@ function AttendanceContent() {
         }
 
         .admin-view-wrapper {
-          flex: 1.5;
+          width: 100%;
           min-width: 0;
           max-width: 100%;
           display: flex;
@@ -2056,7 +2211,7 @@ function AttendanceContent() {
           }
         }
       `}</style>
-    </PageWrapper>
+    </div>
   );
 }
 

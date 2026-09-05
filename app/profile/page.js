@@ -14,9 +14,13 @@ import {
   ClockIcon,
   CheckIcon,
   WarningIcon,
-  CameraIcon
+  CameraIcon,
+  ReceiptIcon,
+  DownloadIcon,
 } from '@/components/Icons';
-import { apiFetch } from '@/lib/api';
+import PayslipModal from '@/components/PayslipModal';
+import { apiFetch, normalizeListResponse } from '@/lib/api';
+import { formatCurrency } from '@/lib/currency';
 
 export default function PersonalProfile() {
   const { 
@@ -30,26 +34,106 @@ export default function PersonalProfile() {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Payslips Self-Service states
+  const [myPayslips, setMyPayslips] = useState([]);
+  const [payslipsLoading, setPayslipsLoading] = useState(true);
+  const [payslipError, setPayslipError] = useState('');
+  const [selectedPayslip, setSelectedPayslip] = useState(null);
+  const [isPayslipModalOpen, setIsPayslipModalOpen] = useState(false);
+  const [downloadingPayslipId, setDownloadingPayslipId] = useState(null);
+
+  const fetchMyPayslips = async () => {
+    try {
+      setPayslipsLoading(true);
+      setPayslipError('');
+      const data = await apiFetch('/payroll/my-payslips/');
+      setMyPayslips(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load payslips:', err);
+      setPayslipError(err.message || 'Failed to load your payslips.');
+    } finally {
+      setPayslipsLoading(false);
+    }
+  };
+
+  const handleViewPayslip = async (payslip) => {
+    try {
+      const detail = await apiFetch(`/payroll/my-payslips/${payslip.id}/`);
+      setSelectedPayslip(detail);
+      setIsPayslipModalOpen(true);
+    } catch (err) {
+      console.error('Failed to load payslip detail:', err);
+      showAlert?.('Failed to open payslip details.', 'error');
+    }
+  };
+
+  const handleDownloadPdf = async (payslip) => {
+    const psId = typeof payslip === 'number' || typeof payslip === 'string' ? payslip : (payslip?.id || payslip?.payslip_id);
+    if (!psId) {
+      showAlert?.('No issued payslip is available.', 'error');
+      return;
+    }
+    try {
+      setDownloadingPayslipId(psId);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const res = await fetch(`/api/payroll/my-payslips/${psId}/pdf/`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error('Failed to download PDF');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payslip_${payslip?.payslip_number || psId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download error:', err);
+      showAlert?.(err.message || 'Failed to download payslip PDF.', 'error');
+    } finally {
+      setDownloadingPayslipId(null);
+    }
+  };
+
   useEffect(() => {
     const fetchProfileData = async () => {
       try {
-        const [tasksData, leavesData, attendanceData, schedulesData] = await Promise.all([
-          apiFetch('/tasks/'),
+        const [tasksResult, leavesResult, attendanceResult, schedulesResult] = await Promise.allSettled([
+          apiFetch('/project-tasks/'),
           apiFetch('/leaves/'),
           apiFetch('/attendance/'),
           apiFetch('/schedules/')
         ]);
-        setTasks(tasksData.map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo) })));
-        setLeaves(leavesData.map(l => ({ ...l, id: String(l.id), employeeId: String(l.employee), leaveTypeId: String(l.leaveType), leaveType: l.leaveTypeName })));
-        setAttendanceLogs(attendanceData.map(log => ({ ...log, id: String(log.id), employeeId: String(log.employee) })));
-        setSchedules(schedulesData.map(s => ({ ...s, id: String(s.id) })));
+
+        if (tasksResult.status === 'fulfilled' && tasksResult.value) {
+          const tasksData = normalizeListResponse(tasksResult.value);
+          setTasks(tasksData.map(t => ({ ...t, id: String(t.id), assignedTo: String(t.assignedTo || t.assigned_to || '') })));
+        }
+
+        if (leavesResult.status === 'fulfilled' && leavesResult.value) {
+          const leavesData = normalizeListResponse(leavesResult.value);
+          setLeaves(leavesData.map(l => ({ ...l, id: String(l.id), employeeId: String(l.employee), leaveTypeId: String(l.leaveType), leaveType: l.leaveTypeName })));
+        }
+
+        if (attendanceResult.status === 'fulfilled' && attendanceResult.value) {
+          const attendanceData = normalizeListResponse(attendanceResult.value);
+          setAttendanceLogs(attendanceData.map(log => ({ ...log, id: String(log.id), employeeId: String(log.employee) })));
+        }
+
+        if (schedulesResult.status === 'fulfilled' && schedulesResult.value) {
+          const schedulesData = normalizeListResponse(schedulesResult.value);
+          setSchedules(schedulesData.map(s => ({ ...s, id: String(s.id) })));
+        }
       } catch (err) {
-        console.error('Failed to load profile data:', err);
+        console.error('Failed to load supplemental profile data:', err);
       } finally {
         setLoading(false);
       }
     };
     fetchProfileData();
+    fetchMyPayslips();
   }, []);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
@@ -160,17 +244,52 @@ export default function PersonalProfile() {
     return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
-  const formatDurationStr = (secs) => {
-    if (!secs) return '—';
-    const hrs = Math.floor(secs / 3600);
-    const mins = Math.floor((secs % 3600) / 60);
+  const formatDurationStr = (logOrSecs, clockIn, clockOut) => {
+    let seconds = null;
+    if (typeof logOrSecs === 'number' && !isNaN(logOrSecs) && logOrSecs > 0) {
+      seconds = logOrSecs;
+    } else if (typeof logOrSecs === 'object' && logOrSecs !== null) {
+      const log = logOrSecs;
+      if (typeof log.totalDuration === 'number' && !isNaN(log.totalDuration) && log.totalDuration > 0) {
+        seconds = log.totalDuration;
+      } else if (typeof log.worked_minutes === 'number' && !isNaN(log.worked_minutes) && log.worked_minutes > 0) {
+        seconds = log.worked_minutes * 60;
+      } else if (typeof log.duration_minutes === 'number' && !isNaN(log.duration_minutes) && log.duration_minutes > 0) {
+        seconds = log.duration_minutes * 60;
+      } else if (log.clockIn && log.clockOut) {
+        const inTime = new Date(log.clockIn).getTime();
+        const outTime = new Date(log.clockOut).getTime();
+        if (!isNaN(inTime) && !isNaN(outTime) && outTime > inTime) {
+          seconds = (outTime - inTime) / 1000;
+        }
+      }
+    } else if (typeof logOrSecs === 'string') {
+      const parsedNum = Number(logOrSecs);
+      if (!isNaN(parsedNum) && parsedNum > 0) {
+        seconds = parsedNum;
+      }
+    }
+
+    if ((seconds === null || isNaN(seconds) || seconds <= 0) && clockIn && clockOut) {
+      const inTime = new Date(clockIn).getTime();
+      const outTime = new Date(clockOut).getTime();
+      if (!isNaN(inTime) && !isNaN(outTime) && outTime > inTime) {
+        seconds = (outTime - inTime) / 1000;
+      }
+    }
+
+    if (seconds === null || isNaN(seconds) || seconds <= 0) {
+      return '—';
+    }
+
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     return `${hrs}h ${mins}m`;
   };
 
-  // Recent logs sliced to 10
+  // Recent logs
   const recentLogs = [...empLogs]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 10);
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   return (
     <PageWrapper title="My Personal Profile" requiredPermission="dashboard">
@@ -351,15 +470,25 @@ export default function PersonalProfile() {
             />
           </div>
 
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
+          <div
+            className="table-container"
+            style={{
+              maxHeight: 'clamp(360px, 48vh, 480px)',
+              overflowY: 'auto',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              position: 'relative',
+              scrollbarWidth: 'thin'
+            }}
+          >
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
                 <tr>
-                  <th>Date</th>
-                  <th>Clock-In Time</th>
-                  <th>Clock-Out Time</th>
-                  <th>Net Work Duration</th>
-                  <th>Compliance Status</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-In Time</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-Out Time</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Net Work Duration</th>
+                  <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Compliance Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -389,7 +518,7 @@ export default function PersonalProfile() {
                             <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Active Shift</span>
                           )}
                         </td>
-                        <td>{log.clockOut ? formatDurationStr(log.totalDuration) : 'Ticking...'}</td>
+                        <td>{log.clockOut ? formatDurationStr(log, log.clockIn, log.clockOut) : 'Ticking...'}</td>
                         <td>
                           {wasLate ? (
                             <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -412,7 +541,132 @@ export default function PersonalProfile() {
           </div>
         </div>
 
+        {/* My Payslips & Compensation Records Panel */}
+        <div className="panel payslips-container" style={{ marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+            <h3 style={{ margin: '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ReceiptIcon size={20} style={{ color: 'var(--primary)' }} />
+              <span>My Payslips & Compensation Records</span>
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Official monthly salary payslips issued by your organization
+            </span>
+          </div>
+
+          {payslipsLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--primary)', fontWeight: '600' }}>
+              Loading your issued payslips...
+            </div>
+          ) : payslipError ? (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#dc2626', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px' }}>
+              <p style={{ margin: '0 0 10px 0' }}>{payslipError}</p>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={fetchMyPayslips}>Retry</button>
+            </div>
+          ) : myPayslips.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--surface-hover)', borderRadius: '8px', border: '1px dashed var(--border)', color: 'var(--text-muted)' }}>
+              <ReceiptIcon size={36} style={{ margin: '0 auto 12px auto', opacity: 0.5, display: 'block' }} />
+              <p style={{ margin: 0, fontWeight: '600', color: 'var(--text-main)' }}>No issued payslips available yet.</p>
+              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Once monthly payroll is finalized by HR, your official payslips will appear here.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    <th style={{ padding: '12px 14px' }}>Payroll Period</th>
+                    <th style={{ padding: '12px 14px' }}>Payslip Number</th>
+                    <th style={{ padding: '12px 14px' }}>Net Salary</th>
+                    <th style={{ padding: '12px 14px' }}>Payment Status</th>
+                    <th style={{ padding: '12px 14px' }}>Issued Date</th>
+                    <th style={{ padding: '12px 14px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {myPayslips.map((ps) => (
+                    <tr key={ps.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '14px', fontWeight: '700', color: 'var(--text-main)' }}>
+                        {ps.month_name}
+                      </td>
+                      <td style={{ padding: '14px', fontFamily: 'monospace', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                        {ps.payslip_number}
+                      </td>
+                      <td style={{ padding: '14px', fontWeight: '800', color: '#166534' }}>
+                        {formatCurrency(ps.net_payable, ps.currency)}
+                      </td>
+                      <td style={{ padding: '14px' }}>
+                        {ps.payment_status === 'Paid' ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            backgroundColor: '#dcfce7',
+                            color: '#166534',
+                            border: '1px solid #86efac'
+                          }}>
+                            ✓ Paid
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.75rem',
+                            fontWeight: '700',
+                            backgroundColor: '#fef3c7',
+                            color: '#b45309',
+                            border: '1px solid #fde68a'
+                          }}>
+                            ● Unpaid
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '14px', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                        {ps.issued_at ? new Date(ps.issued_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '-'}
+                      </td>
+                      <td style={{ padding: '14px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => handleViewPayslip(ps)}
+                            style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                          >
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleDownloadPdf(ps)}
+                            style={{ fontSize: '0.8rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            disabled={downloadingPayslipId === ps.id}
+                          >
+                            <DownloadIcon size={14} />
+                            <span>{downloadingPayslipId === ps.id ? '...' : 'PDF'}</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
       </div>
+
+      {/* PAYSLIP PREVIEW MODAL */}
+      <PayslipModal
+        isOpen={isPayslipModalOpen}
+        onClose={() => setIsPayslipModalOpen(false)}
+        payslipData={selectedPayslip}
+        onDownloadPdf={handleDownloadPdf}
+        isDownloading={downloadingPayslipId === selectedPayslip?.id}
+      />
 
       <style jsx>{`
         .profile-page-wrapper {

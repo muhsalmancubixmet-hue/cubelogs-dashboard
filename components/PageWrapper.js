@@ -8,7 +8,7 @@ import Header from './Header';
 import { WarningIcon } from './Icons';
 import OnboardingDashboard from './OnboardingDashboard';
 
-export default function PageWrapper({ children, title, requiredPermission }) {
+export default function PageWrapper({ children, title, requiredPermission, requiredSubscriptionFlag }) {
   const { 
     currentUser, 
     authStatus, 
@@ -197,6 +197,64 @@ export default function PageWrapper({ children, title, requiredPermission }) {
         );
       }
     }
+  }
+
+  // Module Subscription Entitlement Guard Check
+  const getRequiredSubscriptionFlag = () => {
+    if (requiredSubscriptionFlag) return requiredSubscriptionFlag;
+    if (typeof window === 'undefined') return null;
+    const path = window.location.pathname;
+    if (path.startsWith('/attendance') || path.startsWith('/payroll')) {
+      return 'is_attendance_enabled';
+    }
+    if (path.startsWith('/projects') || path.startsWith('/tasks')) {
+      return 'is_project_enabled';
+    }
+    return null;
+  };
+
+  const hasSubscriptionAccess = () => {
+    const flag = getRequiredSubscriptionFlag();
+    if (!flag) return true;
+    if (!currentUser) return true;
+    if (currentUser.is_superuser) return true;
+    return (currentUser[flag] !== false && currentUser.subscription?.[flag] !== false);
+  };
+
+  if (!hasSubscriptionAccess()) {
+    const flag = getRequiredSubscriptionFlag();
+    const moduleName = flag === 'is_attendance_enabled' ? 'Attendance Management' : 'Project & Tasks Management';
+    return (
+      <div className="app-container">
+        <div 
+          className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+        />
+        <Suspense fallback={<div className="sidebar-placeholder" style={{ width: '280px', backgroundColor: '#0b1528' }} />}>
+          <Sidebar />
+        </Suspense>
+        <div className="main-content">
+          <div className="main-content-inner">
+            <Header title="Module Unavailable" />
+            <div className="panel alert-box alert-box-danger" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '32px' }}>
+              <div style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <WarningIcon size={36} />
+              </div>
+              <h2>Module Disabled</h2>
+              <p>The <strong>{moduleName}</strong> module is not active for your organization.</p>
+              <p style={{ fontSize: '0.88rem', color: 'var(--text-light)' }}>
+                An administrator can enable this module in <strong>Admin Settings &rarr; Billing</strong>.
+              </p>
+              <div>
+                <button className="btn btn-primary" onClick={() => router.push('/dashboard')}>
+                  Return to Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Permission Guard Check

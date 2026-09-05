@@ -16,7 +16,8 @@ import {
   BrandLogo,
   ChevronIcon,
   LocationIcon,
-  AuditIcon
+  AuditIcon,
+  PayrollIcon
 } from './Icons';
 
 const Sidebar = React.memo(function Sidebar() {
@@ -37,6 +38,8 @@ const Sidebar = React.memo(function Sidebar() {
   // Accordion open states
   const [openSections, setOpenSections] = useState({
     attendance: true,
+    payroll: true,
+    project_management: true,
     tasks: true,
     settings: false,
   });
@@ -85,18 +88,61 @@ const Sidebar = React.memo(function Sidebar() {
 
   if (!currentUser) return null;
 
-  // Helper to check if route is active
+  // Helper to check if route is active (exact)
   const isActive = (path) => pathname === path;
 
+  // Helper for sub-nav with optional tab param
+  const isSubActive = (path) => {
+    const [basePath, queryString] = path.split('?');
+    if (queryString) {
+      const params = new URLSearchParams(queryString);
+      const navTab = params.get('tab');
+      return pathname === basePath && activeTab === navTab;
+    }
+    // Exact path match only (no prefix matching for payroll sub-routes)
+    return pathname === basePath && !activeTab;
+  };
 
   const isUnpaid = currentUser?.subscription?.subscriptionStatus === 'Unpaid' || currentUser?.subscription?.subscriptionStatus === 'Restricted';
+
+  // --- Attendance Management module entitlement & permission checks ---
+  const isAttendanceEnabled = currentUser?.is_superuser
+    ? true
+    : (currentUser?.is_attendance_enabled !== false && currentUser?.subscription?.is_attendance_enabled !== false);
+
+  const isSuperAdmin = !!currentUser?.isSuperAdmin;
 
   const hasSettingsTemplates = !isUnpaid && hasPermission('admin:templates');
   const hasSettingsLocations = !isUnpaid && hasPermission('locations:manage');
   const hasSettingsBranding = !isUnpaid && hasPermission('settings:branding');
   const hasSettingsBilling = hasPermission('settings:billing');
-  const hasAttendanceConfig = !isUnpaid && hasPermission('attendance:management_portal');
-  const showSettingsSection = hasSettingsTemplates || hasSettingsLocations || hasSettingsBranding || hasSettingsBilling || hasAttendanceConfig;
+  const hasAttendanceConfig = !isUnpaid && isAttendanceEnabled && hasPermission('attendance:management_portal');
+  const hasPayrollConfig = !isUnpaid && isAttendanceEnabled && (isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPermission('payroll:view'));
+  const showSettingsSection = hasSettingsTemplates || hasSettingsLocations || hasSettingsBranding || hasSettingsBilling || hasAttendanceConfig || hasPayrollConfig;
+
+  // ATTENDANCE category
+  const canViewAttendanceClocking = isSuperAdmin || hasPermission('attendance:staff');
+  const canViewMgmtPortal = !isUnpaid && (isSuperAdmin || hasPermission('attendance:management_portal'));
+
+  // LEAVE & HOLIDAYS category
+  const canApplyLeave = isSuperAdmin || hasPermission('leaves:apply');
+  const canApproveLeave = !isUnpaid && (isSuperAdmin || hasPermission('leaves:approve'));
+  const canManageLeaveTypes = !isUnpaid && (isSuperAdmin || hasPermission('leaves:manage'));
+  const canViewHolidays = isSuperAdmin || hasPermission('holidays:view');
+
+  // PAYROLL & SALARY category (Shares Attendance addon entitlement)
+  const canViewPayroll = !isUnpaid && (isSuperAdmin || hasPermission('payroll:view') || hasPermission('payroll:process') || hasPermission('payroll:manage'));
+  const canViewSalaries = !isUnpaid && (isSuperAdmin || hasPermission('salary:view') || hasPermission('salary:manage'));
+  const canViewPayslipsAdmin = !isUnpaid && (isSuperAdmin || hasPermission('payroll:view') || hasPermission('payroll:manage'));
+
+  // Whether Attendance Management module is visible (requires module enabled + permissions)
+  const hasAttendanceSection = isAttendanceEnabled && (canViewAttendanceClocking || canViewMgmtPortal);
+  const hasLeaveHolidaySection = isAttendanceEnabled && (canApplyLeave || canApproveLeave || canManageLeaveTypes || canViewHolidays);
+  const showAttendanceModule = !isUnpaid && isAttendanceEnabled && (hasAttendanceSection || hasLeaveHolidaySection);
+
+  // Payroll module visibility (shares Attendance addon entitlement)
+  const hasPayrollSalarySection = isAttendanceEnabled && (canViewPayroll || canViewSalaries || canViewPayslipsAdmin);
+  const showPayrollModule = !isUnpaid && isAttendanceEnabled && hasPayrollSalarySection;
 
   // Initials helper
   const getInitials = (name) => {
@@ -147,8 +193,6 @@ const Sidebar = React.memo(function Sidebar() {
             <span className="nav-text">Manage Employees</span>
           </Link>
         )}
-
-
 
         {/* Settings Accordion Dropdown */}
         {showSettingsSection && (
@@ -206,7 +250,27 @@ const Sidebar = React.memo(function Sidebar() {
                   onClick={handleNavLinkClick}
                 >
                   <span className="dot"></span>
-                  <span className="sub-nav-text">Billing & Subscription</span>
+                  <span className="sub-nav-text">Billing &amp; Subscription</span>
+                </Link>
+              )}
+              {hasAttendanceConfig && (
+                <Link
+                  href="/admin/settings?tab=attendance-config"
+                  className={`sub-nav-link ${pathname === '/admin/settings' && activeTab === 'attendance-config' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Attendance Rules</span>
+                </Link>
+              )}
+              {hasPayrollConfig && (
+                <Link
+                  href="/admin/settings?tab=payroll-config"
+                  className={`sub-nav-link ${pathname === '/admin/settings' && activeTab === 'payroll-config' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Payroll Settings</span>
                 </Link>
               )}
             </div>
@@ -227,30 +291,195 @@ const Sidebar = React.memo(function Sidebar() {
           </Link>
         )}
 
-        {/* --- Dropdown Modules (Accordions) dynamically populated --- */}
-        {/* NOTE: Renders module.navigation items — NOT functional_capabilities.
-            Capabilities are authorization definitions used for permission checks only.
-            Navigation uses the dedicated module.navigation array from feature_modules.json. */}
+        {/* ==========================================
+            ATTENDANCE MANAGEMENT — Categorized Accordion
+            Replaces the flat dynamic module accordion for the 'attendance' module.
+            ========================================== */}
+        {showAttendanceModule && (
+          <div className="accordion-section">
+            <button className="accordion-trigger" onClick={() => toggleSection('attendance')}>
+              <div className="accordion-trigger-left">
+                <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                  <AttendanceIcon size={18} />
+                </span>
+                <span className="nav-text">Attendance Management</span>
+              </div>
+              <span className="chevron" style={{ display: 'flex', alignItems: 'center' }}>
+                <ChevronIcon direction={openSections.attendance ? 'up' : 'down'} size={12} />
+              </span>
+            </button>
+
+            <div className={`accordion-content ${openSections.attendance ? 'open' : ''}`}>
+
+              {/* ── ATTENDANCE category ── */}
+              {hasAttendanceSection && (
+                <div className="sidebar-nav-category">ATTENDANCE</div>
+              )}
+              {canViewAttendanceClocking && (
+                <Link
+                  href="/attendance"
+                  className={`sub-nav-link ${isSubActive('/attendance') ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Attendance &amp; Clocking</span>
+                </Link>
+              )}
+              {canViewMgmtPortal && (
+                <Link
+                  href="/attendance/management-portal"
+                  className={`sub-nav-link ${pathname === '/attendance/management-portal' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Management Portal</span>
+                </Link>
+              )}
+
+              {/* ── LEAVE & HOLIDAYS category ── */}
+              {hasLeaveHolidaySection && (
+                <div className="sidebar-nav-category">LEAVE &amp; HOLIDAYS</div>
+              )}
+              {canApplyLeave && (
+                <Link
+                  href="/attendance?tab=leaves-apply"
+                  className={`sub-nav-link ${isSubActive('/attendance?tab=leaves-apply') ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Apply Leave</span>
+                </Link>
+              )}
+              {canApproveLeave && (
+                <Link
+                  href="/attendance?tab=leaves-approve"
+                  className={`sub-nav-link ${isSubActive('/attendance?tab=leaves-approve') ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Leave Approvals</span>
+                </Link>
+              )}
+              {canManageLeaveTypes && (
+                <Link
+                  href="/attendance?tab=leaves-manage"
+                  className={`sub-nav-link ${isSubActive('/attendance?tab=leaves-manage') ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Leave Types</span>
+                </Link>
+              )}
+              {canViewHolidays && (
+                <Link
+                  href="/attendance?tab=holidays-view"
+                  className={`sub-nav-link ${isSubActive('/attendance?tab=holidays-view') ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Holiday Calendar</span>
+                </Link>
+              )}
+
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            PAYROLL & SALARY — Independent Accordion
+            Kept distinct so Payroll remains available regardless of Attendance subscription.
+            ========================================== */}
+        {showPayrollModule && (
+          <div className="accordion-section">
+            <button className="accordion-trigger" onClick={() => toggleSection('payroll')}>
+              <div className="accordion-trigger-left">
+                <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                  <PayrollIcon size={18} />
+                </span>
+                <span className="nav-text">Payroll &amp; Salary</span>
+              </div>
+              <span className="chevron" style={{ display: 'flex', alignItems: 'center' }}>
+                <ChevronIcon direction={openSections.payroll ? 'up' : 'down'} size={12} />
+              </span>
+            </button>
+
+            <div className={`accordion-content ${openSections.payroll ? 'open' : ''}`}>
+              {canViewPayroll && (
+                <Link
+                  href="/payroll"
+                  className={`sub-nav-link ${pathname === '/payroll' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Monthly Payroll</span>
+                </Link>
+              )}
+              {canViewSalaries && (
+                <Link
+                  href="/payroll/salaries"
+                  className={`sub-nav-link ${pathname === '/payroll/salaries' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Salary Structures</span>
+                </Link>
+              )}
+              {canViewSalaries && (
+                <Link
+                  href="/payroll/components"
+                  className={`sub-nav-link ${pathname === '/payroll/components' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Salary Components</span>
+                </Link>
+              )}
+              {canViewPayroll && (
+                <Link
+                  href="/payroll/payments"
+                  className={`sub-nav-link ${pathname === '/payroll/payments' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Payroll Payments</span>
+                </Link>
+              )}
+              {canViewPayslipsAdmin && (
+                <Link
+                  href="/payroll/payslips"
+                  className={`sub-nav-link ${pathname === '/payroll/payslips' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Payslips</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* --- Other Dynamic Modules (Project Management, etc.) ---
+            Skip the 'attendance' module since it's rendered above with custom categories. */}
         {permissionsRegistry?.modules?.map(module => {
           if (isUnpaid) return null;
+          // Skip attendance — handled above with custom categories
+          if (module.id === 'attendance') return null;
 
-          // 1. Subscription Check — is this module enabled for the organization?
+          // 1. Subscription Check
           const reqFlag = module.metadata.required_subscription_flag;
           const hasAddon = reqFlag
-            ? (currentUser?.[reqFlag] || currentUser?.subscription?.[reqFlag])
+            ? (currentUser?.is_superuser ? true : (currentUser?.[reqFlag] !== false && currentUser?.subscription?.[reqFlag] !== false))
             : true;
           if (!hasAddon) return null;
 
-          // 2. Access Check — does this user have ANY capability inside this module?
+          // 2. Access Check
           const allCaps = module.functional_capabilities || [];
           const hasAnyCapability = currentUser?.isSuperAdmin
-            ? allCaps.length > 0
+            ? true
             : allCaps.some(cap => hasPermission(cap.id));
           if (!hasAnyCapability) return null;
 
-
-          // 4. Nav filtering — only show items the user has permission to see.
-          //    Items with no permission field are shown to any user with module access.
+          // 4. Nav filtering
           const navItems = module.navigation && module.navigation.length > 0
             ? module.navigation
             : (module.metadata.path
@@ -259,17 +488,14 @@ const Sidebar = React.memo(function Sidebar() {
 
           if (navItems.length === 0) return null;
 
-          // Multiple nav items → accordion with sub-links
-          // Each nav item is rendered only if the user has the specific permission for that item.
-          // Nav items without a permission field are shown to all users with module access.
           const visibleNavItems = navItems.filter(nav => {
-            if (!nav.permission) return true; // no restriction defined — show to all with module access
+            if (!nav.permission) return true;
             return currentUser?.isSuperAdmin || hasPermission(nav.permission);
           });
 
           if (visibleNavItems.length === 0) return null;
 
-          // If only one nav item remains after filtering, show as plain link (no accordion)
+          // Single nav item → plain link
           if (visibleNavItems.length === 1) {
             const nav = visibleNavItems[0];
             return (
@@ -304,20 +530,20 @@ const Sidebar = React.memo(function Sidebar() {
               <div className={`accordion-content ${openSections[module.id] ? 'open' : ''}`}>
                 {visibleNavItems.map(nav => {
                   const [basePath, queryString] = nav.path.split('?');
-                  let isSubActive = false;
+                  let isNavActive = false;
                   if (queryString) {
                     const params = new URLSearchParams(queryString);
                     const navTab = params.get('tab');
-                    isSubActive = pathname === basePath && activeTab === navTab;
+                    isNavActive = pathname === basePath && activeTab === navTab;
                   } else {
-                    isSubActive = (pathname === basePath || pathname.startsWith(basePath + '/')) && !activeTab;
+                    isNavActive = (pathname === basePath || pathname.startsWith(basePath + '/')) && !activeTab;
                   }
 
                   return (
                     <Link
                       key={nav.id}
                       href={nav.path}
-                      className={`sub-nav-link ${isSubActive ? 'active' : ''}`}
+                      className={`sub-nav-link ${isNavActive ? 'active' : ''}`}
                       onClick={handleNavLinkClick}
                     >
                       <span className="dot"></span>
