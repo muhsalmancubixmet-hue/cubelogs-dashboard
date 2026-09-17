@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import { useApp } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api/apiClient';
-import { SearchIcon, PlusIcon, EditIcon, CloseIcon, CheckIcon } from '@/components/Icons';
+import { SearchIcon, PlusIcon, EditIcon, CloseIcon, CheckIcon, WarningIcon } from '@/components/Icons';
 
 const COMPONENT_TYPES = ['Earning', 'Deduction'];
 
@@ -146,11 +146,25 @@ function SalaryComponentsContent() {
                 <tr key={comp.id} style={{ borderBottom: '1px solid var(--border)', background: idx % 2 === 0 ? 'transparent' : 'var(--surface-elevated)', opacity: comp.is_active ? 1 : 0.5 }}>
                   <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>{comp.name}</td>
                   <td style={{ padding: '10px 16px', fontFamily: 'monospace', fontSize: '0.82rem', color: 'var(--text-light)' }}>{comp.code || '—'}</td>
-                  <td style={{ padding: '10px 16px', color: comp.is_proratable ? 'var(--success)' : 'var(--text-light)' }}>
-                    {comp.is_proratable ? '✓ Yes' : 'No'}
+                  <td style={{ padding: '10px 16px' }}>
+                    {comp.is_proratable ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--success)', fontWeight: 600 }}>
+                        <CheckIcon size={12} />
+                        <span>Yes</span>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-light)' }}>No</span>
+                    )}
                   </td>
-                  <td style={{ padding: '10px 16px', color: comp.is_taxable ? 'var(--warning)' : 'var(--text-light)' }}>
-                    {comp.is_taxable ? '✓ Yes' : 'No'}
+                  <td style={{ padding: '10px 16px' }}>
+                    {comp.is_taxable ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--warning, #d97706)', fontWeight: 600 }}>
+                        <CheckIcon size={12} />
+                        <span>Yes</span>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-light)' }}>No</span>
+                    )}
                   </td>
                   <td style={{ padding: '10px 16px' }}>
                     <span style={{
@@ -166,10 +180,11 @@ function SalaryComponentsContent() {
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           className="btn btn-sm btn-secondary"
-                          style={{ fontSize: '0.76rem', padding: '3px 10px' }}
+                          style={{ fontSize: '0.76rem', padding: '3px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           onClick={() => openEditModal(comp)}
                         >
-                          Edit
+                          <EditIcon size={12} />
+                          <span>Edit</span>
                         </button>
                         <button
                           className={`btn btn-sm ${comp.is_active ? 'btn-danger' : 'btn-success'}`}
@@ -191,7 +206,7 @@ function SalaryComponentsContent() {
   );
 
   return (
-    <div>
+    <div className="payroll-content-container">
       {/* Header bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
@@ -200,11 +215,21 @@ function SalaryComponentsContent() {
             Manage earning and deduction components used in employee salary structures.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Search */}
-          <div style={{ position: 'relative', minWidth: '200px' }}>
-            <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', display: 'flex' }}>
-              <SearchIcon size={15} />
+          <div style={{ position: 'relative', width: '100%', maxWidth: '320px', minWidth: '220px' }}>
+            <span style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: searchQuery ? '#2563eb' : '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              pointerEvents: 'none',
+              transition: 'color 0.2s ease'
+            }}>
+              <SearchIcon size={16} />
             </span>
             <input
               id="components-search"
@@ -212,31 +237,105 @@ function SalaryComponentsContent() {
               placeholder="Search components…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '32px', width: '100%' }}
-              className="form-control"
+              style={{
+                width: '100%',
+                paddingLeft: '38px',
+                paddingRight: searchQuery ? '36px' : '14px',
+                height: '40px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#ffffff',
+                fontSize: '0.86rem',
+                color: '#0f172a',
+                outline: 'none',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'all 0.2s ease'
+              }}
+              onFocus={e => {
+                e.target.style.borderColor = '#2563eb';
+                e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.12)';
+              }}
+              onBlur={e => {
+                e.target.style.borderColor = '#cbd5e1';
+                e.target.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)';
+              }}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  padding: 0,
+                  transition: 'background-color 0.15s ease, color 0.15s ease'
+                }}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                <CloseIcon size={12} />
+              </button>
+            )}
           </div>
           {/* Type filter */}
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
-            className="form-control"
-            style={{ minWidth: '130px' }}
+            style={{
+              height: '40px',
+              borderRadius: '10px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.85rem',
+              padding: '0 14px',
+              backgroundColor: '#ffffff',
+              color: '#334155',
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              cursor: 'pointer',
+              minWidth: '130px'
+            }}
           >
             <option value="ALL">All Types</option>
             <option value="Earning">Earnings</option>
             <option value="Deduction">Deductions</option>
           </select>
           {canManage && (
-            <button className="btn btn-primary" onClick={openAddModal} style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+            <button className="btn btn-primary" onClick={openAddModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap', height: '40px', borderRadius: '10px', fontSize: '0.84rem' }}>
               <PlusIcon size={16} /> Add Component
             </button>
           )}
         </div>
       </div>
 
-      {errorMsg && <div className="panel alert-box alert-box-danger" style={{ marginBottom: '16px', padding: '12px 16px', fontSize: '0.88rem' }}>{errorMsg}</div>}
-      {successMsg && <div className="panel alert-box alert-box-success" style={{ marginBottom: '16px', padding: '12px 16px', fontSize: '0.88rem' }}>{successMsg}<button onClick={() => setSuccessMsg('')} style={{ marginLeft: '12px', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', opacity: 0.6 }}>✕</button></div>}
+      {errorMsg && (
+        <div className="panel alert-box alert-box-danger" style={{ marginBottom: '16px', padding: '12px 16px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <WarningIcon size={16} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+      {successMsg && (
+        <div className="panel alert-box alert-box-success" style={{ marginBottom: '16px', padding: '12px 16px', fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CheckIcon size={16} />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', display: 'flex' }} aria-label="Dismiss">
+            <CloseIcon size={14} />
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="panel" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-light)' }}>
@@ -255,7 +354,7 @@ function SalaryComponentsContent() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '24px', position: 'relative' }}>
+          <div className="panel custom-modal-card" style={{ width: '100%', maxWidth: '480px', padding: '24px', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{editTarget ? 'Edit Component' : 'Add Salary Component'}</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex' }}>

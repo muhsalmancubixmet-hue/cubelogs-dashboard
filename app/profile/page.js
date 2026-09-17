@@ -19,7 +19,7 @@ import {
   DownloadIcon,
 } from '@/components/Icons';
 import PayslipModal from '@/components/PayslipModal';
-import { apiFetch, normalizeListResponse } from '@/lib/api';
+import { apiFetch, getApiBaseUrl, normalizeListResponse } from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 
 export default function PersonalProfile() {
@@ -75,8 +75,9 @@ export default function PersonalProfile() {
     }
     try {
       setDownloadingPayslipId(psId);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-      const res = await fetch(`/api/payroll/my-payslips/${psId}/pdf/`, {
+      const baseUrl = getApiBaseUrl();
+      const token = typeof window !== 'undefined' ? (localStorage.getItem('cubelogs_access_token') || localStorage.getItem('access_token')) : null;
+      const res = await fetch(`${baseUrl}/payroll/my-payslips/${psId}/pdf/`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       if (!res.ok) throw new Error('Failed to download PDF');

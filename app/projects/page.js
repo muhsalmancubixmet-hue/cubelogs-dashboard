@@ -398,6 +398,15 @@ export default function ProjectsPage() {
     setShowCreateModal(true);
   };
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('modal') === 'create') {
+        openCreateModal();
+      }
+    }
+  }, []);
+
   const openEditModal = (p, e) => {
     e.stopPropagation();
     setErrorMsg('');
@@ -700,6 +709,7 @@ export default function ProjectsPage() {
               return (
                 <div
                   key={p.id}
+                  className="pm-project-card"
                   onClick={() => router.push(`/projects/${p.id}`)}
                   onMouseEnter={() => setHoveredCardId(p.id)}
                   onMouseLeave={() => setHoveredCardId(null)}
@@ -1202,6 +1212,55 @@ export default function ProjectsPage() {
             grid-template-columns: 1fr;
             gap: 14px;
           }
+        }
+
+        /* ─── DARK MODE overrides (same scope as light rules) ─── */
+        :root.dark .pm-hero-card {
+          background: #1e293b;
+          border-color: #334155;
+          box-shadow: 0 4px 16px -2px rgba(0,0,0,0.4);
+        }
+        :root.dark .pm-hero-title { color: #f8fafc; }
+        :root.dark .pm-hero-desc  { color: #94a3b8; }
+        :root.dark .pm-hero-icon  {
+          background: rgba(37,99,235,0.15);
+          border-color: #334155;
+          color: #60a5fa;
+        }
+        :root.dark .pm-kpi-card {
+          background: #1e293b;
+          border-color: #334155;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        :root.dark .pm-filter-bar {
+          background: #1e293b;
+          border-color: #334155;
+        }
+        :root.dark .pm-filter-tabs {
+          background: #0f172a;
+        }
+        :root.dark .pm-filter-tabs button {
+          color: #94a3b8;
+        }
+        :root.dark .pm-search-input {
+          background: #0f172a;
+          border-color: #334155;
+          color: #f8fafc;
+        }
+        :root.dark .pm-search-input::placeholder { color: #64748b; }
+        :root.dark .pm-status-select {
+          background: #0f172a;
+          border-color: #334155;
+          color: #f8fafc;
+        }
+        :root.dark .pm-project-card {
+          background: #1e293b;
+          border-color: #334155;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        :root.dark .pm-cards-grid > * {
+          background: #1e293b;
+          border-color: #334155;
         }
       `}</style>
     </PageWrapper>

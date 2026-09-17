@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTheme } from 'next-themes';
+import { Sun, Moon } from 'lucide-react';
 import {
   DashboardIcon,
   TemplatesIcon,
@@ -25,6 +27,12 @@ const Sidebar = React.memo(function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const iconMap = {
     'AttendanceIcon': <AttendanceIcon size={18} />,
@@ -35,14 +43,45 @@ const Sidebar = React.memo(function Sidebar() {
   // Active sub-tab search param check
   const activeTab = searchParams.get('tab') || '';
 
+  // Current active project ID for smart task routing
+  const [activeProjectId, setActiveProjectId] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('cubelogs_active_project_id');
+        if (saved) setActiveProjectId(saved);
+      } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pathname?.startsWith('/projects/')) {
+      const segs = pathname.split('/');
+      const prjId = segs[2];
+      if (prjId && prjId !== 'new') {
+        setActiveProjectId(prjId);
+        try {
+          localStorage.setItem('cubelogs_active_project_id', prjId);
+        } catch (e) {}
+      }
+    }
+  }, [pathname]);
+
   // Accordion open states
   const [openSections, setOpenSections] = useState({
     attendance: true,
     payroll: true,
     project_management: true,
     tasks: true,
-    settings: false,
+    settings: pathname === '/admin/storage' || pathname?.startsWith('/admin/settings'),
   });
+
+  React.useEffect(() => {
+    if (pathname === '/admin/storage' || pathname?.startsWith('/admin/settings')) {
+      setOpenSections(prev => ({ ...prev, settings: true }));
+    }
+  }, [pathname]);
 
   const toggleSection = (section) => {
     setOpenSections(prev => ({
@@ -251,6 +290,16 @@ const Sidebar = React.memo(function Sidebar() {
                 >
                   <span className="dot"></span>
                   <span className="sub-nav-text">Billing &amp; Subscription</span>
+                </Link>
+              )}
+              {hasSettingsBilling && (
+                <Link
+                  href="/admin/storage"
+                  className={`sub-nav-link ${pathname === '/admin/storage' ? 'active' : ''}`}
+                  onClick={handleNavLinkClick}
+                >
+                  <span className="dot"></span>
+                  <span className="sub-nav-text">Storage &amp; Media</span>
                 </Link>
               )}
               {hasAttendanceConfig && (
@@ -498,11 +547,19 @@ const Sidebar = React.memo(function Sidebar() {
           // Single nav item → plain link
           if (visibleNavItems.length === 1) {
             const nav = visibleNavItems[0];
+            let navPath = nav.path;
+            if (nav.id === 'tasks' && activeProjectId) {
+              navPath = `/projects/${activeProjectId}/tasks`;
+            }
+            const isSingleActive = nav.id === 'tasks'
+              ? (pathname === '/tasks' || pathname.endsWith('/tasks') || pathname.includes('/tasks'))
+              : (pathname === navPath || pathname.startsWith(navPath + '/'));
+
             return (
               <Link
                 key={module.id}
-                href={nav.path}
-                className={`nav-link ${pathname === nav.path || pathname.startsWith(nav.path + '/') ? 'active' : ''}`}
+                href={navPath}
+                className={`nav-link ${isSingleActive ? 'active' : ''}`}
                 onClick={handleNavLinkClick}
               >
                 <span className="nav-icon" style={{ display: 'flex', alignItems: 'center' }}>
@@ -529,20 +586,30 @@ const Sidebar = React.memo(function Sidebar() {
 
               <div className={`accordion-content ${openSections[module.id] ? 'open' : ''}`}>
                 {visibleNavItems.map(nav => {
-                  const [basePath, queryString] = nav.path.split('?');
+                  let navPath = nav.path;
                   let isNavActive = false;
-                  if (queryString) {
-                    const params = new URLSearchParams(queryString);
-                    const navTab = params.get('tab');
-                    isNavActive = pathname === basePath && activeTab === navTab;
+
+                  if (nav.id === 'tasks') {
+                    navPath = activeProjectId ? `/projects/${activeProjectId}/tasks` : '/tasks';
+                    isNavActive = pathname === '/tasks' || pathname.endsWith('/tasks') || pathname.includes('/tasks');
+                  } else if (nav.id === 'projects') {
+                    navPath = '/projects';
+                    isNavActive = (pathname === '/projects' || (pathname.startsWith('/projects/') && !pathname.includes('/tasks'))) && !activeTab;
                   } else {
-                    isNavActive = (pathname === basePath || pathname.startsWith(basePath + '/')) && !activeTab;
+                    const [basePath, queryString] = nav.path.split('?');
+                    if (queryString) {
+                      const params = new URLSearchParams(queryString);
+                      const navTab = params.get('tab');
+                      isNavActive = pathname === basePath && activeTab === navTab;
+                    } else {
+                      isNavActive = (pathname === basePath || pathname.startsWith(basePath + '/')) && !activeTab;
+                    }
                   }
 
                   return (
                     <Link
                       key={nav.id}
-                      href={nav.path}
+                      href={navPath}
                       className={`sub-nav-link ${isNavActive ? 'active' : ''}`}
                       onClick={handleNavLinkClick}
                     >
@@ -579,14 +646,28 @@ const Sidebar = React.memo(function Sidebar() {
             </div>
           </div>
         </Link>
-        <button
-          className="logout-icon-btn"
-          onClick={handleLogout}
-          title="Sign Out of Workspace"
-          style={{ display: 'flex', alignItems: 'center', color: '#94a3b8' }}
-        >
-          <LogoutIcon size={20} />
-        </button>
+        <div className="sidebar-profile-actions" style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {mounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="sidebar-theme-toggle-btn"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Theme"
+              type="button"
+            >
+              {theme === 'dark' ? <Sun size={18} style={{ color: '#fbbf24' }} /> : <Moon size={18} style={{ color: '#93c5fd' }} />}
+            </button>
+          )}
+          <button
+            className="logout-icon-btn"
+            onClick={handleLogout}
+            title="Sign Out of Workspace"
+            style={{ display: 'flex', alignItems: 'center', color: '#94a3b8' }}
+            type="button"
+          >
+            <LogoutIcon size={20} />
+          </button>
+        </div>
       </div>
 
       <div className="sidebar-footer">

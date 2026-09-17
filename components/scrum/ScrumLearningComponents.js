@@ -36,6 +36,7 @@ export function LearningModeToggle({ learningMode, onToggle }) {
       role="button"
       tabIndex={0}
       title="Toggle interactive Scrum learning guides and workflow tips"
+      className="learning-mode-toggle"
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -117,14 +118,17 @@ export function GlobalScrumHeader({
   actionButtons = null
 }) {
   return (
-    <div style={{
-      background: '#ffffff',
-      border: '1px solid #e2e8f0',
-      borderRadius: 14,
-      padding: '20px 24px',
-      marginBottom: 20,
-      boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)'
-    }}>
+    <div
+      className="global-scrum-header"
+      style={{
+        background: '#ffffff',
+        border: '1px solid #e2e8f0',
+        borderRadius: 14,
+        padding: '20px 24px',
+        marginBottom: 20,
+        boxShadow: '0 2px 8px -2px rgba(15, 23, 42, 0.04)'
+      }}
+    >
       {/* Top Location & Learning Toggle Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#2563eb' }}>
@@ -268,14 +272,17 @@ export function ScrumHelpPanel({
   const [isOpen, setIsOpen] = useState(isOpenDefault);
 
   return (
-    <div style={{
-      background: '#ffffff',
-      border: '1px solid #cbd5e1',
-      borderRadius: 14,
-      overflow: 'hidden',
-      boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)',
-      marginBottom: 20
-    }}>
+    <div
+      className="scrum-help-panel"
+      style={{
+        background: '#ffffff',
+        border: '1px solid #cbd5e1',
+        borderRadius: 14,
+        overflow: 'hidden',
+        boxShadow: '0 4px 14px rgba(15, 23, 42, 0.05)',
+        marginBottom: 20
+      }}
+    >
       {/* Panel Header */}
       <button
         onClick={() => setIsOpen(!isOpen)}

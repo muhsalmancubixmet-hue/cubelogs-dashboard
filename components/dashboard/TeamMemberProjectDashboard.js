@@ -83,93 +83,71 @@ export default function TeamMemberProjectDashboard({
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Standard CubeLogs Header Banner */}
-      <div style={{
-        background: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: 16,
-        padding: '24px 28px',
-        boxShadow: '0 4px 16px -2px rgba(15, 23, 42, 0.04)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 16
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: 12,
-            background: '#eff6ff',
-            border: '1px solid #bfdbfe',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#2563eb',
-            flexShrink: 0
-          }}>
-            <TasksIcon size={24} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Standard CubeLogs Header Banner - Responsive & Compact */}
+      <div className="project-mgmt-header">
+        <div className="project-mgmt-header-left">
+          <div className="project-mgmt-icon-box">
+            <TasksIcon size={22} />
           </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: 4 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="project-mgmt-badge">
                 Developer Execution Center
               </span>
             </div>
-            <h2 style={{ margin: '4px 0 2px', fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
+            <h2 className="project-mgmt-title">
               My Assigned Workspace
             </h2>
-            <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+            <p className="project-mgmt-desc">
               Welcome back, {currentUser.name || 'Team Member'}. Track your assigned stories, update status, and log work hours.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <Link href={myTasksHref} style={{ textDecoration: 'none', background: '#2563eb', color: '#fff', padding: '9px 18px', borderRadius: 8, fontWeight: 700, fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <div className="project-mgmt-actions">
+          <Link href={myTasksHref} className="project-mgmt-btn-primary">
             My Tasks Portal →
           </Link>
-          <Link href="/projects" style={{ textDecoration: 'none', background: '#f8fafc', color: '#334155', padding: '9px 16px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: '1px solid #cbd5e1' }}>
+          <Link href="/projects" className="project-mgmt-btn-secondary">
             Scrum Board
           </Link>
         </div>
       </div>
 
-      {/* Task Summary Counters Grid */}
+      {/* Task Summary Counters Grid - 2 per row on mobile, compact */}
       <div className="project-kpi-grid">
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Pending Tasks</span>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#d97706', marginTop: 4 }}>{pendingTasks.length}</div>
-          <span style={{ fontSize: 11, color: '#d97706', fontWeight: 600, marginTop: 4, display: 'block' }}>Awaiting Execution</span>
+        <div className="project-kpi-card">
+          <span className="project-kpi-label">Pending Tasks</span>
+          <div className="project-kpi-value" style={{ color: '#d97706' }}>{pendingTasks.length}</div>
+          <span className="project-kpi-sub" style={{ color: '#d97706' }}>Awaiting Execution</span>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>In Progress</span>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#0284c7', marginTop: 4 }}>{inProgressTasks.length}</div>
-          <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 600, marginTop: 4, display: 'block' }}>Currently Active</span>
+        <div className="project-kpi-card">
+          <span className="project-kpi-label">In Progress</span>
+          <div className="project-kpi-value" style={{ color: '#0284c7' }}>{inProgressTasks.length}</div>
+          <span className="project-kpi-sub" style={{ color: '#0284c7' }}>Currently Active</span>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Completed Tasks</span>
-          <div style={{ fontSize: 26, fontWeight: 800, color: '#16a34a', marginTop: 4 }}>{completedTasks.length}</div>
-          <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginTop: 4, display: 'block' }}>Finished</span>
+        <div className="project-kpi-card">
+          <span className="project-kpi-label">Completed Tasks</span>
+          <div className="project-kpi-value" style={{ color: '#16a34a' }}>{completedTasks.length}</div>
+          <span className="project-kpi-sub" style={{ color: '#16a34a' }}>Finished</span>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 18, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Overdue Tasks</span>
-          <div style={{ fontSize: 26, fontWeight: 800, color: overdueTasks.length > 0 ? '#dc2626' : '#64748b', marginTop: 4 }}>{overdueTasks.length}</div>
-          <span style={{ fontSize: 11, color: overdueTasks.length > 0 ? '#dc2626' : '#64748b', fontWeight: 600, marginTop: 4, display: 'block' }}>
-            {overdueTasks.length > 0 ? 'Requires Immediate Action' : 'None Overdue'}
+        <div className="project-kpi-card">
+          <span className="project-kpi-label">Overdue Tasks</span>
+          <div className="project-kpi-value" style={{ color: overdueTasks.length > 0 ? '#dc2626' : '#64748b' }}>{overdueTasks.length}</div>
+          <span className="project-kpi-sub" style={{ color: overdueTasks.length > 0 ? '#dc2626' : '#64748b' }}>
+            {overdueTasks.length > 0 ? 'Requires Action' : 'None Overdue'}
           </span>
         </div>
       </div>
 
       {/* Main Section: My Projects Cards & Assigned Tasks (Today's Work) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+      <div className="project-dashboard-main-split">
         {/* Today's Work / My Assigned Tasks Widget */}
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div className="project-dashboard-panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
               Today's Execution Tasks ({pendingTasks.length})
@@ -196,6 +174,7 @@ export default function TeamMemberProjectDashboard({
                 return (
                   <div
                     key={t.id}
+                    className="project-task-item"
                     style={{
                       border: '1px solid #e2e8f0',
                       borderRadius: 10,
@@ -262,7 +241,7 @@ export default function TeamMemberProjectDashboard({
         {/* My Assigned Projects Grid & Quick Shortcuts */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* My Projects */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="project-dashboard-panel">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0f172a' }}>My Projects ({myProjects.length})</h3>
               <Link href="/projects" style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', textDecoration: 'none' }}>
@@ -300,13 +279,13 @@ export default function TeamMemberProjectDashboard({
           </div>
 
           {/* Quick Actions Shortcuts */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+          <div className="project-dashboard-panel">
             <h3 style={{ margin: '0 0 14px', fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Quick Shortcuts</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <Link href={myTasksHref} style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link href={myTasksHref} className="project-quick-action-card" style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <TasksIcon size={16} style={{ color: '#2563eb' }} /> My Tasks
               </Link>
-              <Link href="/projects" style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Link href="/projects" className="project-quick-action-card" style={{ textDecoration: 'none', padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <CheckIcon size={16} style={{ color: '#16a34a' }} /> Active Board
               </Link>
             </div>
@@ -317,7 +296,7 @@ export default function TeamMemberProjectDashboard({
       {/* Log Time Modal */}
       {loggingTask && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-          <div style={{ background: '#ffffff', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+          <div className="custom-modal-card" style={{ background: '#ffffff', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             <h3 style={{ margin: '0 0 6px', fontSize: 17, fontWeight: 700, color: '#0f172a' }}>Log Work Hours</h3>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
               Logging hours to task: <strong>{loggingTask.task_key || loggingTask.title}</strong>

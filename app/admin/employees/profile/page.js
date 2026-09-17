@@ -61,6 +61,7 @@ function EmployeeProfileContent() {
   const photoInputRef = useRef(null);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
+  const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
 
   const fetchProfileData = async () => {
     if (authStatus !== 'authenticated') return;
@@ -79,11 +80,11 @@ function EmployeeProfileContent() {
 
       // 2. Supporting list data with error isolation
       const [tasksData, leavesData, attendanceData, holidaysData, schedulesData] = await Promise.all([
-        apiFetch('/project-tasks/').catch(() => []),
-        apiFetch('/leaves/').catch(() => []),
-        apiFetch('/attendance/').catch(() => []),
-        apiFetch('/holidays/').catch(() => []),
-        apiFetch('/schedules/').catch(() => []),
+        isProjectEnabled ? apiFetch('/project-tasks/').catch(() => []) : Promise.resolve([]),
+        isAttendanceEnabled ? apiFetch('/leaves/').catch(() => []) : Promise.resolve([]),
+        isAttendanceEnabled ? apiFetch('/attendance/').catch(() => []) : Promise.resolve([]),
+        isAttendanceEnabled ? apiFetch('/holidays/').catch(() => []) : Promise.resolve([]),
+        isAttendanceEnabled ? apiFetch('/schedules/').catch(() => []) : Promise.resolve([]),
       ]);
 
       const unpack = (res) =>
@@ -280,24 +281,35 @@ function EmployeeProfileContent() {
   const [loadingSummaries, setLoadingSummaries] = useState(false);
 
   useEffect(() => {
-    if (!employee?.id) return;
+    if (!employee?.id || !isAttendanceEnabled) {
+      setMonthlySummaries([]);
+      return;
+    }
     const fetchMonthly = async () => {
       setLoadingSummaries(true);
       try {
         const yearStr = filterYear;
         const monthStr = String(filterMonth + 1).padStart(2, '0');
-        const data = await apiFetch(`/attendance/daily-summary/?employee_id=${employee.id}&month=${yearStr}-${monthStr}`);
+        const data = await apiFetch(`/attendance/daily-summary/?employee_id=${employee.id}&month=${yearStr}-${monthStr}`).catch(() => []);
         if (Array.isArray(data)) {
           setMonthlySummaries(data);
+        } else if (data && Array.isArray(data?.results)) {
+          setMonthlySummaries(data.results);
+        } else {
+          setMonthlySummaries([]);
         }
       } catch (err) {
-        console.warn('Failed to fetch monthly attendance summaries:', err);
+        const isPlanError = err?.status === 403 || err?.message?.includes('subscription plan') || err?.message?.includes('403');
+        if (!isPlanError) {
+          console.warn('Failed to fetch monthly attendance summaries:', err);
+        }
+        setMonthlySummaries([]);
       } finally {
         setLoadingSummaries(false);
       }
     };
     fetchMonthly();
-  }, [employee?.id, filterMonth, filterYear]);
+  }, [employee?.id, isAttendanceEnabled, filterMonth, filterYear]);
 
   if (loading) {
     return (
@@ -699,24 +711,28 @@ function EmployeeProfileContent() {
                   </div>
                 </div>
               )}
-              <div className="metric-card">
-                <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}>
-                  <LeavesIcon size={24} />
-                </span>
-                <div className="metric-details">
-                  <h4>Leaves Taken</h4>
-                  <p>{approvedLeavesCount} Approved</p>
-                </div>
-              </div>
-              <div className="metric-card">
-                <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}>
-                  <ClockIcon size={24} />
-                </span>
-                <div className="metric-details">
-                  <h4>Total Days Work</h4>
-                  <p>{totalClockIns} Days</p>
-                </div>
-              </div>
+              {isAttendanceEnabled && (
+                <>
+                  <div className="metric-card">
+                    <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                      <LeavesIcon size={24} />
+                    </span>
+                    <div className="metric-details">
+                      <h4>Leaves Taken</h4>
+                      <p>{approvedLeavesCount} Approved</p>
+                    </div>
+                  </div>
+                  <div className="metric-card">
+                    <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                      <ClockIcon size={24} />
+                    </span>
+                    <div className="metric-details">
+                      <h4>Total Days Work</h4>
+                      <p>{totalClockIns} Days</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
 
@@ -775,216 +791,203 @@ function EmployeeProfileContent() {
         )}
 
         {/* Attendance History Container with Segmented View Control */}
-        <div className="panel daily-logs-container" style={{ marginTop: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
-                <span>Attendance History</span>
-              </h3>
+        {isAttendanceEnabled && (
+          <div className="panel daily-logs-container" style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
+                  <span>Attendance History</span>
+                </h3>
 
-              {/* Segmented Control Toggle Buttons */}
-              <div
-                className="view-segmented-control"
-                role="tablist"
-                aria-label="Attendance view mode"
-                style={{
-                  display: 'inline-flex',
-                  padding: '3px',
-                  background: 'var(--bg-app)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)',
-                  gap: '4px'
-                }}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={attendanceViewMode === 'calendar'}
-                  data-active-blue={attendanceViewMode === 'calendar' ? 'true' : undefined}
-                  className={`btn btn-sm ${attendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
-                  onClick={() => setAttendanceViewMode('calendar')}
+                {/* Segmented Control Toggle Buttons */}
+                <div
+                  className="view-segmented-control"
+                  role="tablist"
+                  aria-label="Attendance view mode"
                   style={{
-                    padding: '6px 14px',
-                    fontSize: '0.82rem',
-                    fontWeight: '700',
-                    borderRadius: 'var(--radius-sm)',
-                    background: attendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
-                    color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
-                    border: attendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
                     display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
+                    padding: '3px',
+                    background: 'var(--bg-app)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    gap: '4px'
                   }}
                 >
-                  <CalendarIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
-                  <span style={{ color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
-                </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={attendanceViewMode === 'calendar'}
+                    data-active-blue={attendanceViewMode === 'calendar' ? 'true' : undefined}
+                    className={`btn btn-sm ${attendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setAttendanceViewMode('calendar')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: attendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
+                      color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
+                      border: attendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <CalendarIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: attendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
+                  </button>
 
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={attendanceViewMode === 'list'}
-                  data-active-blue={attendanceViewMode === 'list' ? 'true' : undefined}
-                  className={`btn btn-sm ${attendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
-                  onClick={() => setAttendanceViewMode('list')}
-                  style={{
-                    padding: '6px 14px',
-                    fontSize: '0.82rem',
-                    fontWeight: '700',
-                    borderRadius: 'var(--radius-sm)',
-                    background: attendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
-                    color: attendanceViewMode === 'list' ? '#ffffff' : '#334155',
-                    border: attendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <AuditIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
-                  <span style={{ color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
-                </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={attendanceViewMode === 'list'}
+                    data-active-blue={attendanceViewMode === 'list' ? 'true' : undefined}
+                    className={`btn btn-sm ${attendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setAttendanceViewMode('list')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: attendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
+                      color: attendanceViewMode === 'list' ? '#ffffff' : '#334155',
+                      border: attendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <AuditIcon style={{ width: '14px', height: '14px', color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: attendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Right side controls */}
+              {attendanceViewMode === 'list' && (
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Search date or time..."
+                    value={recentLogsSearchQuery}
+                    onChange={(e) => setRecentLogsSearchQuery(e.target.value)}
+                    style={{ minWidth: '180px', padding: '6px 12px', fontSize: '0.82rem' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setShowMonthlyModal(true)}
+                    style={{ padding: '6px 12px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    <CalendarIcon size={14} />
+                    View All
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Right side controls */}
-            {attendanceViewMode === 'list' && (
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Search date or time..."
-                  value={recentLogsSearchQuery}
-                  onChange={(e) => setRecentLogsSearchQuery(e.target.value)}
-                  style={{ width: '200px', padding: '6px 12px', fontSize: '0.85rem' }}
+            {/* CALENDAR VIEW */}
+            {attendanceViewMode === 'calendar' && (
+              <div style={{ marginTop: '12px' }}>
+                <AttendanceCalendar
+                  employeeId={employee?.id}
+                  employeeName={displayName}
+                  year={filterYear}
+                  month={filterMonth}
+                  dailySummaries={monthlySummaries}
+                  attendanceLogs={empLogs}
+                  onMonthChange={(y, m) => {
+                    setFilterYear(y);
+                    setFilterMonth(m);
+                  }}
                 />
-                <button 
-                  type="button" 
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setShowMonthlyModal(true)}
-                >
-                  View All
-                </button>
+              </div>
+            )}
+
+            {/* LIST VIEW */}
+            {attendanceViewMode === 'list' && (
+              <div
+                className="table-container"
+                style={{
+                  maxHeight: 'clamp(360px, 48vh, 480px)',
+                  overflowY: 'auto',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  position: 'relative',
+                  scrollbarWidth: 'thin'
+                }}
+              >
+                <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
+                    <tr>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-In Time</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-Out Time</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Net Work Duration</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Compliance Status</th>
+                      {hasPermission('attendance:admin') && (
+                        <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Actions / Override</th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
+                      <tr>
+                        <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
+                          No attendance logs recorded matching search.
+                        </td>
+                      </tr>
+                    ) : (
+                      monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
+                        const wasLate = isLate(log.clockIn);
+                        return (
+                          <tr key={log.id}>
+                            <td><strong>{log.date}</strong></td>
+                            <td>
+                              <span className={wasLate ? 'text-late' : 'text-on-time'}>
+                                {log.clockIn ? formatTimeStr(log.clockIn) : '--:--'}
+                              </span>
+                            </td>
+                            <td>{log.clockOut ? formatTimeStr(log.clockOut) : '--:--'}</td>
+                            <td>{calculateDuration(log.clockIn, log.clockOut)}</td>
+                            <td>
+                              <span className={`badge ${
+                                !log.clockOut ? 'badge-info' :
+                                wasLate ? 'badge-late' : 'badge-success'
+                              }`}>
+                                {!log.clockOut ? 'Clocked In' : wasLate ? 'Late Clock-in' : 'On Time'}
+                              </span>
+                            </td>
+                            {hasPermission('attendance:admin') && (
+                              <td>
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  onClick={() => handleStartOverride(log)}
+                                  style={{ padding: '4px 8px', fontSize: '0.78rem' }}
+                                >
+                                  Override
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-
-          {/* CALENDAR VIEW */}
-          {attendanceViewMode === 'calendar' && (
-            <div style={{ marginTop: '12px' }}>
-              <AttendanceCalendar
-                employeeId={employee?.id}
-                employeeName={displayName}
-                year={filterYear}
-                month={filterMonth}
-                dailySummaries={monthlySummaries}
-                attendanceLogs={empLogs}
-                onMonthChange={(y, m) => {
-                  setFilterYear(y);
-                  setFilterMonth(m);
-                }}
-              />
-            </div>
-          )}
-
-          {/* LIST VIEW */}
-          {attendanceViewMode === 'list' && (
-            <div
-              className="table-container"
-              style={{
-                maxHeight: 'clamp(360px, 48vh, 480px)',
-                overflowY: 'auto',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                position: 'relative',
-                scrollbarWidth: 'thin'
-              }}
-            >
-              <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
-                  <tr>
-                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
-                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-In Time</th>
-                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Clock-Out Time</th>
-                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Net Work Duration</th>
-                    <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Compliance Status</th>
-                    {hasPermission('attendance:admin') && (
-                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Actions / Override</th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
-                    <tr>
-                      <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
-                        No attendance logs recorded matching search.
-                      </td>
-                    </tr>
-                  ) : (
-                    monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
-                      const wasLate = isLate(log.clockIn);
-                      return (
-                        <tr key={log.id}>
-                          <td><strong>{log.date}</strong></td>
-                          <td>
-                            <span className="time-in" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
-                              ↓ {formatTimeStr(log.clockIn)}
-                            </span>
-                          </td>
-                          <td>
-                            {log.clockOut ? (
-                              <span className="time-out" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '500' }}>
-                                ↑ {formatTimeStr(log.clockOut)}
-                              </span>
-                            ) : (
-                              <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Active Shift</span>
-                            )}
-                          </td>
-                          <td>{log.clockOut ? formatDurationStr(log, log.clockIn, log.clockOut) : 'Ticking...'}</td>
-                          <td>
-                            {wasLate ? (
-                              <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                <ClockIcon size={12} />
-                                <span>Late check-in</span>
-                              </span>
-                            ) : (
-                              <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                <CheckIcon size={12} />
-                                <span>On-time</span>
-                              </span>
-                            )}
-                          </td>
-                          {hasPermission('attendance:admin') && (
-                            <td>
-                              <button
-                                type="button"
-                                className="btn btn-secondary btn-sm"
-                                onClick={() => {
-                                  setEditingLog(log);
-                                  setEditClockIn(formatDateTimeLocal(log.clockIn));
-                                  setEditClockOut(log.clockOut ? formatDateTimeLocal(log.clockOut) : '');
-                                }}
-                              >
-                                Edit / Override
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* EDIT / OVERRIDE PANEL FOR ADMINS */}
-        {editingLog && hasPermission('attendance:admin') && (
+        {isAttendanceEnabled && editingLog && hasPermission('attendance:admin') && (
           <div className="panel adjust-log-panel" style={{ marginTop: '24px', border: '1px solid var(--primary-border)', background: 'var(--primary-light)' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
               <EditIcon size={20} style={{ color: 'var(--primary)' }} />
@@ -1036,7 +1039,7 @@ function EmployeeProfileContent() {
         )}
 
         {/* FULL MONTH ATTENDANCE & LEAVE LEDGER MODAL OVERLAY */}
-        {showMonthlyModal && (
+        {isAttendanceEnabled && showMonthlyModal && (
           <div className="modal-overlay" onClick={() => setShowMonthlyModal(false)}>
             <div className="modal-content monthly-ledger-modal" onClick={(e) => e.stopPropagation()}>
               <button className="modal-close-btn" onClick={() => setShowMonthlyModal(false)}>

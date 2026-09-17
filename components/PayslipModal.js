@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DownloadIcon, CloseIcon, WarningIcon } from './Icons';
+import { DownloadIcon, CloseIcon, WarningIcon, CheckIcon, ClockIcon } from './Icons';
 import { formatCurrency } from '@/lib/currency';
 
 export default function PayslipModal({
@@ -95,8 +95,18 @@ export default function PayslipModal({
               {payslipData.status || 'Issued'}
             </span>
             {payslipData.payment_status && (
-              <span className={`badge ${payslipData.payment_status === 'Paid' ? 'badge-success' : 'badge-warning'}`} style={{ marginLeft: '6px' }}>
-                {payslipData.payment_status === 'Paid' ? '✓ Paid' : '● Unpaid'}
+              <span className={`badge ${payslipData.payment_status === 'Paid' ? 'badge-success' : 'badge-warning'}`} style={{ marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                {payslipData.payment_status === 'Paid' ? (
+                  <>
+                    <CheckIcon size={12} />
+                    <span>Paid</span>
+                  </>
+                ) : (
+                  <>
+                    <ClockIcon size={12} />
+                    <span>Unpaid</span>
+                  </>
+                )}
               </span>
             )}
             <button className="btn-close-icon" onClick={onClose} aria-label="Close Modal">
@@ -660,6 +670,47 @@ export default function PayslipModal({
           display: flex;
           align-items: center;
           gap: 8px;
+        }
+
+        :global(:root.dark) .payslip-modal-container {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+        :global(:root.dark) .payslip-modal-header,
+        :global(:root.dark) .payslip-modal-footer {
+          border-color: #334155 !important;
+        }
+        :global(:root.dark) .payslip-section-panel,
+        :global(:root.dark) .att-box:not(.highlight) {
+          background: #0f172a !important;
+          border-color: #334155 !important;
+        }
+        :global(:root.dark) .att-box.highlight {
+          background: #1e3a8a !important;
+          border-color: #3b82f6 !important;
+        }
+        :global(:root.dark) .att-box.highlight .att-label,
+        :global(:root.dark) .att-box.highlight .att-val {
+          color: #93c5fd !important;
+        }
+        :global(:root.dark) .financial-column {
+          border-color: #334155 !important;
+        }
+        :global(:root.dark) .column-header,
+        :global(:root.dark) .column-footer {
+          background: #0f172a !important;
+          border-color: #334155 !important;
+        }
+        :global(:root.dark) .net-payable-card {
+          background: #064e3b !important;
+          border-color: #059669 !important;
+        }
+        :global(:root.dark) .net-card-subtitle,
+        :global(:root.dark) .net-card-note,
+        :global(:root.dark) .net-currency,
+        :global(:root.dark) .net-figure {
+          color: #6ee7b7 !important;
         }
       `}</style>
     </div>

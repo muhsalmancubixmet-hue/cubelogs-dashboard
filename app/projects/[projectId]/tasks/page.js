@@ -219,7 +219,7 @@ export default function ProjectTasksPage() {
               key={f.id}
               type="button"
               onClick={() => setFilter(f.id)}
-              className={isActive ? 'btn-blue-active btn-primary' : ''}
+              className={isActive ? 'btn-blue-active btn-primary' : 'project-filter-btn'}
               data-active-blue={isActive ? 'true' : 'false'}
               style={{
                 padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: isActive ? 700 : 600,
@@ -238,22 +238,22 @@ export default function ProjectTasksPage() {
 
       {/* ── 4. KPI METRICS BAR ── */}
       <div className="project-kpi-grid" style={{ display: 'grid', gap: 10 }}>
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+        <div className="project-kpi-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
           <div style={{ fontSize: 11.5, color: '#64748b', fontWeight: 600 }}>Total Tasks</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>{kpis.total}</div>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+        <div className="project-kpi-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
           <div style={{ fontSize: 11.5, color: '#2563eb', fontWeight: 600 }}>In Progress</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#2563eb', marginTop: 2 }}>{kpis.inProgress}</div>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+        <div className="project-kpi-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
           <div style={{ fontSize: 11.5, color: '#16a34a', fontWeight: 600 }}>Completed</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', marginTop: 2 }}>{kpis.completed}</div>
         </div>
 
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
+        <div className="project-kpi-card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '10px 14px' }}>
           <div style={{ fontSize: 11.5, color: '#dc2626', fontWeight: 600 }}>Pending / Blocked</div>
           <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', marginTop: 2 }}>{kpis.blocked}</div>
         </div>
@@ -269,6 +269,7 @@ export default function ProjectTasksPage() {
           placeholder="Search tasks by key, title, or assignee..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          className="project-task-search-input"
           style={{ width: '100%', padding: '8px 12px 8px 34px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff', minHeight: 36, boxSizing: 'border-box', outline: 'none' }}
         />
       </div>
@@ -291,7 +292,7 @@ export default function ProjectTasksPage() {
             const assigneeName = task.assigned_to_name || (task.assigned_to ? `Member #${task.assigned_to}` : 'Unassigned');
 
             return (
-              <div key={task.id} style={{
+              <div key={task.id} className="project-task-card" style={{
                 background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 14,
                 boxShadow: '0 2px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: 10
               }}>

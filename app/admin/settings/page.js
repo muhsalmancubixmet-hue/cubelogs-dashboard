@@ -9,6 +9,9 @@ import TemplatesTab from '@/components/admin/settings/TemplatesTab';
 import LocationsTab from '@/components/admin/settings/LocationsTab';
 import BrandingTab from '@/components/admin/settings/BrandingTab';
 import BillingTab from '@/components/admin/settings/BillingTab';
+import AttendanceRulesTab from '@/components/admin/settings/AttendanceRulesTab';
+import PayrollSettingsTab from '@/components/admin/settings/PayrollSettingsTab';
+
 
 const FEATURE_LABELS = {
   'dashboard': 'Dashboard Analytics',
@@ -84,11 +87,11 @@ const PLANS = [
   }
 ];
 
-import { 
-  TemplatesIcon, 
-  LocationIcon, 
-  BrandLogo, 
-  EditIcon, 
+import {
+  TemplatesIcon,
+  LocationIcon,
+  BrandLogo,
+  EditIcon,
   DeleteIcon,
   CheckIcon,
   WarningIcon,
@@ -990,7 +993,7 @@ function SettingsHubContent() {
       ? (wallet?.attendance_module_price ? parseFloat(wallet.attendance_module_price) : 100)
       : (wallet?.tasks_module_price ? parseFloat(wallet.tasks_module_price) : 100);
     const proratedAmount = ((remainingDays / totalDays) * basePrice * employeeCount).toFixed(2);
-    
+
     const executeToggle = async () => {
       setModuleConfirm(prev => ({ ...prev, open: false }));
       setToggleLoading(prev => ({ ...prev, [moduleName]: true }));
@@ -1005,16 +1008,16 @@ function SettingsHubContent() {
             enable: targetState
           })
         });
-        
+
         if (res.error) {
           throw new Error(res.error);
         }
-        
+
         setPremiumAddons(prev => ({ ...prev, [moduleName]: targetState }));
         await refreshUserSession();
         await fetchWallet();
         await fetchBillingEstimateAndCount();
-        
+
         showAlert(
           res.message || 'Module status updated successfully.',
           'Module Updated',
@@ -1052,7 +1055,7 @@ function SettingsHubContent() {
       });
     }
   };
-  
+
   // Billing Search
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
 
@@ -1374,7 +1377,7 @@ function SettingsHubContent() {
 
   if (!isAuthorizedToAnyTab) {
     return (
-      <PageWrapper title="Settings Hub" requiredPermission="dashboard">
+      <PageWrapper title="Settings" requiredPermission="dashboard">
         <div className="panel alert-box alert-box-danger">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <WarningIcon size={20} style={{ color: 'var(--danger)' }} />
@@ -1387,63 +1390,183 @@ function SettingsHubContent() {
   }
 
   return (
-    <PageWrapper title="System Settings Hub" requiredPermission="dashboard">
+    <PageWrapper title="Settings" requiredPermission="dashboard">
       <div className="settings-container">
-        
+
         {/* Settings Navigation Tabs */}
-        <div className="settings-tabs">
+        <div className="settings-tabs" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           {hasTemplatesPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'templates' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'templates' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'templates' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'templates' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'templates' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'templates' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'templates' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('templates')}
             >
-              <TemplatesIcon size={16} />
-              <span>Role Templates</span>
+              <TemplatesIcon size={16} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', stroke: currentTab === 'templates' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'templates' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Role Templates</span>
             </button>
           )}
           {hasLocationsPerm && isAttendanceEnabled && (
-            <button 
-              className={`tab-link ${currentTab === 'locations' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'locations' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'locations' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'locations' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'locations' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'locations' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'locations' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('locations')}
             >
-              <LocationIcon size={16} />
-              <span>Office Locations</span>
+              <LocationIcon size={16} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', stroke: currentTab === 'locations' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'locations' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Office Locations</span>
             </button>
           )}
           {hasBrandingPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'branding' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'branding' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'branding' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'branding' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'branding' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'branding' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'branding' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('branding')}
             >
-              <BrandLogo size={16} />
-              <span>Branding</span>
+              <BrandLogo size={16} style={{ color: currentTab === 'branding' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'branding' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'branding' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Branding</span>
             </button>
           )}
           {hasBillingPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'billing' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'billing' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'billing' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'billing' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'billing' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'billing' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'billing' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('billing')}
             >
-              <ClockIcon size={16} />
-              <span>Billing & Subscription</span>
+              <ClockIcon size={16} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', stroke: currentTab === 'billing' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'billing' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Billing & Subscription</span>
             </button>
           )}
           {hasAttendanceConfigPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'attendance-config' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'attendance-config' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'attendance-config' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'attendance-config' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'attendance-config' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'attendance-config' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('attendance-config')}
             >
-              <ClockIcon size={16} />
-              <span>Attendance Rules</span>
+              <ClockIcon size={16} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'attendance-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Attendance Rules</span>
             </button>
           )}
           {hasPayrollConfigPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'payroll-config' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'payroll-config' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'payroll-config' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'payroll-config' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'payroll-config' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'payroll-config' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('payroll-config')}
             >
-              <DollarIcon size={16} />
-              <span>Payroll Settings</span>
+              <DollarIcon size={16} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'payroll-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Payroll Settings</span>
             </button>
           )}
         </div>
@@ -1453,435 +1576,29 @@ function SettingsHubContent() {
 
           {/* TAB: ATTENDANCE RULES CONFIG */}
           {currentTab === 'attendance-config' && hasAttendanceConfigPerm && (
-            <div className="settings-grid">
-              <div className="panel settings-panel-card">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ClockIcon size={18} />
-                  Attendance & Shift Policy
-                </h3>
-                <p className="tab-desc">
-                  Configure organization-wide attendance rules, thresholds, and break policies. Changes take effect from tomorrow.
-                </p>
-
-                <form onSubmit={handleSaveAttendanceConfig} className="settings-form">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="grace-period">
-                        Grace Period (minutes)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Allowed clock-in delay after shift start without being marked Late.
-                      </p>
-                      <input
-                        id="grace-period"
-                        type="number"
-                        className="form-input"
-                        min="0"
-                        max="180"
-                        value={attendanceConfig.grace_period_minutes}
-                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, grace_period_minutes: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="min-session">
-                        Minimum Session Before Clock Out (minutes)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Minimum time an employee must remain clocked in before Clock Out is permitted.
-                      </p>
-                      <input
-                        id="min-session"
-                        type="number"
-                        className="form-input"
-                        min="0"
-                        max="180"
-                        value={attendanceConfig.minimum_session_minutes}
-                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, minimum_session_minutes: Math.max(0, parseInt(e.target.value) || 0) }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="break-duration">
-                        Break Duration (minutes)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Standard shift break duration (e.g. 60 min for lunch).
-                      </p>
-                      <input
-                        id="break-duration"
-                        type="number"
-                        className="form-input"
-                        min="0"
-                        max="180"
-                        value={attendanceConfig.break_duration_minutes}
-                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, break_duration_minutes: parseInt(e.target.value) || 0 }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="break-type">
-                        Break Type
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Whether breaks are paid or deducted from required shift span.
-                      </p>
-                      <select
-                        id="break-type"
-                        className="form-input"
-                        value={attendanceConfig.break_type || 'Unpaid'}
-                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, break_type: e.target.value }))}
-                      >
-                        <option value="Unpaid">Unpaid Break</option>
-                        <option value="Paid">Paid Break</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="full-day-min">
-                        Full Day Minimum ({Math.floor(attendanceConfig.full_day_minimum_minutes / 60)}h {attendanceConfig.full_day_minimum_minutes % 60 ? (attendanceConfig.full_day_minimum_minutes % 60) + 'm' : ''} / {attendanceConfig.full_day_minimum_minutes} min)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Minimum worked time to qualify for 1.0 full day attendance credit.
-                      </p>
-                      <input
-                        id="full-day-min"
-                        type="number"
-                        className="form-input"
-                        min="60"
-                        max="720"
-                        value={attendanceConfig.full_day_minimum_minutes}
-                        onChange={(e) => setAttendanceConfig(prev => ({ ...prev, full_day_minimum_minutes: parseInt(e.target.value) || 480 }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="half-day-threshold">
-                        Half Day Minimum ({Math.floor(attendanceConfig.half_day_minimum_minutes / 60)}h {attendanceConfig.half_day_minimum_minutes % 60 ? (attendanceConfig.half_day_minimum_minutes % 60) + 'm' : ''} / {attendanceConfig.half_day_minimum_minutes} min)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Minimum worked time for Half Day (0.5 day credit). Below this is marked Absent.
-                      </p>
-                      <input
-                        id="half-day-threshold"
-                        type="number"
-                        className="form-input"
-                        min="30"
-                        max="480"
-                        value={attendanceConfig.half_day_minimum_minutes}
-                        onChange={(e) => setAttendanceConfig(prev => {
-                          const val = parseInt(e.target.value) || 240;
-                          return { ...prev, half_day_minimum_minutes: val, half_day_threshold_minutes: val };
-                        })}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '20px' }}>
-                    <label className="form-label">
-                      Weekly Off Days
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px', opacity: 0.7 }}>
-                      Standard weekly recurring non-working days for staff.
-                    </p>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                        const isSelected = attendanceConfig.default_weekly_holidays?.includes(day);
-                        return (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
-                              setAttendanceConfig(prev => {
-                                const current = prev.default_weekly_holidays || [];
-                                const next = current.includes(day)
-                                  ? current.filter(d => d !== day)
-                                  : [...current, day];
-                                return { ...prev, default_weekly_holidays: next };
-                              });
-                            }}
-                            className={`btn btn-sm ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
-                            style={{
-                              padding: '6px 14px',
-                              borderRadius: '20px',
-                              fontWeight: isSelected ? '700' : '500',
-                              fontSize: '0.8rem'
-                            }}
-                          >
-                            {day.slice(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '20px', marginTop: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)' }}>
-                      <div style={{ flex: 1, paddingRight: '16px' }}>
-                        <label className="form-label" style={{ fontSize: '0.9rem', fontWeight: '750', color: 'var(--text-main)', marginBottom: '4px', display: 'block', cursor: 'pointer' }} htmlFor="auto-approve-toggle">
-                          Auto Approval Mode
-                        </label>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, opacity: 0.85, lineHeight: 1.4 }}>
-                          Automatically approve employee attendance logs upon clock-in/out, bypassing manual manager approval requirements.
-                        </p>
-                      </div>
-                      
-                      <label className="switch-toggle" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px', flexShrink: 0, cursor: 'pointer' }}>
-                        <input
-                          id="auto-approve-toggle"
-                          type="checkbox"
-                          style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                          checked={attendanceConfig.auto_approve_attendance || false}
-                          onChange={(e) => setAttendanceConfig(prev => ({ ...prev, auto_approve_attendance: e.target.checked }))}
-                        />
-                        <span className="slider-round" style={{
-                          position: 'absolute',
-                          inset: 0,
-                          backgroundColor: attendanceConfig.auto_approve_attendance ? 'var(--primary)' : '#cbd5e1',
-                          borderRadius: '34px',
-                          transition: 'background-color 0.25s ease',
-                          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-                        }}>
-                          <span style={{
-                            position: 'absolute',
-                            height: '20px',
-                            width: '20px',
-                            left: attendanceConfig.auto_approve_attendance ? '26px' : '4px',
-                            bottom: '4px',
-                            backgroundColor: '#ffffff',
-                            borderRadius: '50%',
-                            transition: 'all 0.25s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                          }} />
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {attendanceConfigSuccess && (
-                    <div className="tab-alert success">
-                      <CheckIcon size={14} />
-                      <span>{attendanceConfigSuccess}</span>
-                    </div>
-                  )}
-                  {attendanceConfigError && (
-                    <div className="tab-alert error">
-                      <WarningIcon size={14} />
-                      <span>{attendanceConfigError}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row">
-                    <button type="submit" className="btn btn-primary" disabled={attendanceConfigLoading}>
-                      {attendanceConfigLoading ? 'Saving Policy...' : 'Save Attendance Policy'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Info panel */}
-              <div className="panel settings-panel-card">
-                <h3>How Attendance Rules Work</h3>
-                <p className="tab-desc">These rules power the Attendance Management Portal's automatic categorisation logic.</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  <div style={{ padding: '14px', background: 'rgba(234, 179, 8, 0.08)', borderRadius: '10px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>🕐</span> Grace Period
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      Employees clocking in within the grace window are marked as on-time. Beyond it, they appear in the Late Comers tab.
-                    </p>
-                  </div>
-                  <div style={{ padding: '14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>📅</span> Half Day Threshold
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      The minimum time worked for a session to count as a productive Half Day. Sessions below this may be classified as Absent by HR.
-                    </p>
-                  </div>
-                  <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>🚫</span> Full-Day Absent Threshold
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      The maximum delay allowed after shift start. Arrivals beyond this point without prior approved leave are considered fully absent for HR review.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AttendanceRulesTab
+              attendanceConfig={attendanceConfig}
+              setAttendanceConfig={setAttendanceConfig}
+              attendanceConfigLoading={attendanceConfigLoading}
+              attendanceConfigSuccess={attendanceConfigSuccess}
+              attendanceConfigError={attendanceConfigError}
+              handleSaveAttendanceConfig={handleSaveAttendanceConfig}
+            />
           )}
+
 
           {/* TAB: PAYROLL SETTINGS CONFIG */}
           {currentTab === 'payroll-config' && hasPayrollConfigPerm && (
-            <div className="settings-grid">
-              <div className="panel settings-panel-card">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <DollarIcon size={18} />
-                  Payroll & Currency Settings
-                </h3>
-                <p className="tab-desc">
-                  Configure organization-wide default currency and salary proration basis for monthly payroll generation.
-                </p>
-
-                <form onSubmit={handleSavePayrollConfig} className="settings-form">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="payroll-currency">
-                        Payroll Currency
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Source of truth currency for newly created salary structures and payroll cycles.
-                      </p>
-                      <select
-                        id="payroll-currency"
-                        className="form-input"
-                        value={payrollConfig.payroll_currency}
-                        onChange={(e) => setPayrollConfig(prev => ({ ...prev, payroll_currency: e.target.value }))}
-                        disabled={payrollConfigLoading}
-                      >
-                        <option value="INR">INR — Indian Rupee (₹)</option>
-                        <option value="USD">USD — US Dollar ($)</option>
-                        <option value="AED">AED — UAE Dirham (AED)</option>
-                        <option value="SAR">SAR — Saudi Riyal (SAR)</option>
-                        <option value="EUR">EUR — Euro (€)</option>
-                        <option value="GBP">GBP — British Pound (£)</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="proration-basis">
-                        Proration Basis (Monthly Salary Only)
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                        Divisor used to calculate daily rate from contractual basic salary for attendance deductions.
-                      </p>
-                      <select
-                        id="proration-basis"
-                        className="form-input"
-                        value={payrollConfig.payroll_proration_basis}
-                        onChange={(e) => setPayrollConfig(prev => ({ ...prev, payroll_proration_basis: e.target.value }))}
-                        disabled={payrollConfigLoading}
-                      >
-                        <option value="WORKING_DAYS">Working Days (Dynamic working days in month)</option>
-                        <option value="CALENDAR_DAYS">Calendar Days (All days in month: 28-31)</option>
-                        <option value="FIXED_30">Fixed 30 Days (Standard corporate 30-day divisor)</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="daily-wage-paid-leave" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          id="daily-wage-paid-leave"
-                          checked={payrollConfig.daily_wage_paid_leave_eligible}
-                          onChange={(e) => setPayrollConfig(prev => ({ ...prev, daily_wage_paid_leave_eligible: e.target.checked }))}
-                          disabled={payrollConfigLoading}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                        />
-                        <span>Paid Leave for Daily Wage Employees</span>
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 0, opacity: 0.7, marginLeft: '24px' }}>
-                        When enabled, approved paid leave is paid at the employee&apos;s daily wage rate.
-                      </p>
-                    </div>
-
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label" htmlFor="hourly-wage-paid-leave" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          id="hourly-wage-paid-leave"
-                          checked={payrollConfig.hourly_wage_paid_leave_eligible}
-                          onChange={(e) => setPayrollConfig(prev => ({ ...prev, hourly_wage_paid_leave_eligible: e.target.checked }))}
-                          disabled={payrollConfigLoading}
-                          style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                        />
-                        <span>Paid Leave for Hourly Wage Employees</span>
-                      </label>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 0, opacity: 0.7, marginLeft: '24px' }}>
-                        When enabled, approved paid leave scheduled hours are included in payable work hours.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Contextual Policy Guidance Box */}
-                  <div style={{ backgroundColor: 'var(--surface-elevated, #f8fafc)', border: '1px solid var(--border)', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                    <div style={{ fontWeight: 700, marginBottom: '6px', color: 'var(--text-primary)' }}>
-                      Policy Reference & Examples:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.6' }}>
-                      <li>
-                        <strong>Working Days:</strong> Monthly salary is divided by actual scheduled working days (e.g. ₹30,000 / 22 working days = ₹1,363.64/day).
-                      </li>
-                      <li>
-                        <strong>Calendar Days:</strong> Monthly salary is divided by all calendar days in that month (e.g. ₹30,000 / 31 days = ₹967.74/day).
-                      </li>
-                      <li>
-                        <strong>Fixed 30 Days:</strong> Monthly salary is always divided by 30 (e.g. ₹30,000 / 30 = ₹1,000.00/day).
-                      </li>
-                      <li style={{ marginTop: '4px', color: 'var(--text-muted)' }}>
-                        <em>Note: Proration basis applies to Monthly Salary employees only. Daily Wage employees always use their contractual daily rate.</em>
-                      </li>
-                      <li style={{ marginTop: '2px', color: 'var(--text-muted)' }}>
-                        <em>Paid Leave for Daily Wage: When enabled, approved paid leave earns the normal daily wage; when disabled, only days actually worked earn daily wage.</em>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {payrollConfigSuccess && (
-                    <div className="tab-alert success">
-                      <CheckIcon size={14} />
-                      <span>{payrollConfigSuccess}</span>
-                    </div>
-                  )}
-                  {payrollConfigError && (
-                    <div className="tab-alert error">
-                      <WarningIcon size={14} />
-                      <span>{payrollConfigError}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row">
-                    <button type="submit" className="btn btn-primary" disabled={payrollConfigLoading}>
-                      {payrollConfigLoading ? 'Saving Settings...' : 'Save Payroll Settings'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Info panel */}
-              <div className="panel settings-panel-card">
-                <h3>How Payroll Policies Work</h3>
-                <p className="tab-desc">Deterministic rules governing salary calculations and historical snapshots.</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  <div style={{ padding: '14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>₹</span> Organization Payroll Currency
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      Controls the default currency for the entire organization. Historical finalized payroll periods and issued payslips remain frozen in their original currency.
-                    </p>
-                  </div>
-                  <div style={{ padding: '14px', background: 'rgba(234, 179, 8, 0.08)', borderRadius: '10px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>➗</span> Proration Basis
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      Working Days calculates daily rate as Proratable Gross divided by working days (excluding weekly offs and holidays). Calendar Days divides by total days in the month.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <PayrollSettingsTab
+              payrollConfig={payrollConfig}
+              setPayrollConfig={setPayrollConfig}
+              payrollConfigLoading={payrollConfigLoading}
+              payrollConfigSuccess={payrollConfigSuccess}
+              payrollConfigError={payrollConfigError}
+              handleSavePayrollConfig={handleSavePayrollConfig}
+            />
           )}
+
 
           {/* TAB 1: ROLE TEMPLATES CONTENT */}
           {currentTab === 'templates' && hasTemplatesPerm && (
@@ -2001,53 +1718,153 @@ function SettingsHubContent() {
           display: flex;
           flex-direction: column;
           gap: 24px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .settings-tabs {
           display: flex;
-          gap: 8px;
-          border-bottom: 1px solid var(--border);
-          padding-bottom: 10px;
+          align-items: center;
+          gap: 10px;
           overflow-x: auto;
           white-space: nowrap;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          padding-bottom: 12px;
+          border-bottom: 1.5px solid var(--border, #d2e0f5);
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .settings-tabs::-webkit-scrollbar {
-          display: none;
+          height: 3px;
         }
 
-        .tab-link {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 8px 16px;
-          font-weight: 600;
-          color: var(--text-muted);
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          transition: all 0.15s ease;
-          font-size: 0.85rem;
-          white-space: nowrap;
-          flex-shrink: 0;
+        .settings-tabs::-webkit-scrollbar-track {
+          background: transparent;
         }
 
-        .tab-link:hover {
-          background-color: var(--bg-hover);
-          color: var(--text-main);
+        .settings-tabs::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
         }
 
+        .settings-tabs::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+
+        .active-tab-blue,
+        .active-blue-btn,
+        button[data-active-blue="true"],
         .tab-link.active {
-          background-color: var(--primary);
-          border-color: var(--primary);
-          color: #ffffff;
+          background: #2563eb !important;
+          background-color: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
         }
 
-        .tab-link.active :global(svg) {
+        .active-tab-blue *,
+        .active-blue-btn *,
+        button[data-active-blue="true"] *,
+        .tab-link.active *,
+        .active-tab-text,
+        span.active-tab-text {
           color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        .inactive-blue-pill,
+        .inactive-tab-white,
+        .tab-link:not(.active) {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          border-color: #bfdbfe !important;
+          color: #2563eb !important;
+        }
+
+        .inactive-blue-pill *,
+        .inactive-tab-white *,
+        .tab-link:not(.active) *,
+        .inactive-tab-text,
+        span.inactive-tab-text {
+          color: #2563eb !important;
+          stroke: #2563eb !important;
+        }
+
+        .inactive-blue-pill:hover,
+        .inactive-tab-white:hover,
+        .tab-link:not(.active):hover {
+          background: #eff6ff !important;
+          background-color: #eff6ff !important;
+          border-color: #93c5fd !important;
+          color: #1d4ed8 !important;
+        }
+
+        .inactive-blue-pill:hover *,
+        .inactive-tab-white:hover *,
+        .tab-link:not(.active):hover *,
+        .inactive-blue-pill:hover span,
+        .tab-link:not(.active):hover span {
+          color: #1d4ed8 !important;
+          stroke: #1d4ed8 !important;
+        }
+
+        /* Scoped Dark Mode Overrides */
+        :global(:root.dark) .inactive-blue-pill,
+        :global(:root.dark) .inactive-tab-white,
+        :global(:root.dark) .tab-link:not(.active) {
+          background: #1e293b !important;
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #93c5fd !important;
+        }
+
+        :global(:root.dark) .inactive-blue-pill *,
+        :global(:root.dark) .inactive-tab-white *,
+        :global(:root.dark) .tab-link:not(.active) *,
+        :global(:root.dark) .inactive-tab-text,
+        :global(:root.dark) span.inactive-tab-text {
+          color: #93c5fd !important;
+          stroke: #93c5fd !important;
+        }
+
+        :global(:root.dark) .inactive-blue-pill:hover,
+        :global(:root.dark) .inactive-tab-white:hover,
+        :global(:root.dark) .tab-link:not(.active):hover {
+          background: rgba(37, 99, 235, 0.2) !important;
+          background-color: rgba(37, 99, 235, 0.2) !important;
+          border-color: #3b82f6 !important;
+          color: #60a5fa !important;
+        }
+
+        :global(:root.dark) .template-item-card,
+        :global(:root.dark) .location-item-card,
+        :global(:root.dark) .settings-panel-card,
+        :global(:root.dark) .premium-billing-card,
+        :global(:root.dark) .module-item,
+        :global(:root.dark) .calculator-panel {
+          background: #1e293b !important;
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+
+        :global(:root.dark) .template-item-card h4,
+        :global(:root.dark) .location-item-card h4,
+        :global(:root.dark) .settings-panel-card h3,
+        :global(:root.dark) .settings-panel-card h4 {
+          color: #f8fafc !important;
+        }
+
+        :global(:root.dark) .card-actions-row,
+        :global(:root.dark) .settings-tabs {
+          border-color: #334155 !important;
         }
 
         .settings-content-wrapper {
@@ -2156,7 +1973,7 @@ function SettingsHubContent() {
         }
 
         .template-item-card {
-          background: white;
+          background: var(--bg-card, #ffffff);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
           padding: 16px;
@@ -2210,7 +2027,7 @@ function SettingsHubContent() {
         }
 
         .location-item-card {
-          background: white;
+          background: var(--bg-card, #ffffff);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
           padding: 16px;
@@ -2749,17 +2566,30 @@ function SettingsHubContent() {
         }
         .dynamic-calculator-container {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 32px;
+          grid-template-columns: 1fr;
+          gap: 24px;
           margin-top: 24px;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+        @media (min-width: 900px) {
+          .dynamic-calculator-container {
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+          }
         }
         .calculator-panel {
-          padding: 28px;
+          padding: 24px;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
         }
         .billing-search-input {
           width: 250px;
           padding: 6px 12px;
           font-size: 0.85rem;
+          box-sizing: border-box;
         }
 
         @media (max-width: 992px) {
@@ -2777,13 +2607,13 @@ function SettingsHubContent() {
           }
           .dynamic-calculator-container {
             grid-template-columns: 1fr;
-            gap: 24px;
+            gap: 20px;
           }
         }
 
         @media (max-width: 480px) {
           .settings-panel-card {
-            padding: 16px !important;
+            padding: 12px 10px !important;
           }
           .settings-tabs {
             flex-direction: row;
@@ -2807,16 +2637,16 @@ function SettingsHubContent() {
             gap: 16px;
           }
           .calculator-panel {
-            padding: 16px !important;
+            padding: 14px 10px !important;
           }
           .premium-billing-card {
-            padding: 20px 16px !important;
+            padding: 14px 10px !important;
           }
           .price-value {
-            font-size: 2.2rem !important;
+            font-size: 1.8rem !important;
           }
           .currency-symbol {
-            font-size: 1.4rem !important;
+            font-size: 1.2rem !important;
           }
         }
 
@@ -2875,7 +2705,7 @@ function SettingsHubContent() {
             flexDirection: 'column',
             animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
           }} onClick={(e) => e.stopPropagation()}>
-            
+
             {(() => {
               const isDebit = selectedReceipt.transactionType === 'Debit';
               return (
@@ -2897,9 +2727,9 @@ function SettingsHubContent() {
                         {isDebit ? 'Subscription License Charge' : 'Prepaid Balance Refill'}
                       </span>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => setSelectedReceipt(null)} 
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReceipt(null)}
                       style={{
                         background: '#ffffff',
                         border: '1px solid var(--border)',
@@ -3030,7 +2860,7 @@ function SettingsHubContent() {
                 </>
               );
             })()}
-            
+
           </div>
         </div>
       )}

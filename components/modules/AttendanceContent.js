@@ -217,7 +217,7 @@ function AttendanceContent() {
           apiFetch('/locations/').catch(() => []),
           apiFetch('/employees/').catch(() => []),
           apiFetch('/schedules/').catch(() => []),
-          apiFetch('/templates/').catch(() => [])
+          apiFetch('/roles/').catch(() => [])
         ]);
         const locsList = unpackList(locsData);
         const empsList = unpackList(empsData);
@@ -733,7 +733,7 @@ function AttendanceContent() {
   const hasPermission = (permission) => {
     if (!currentUser) return false;
     if (currentUser.isSuperAdmin) return true;
-    return currentUser.permissions && currentUser.permissions.includes(permission);
+    return (currentUser.effective_permissions || currentUser.permissions || []).includes(permission);
   };
 
   const isStaffView = true;

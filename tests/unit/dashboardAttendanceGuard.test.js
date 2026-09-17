@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, waitFor } from '@testing-library/react';
 import Dashboard from '../../app/dashboard/page.js';
+import { projectService } from '../../lib/services/projectService';
 
 // Track mock calls to apiFetch
 const mockApiFetch = jest.fn();
@@ -154,5 +155,66 @@ describe('Dashboard Attendance Guard & Entitlement Regression Tests', () => {
     const res401 = simulateClientResponse(401);
     expect(res401.status).toBe(401);
     expect(authLoggedOut).toBe(true);
+  });
+
+  test('4. Project management OFF => zero project API calls even when user is SuperAdmin', async () => {
+    mockAppContext = {
+      currentUser: {
+        id: '152',
+        employeeId: '152',
+        name: 'Super Admin User',
+        isSuperAdmin: true,
+        permissions: ['projects:view', 'projects:create'],
+        is_attendance_enabled: true,
+        is_project_enabled: false,
+        subscription: {
+          subscriptionStatus: 'Active',
+          is_attendance_enabled: true,
+          is_project_enabled: false,
+        },
+      },
+      authStatus: 'authenticated',
+      permissionsRegistry: null,
+    };
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(mockApiFetch).toHaveBeenCalled();
+    });
+
+    // Verify zero calls made to projectService methods
+    expect(projectService.getEmployeeAssignments).not.toHaveBeenCalled();
+    expect(projectService.getProjects).not.toHaveBeenCalled();
+    expect(projectService.getProjectStatuses).not.toHaveBeenCalled();
+  });
+
+  test('5. Project management ON => project API calls occur normally for SuperAdmin or authorized user', async () => {
+    mockAppContext = {
+      currentUser: {
+        id: '152',
+        employeeId: '152',
+        name: 'Super Admin User',
+        isSuperAdmin: true,
+        permissions: ['projects:view', 'projects:create'],
+        is_attendance_enabled: true,
+        is_project_enabled: true,
+        subscription: {
+          subscriptionStatus: 'Active',
+          is_attendance_enabled: true,
+          is_project_enabled: true,
+        },
+      },
+      authStatus: 'authenticated',
+      permissionsRegistry: null,
+    };
+
+    render(<Dashboard />);
+
+    await waitFor(() => {
+      expect(projectService.getEmployeeAssignments).toHaveBeenCalledWith('152');
+      expect(projectService.getProjects).toHaveBeenCalled();
+      expect(projectService.getProjectStatuses).toHaveBeenCalled();
+    });
   });
 });

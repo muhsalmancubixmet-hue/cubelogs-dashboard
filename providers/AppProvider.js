@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch, apiLogout } from '../lib/api/apiClient';
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '../lib/api/tokenStorage';
+import { getAccessToken, getRefreshToken, setTokens, clearTokens, setActiveOrgId } from '../lib/api/tokenStorage';
 import { authService, organizationService, normalizePermissionRegistry } from '../lib/services/apiService';
 import CustomAlertModal from '../components/CustomAlertModal';
 
@@ -354,9 +354,22 @@ export const MODULES_MAP = {
     ids: [
       'admin:employees',
       'admin:templates',
+      'roles.view',
+      'roles.create',
+      'roles.edit',
+      'roles.delete',
+      'roles.assign',
+      'roles.duplicate',
+      'permissions.view',
+      'permissions.manage',
       'locations:manage',
       'settings:branding',
-      'settings:billing'
+      'settings:billing',
+      'salary:view',
+      'salary:manage',
+      'payroll:view',
+      'payroll:process',
+      'payroll:manage'
     ]
   },
   attendance: {
@@ -448,6 +461,13 @@ const isAuthDataEqual = (a, b) => {
   for (let i = 0; i < permA.length; i++) {
     if (permA[i] !== permB[i]) return false;
   }
+
+  const effA = a.effective_permissions || [];
+  const effB = b.effective_permissions || [];
+  if (effA.length !== effB.length) return false;
+  for (let i = 0; i < effA.length; i++) {
+    if (effA[i] !== effB[i]) return false;
+  }
   return true;
 };
 
@@ -535,6 +555,10 @@ export function AppProvider({ children }) {
           setCurrentUser(mappedUser);
           if (typeof window !== 'undefined') {
             localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+            const orgId = mappedUser?.active_organization?.id || mappedUser?.organization || mappedUser?.active_membership?.organization_id;
+            if (orgId) {
+              setActiveOrgId(orgId);
+            }
           }
         }
 
@@ -700,6 +724,10 @@ export function AppProvider({ children }) {
       const mappedUser = mapEmployee(user);
       if (typeof window !== 'undefined') {
         localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        const orgId = mappedUser?.active_organization?.id || mappedUser?.organization || mappedUser?.active_membership?.organization_id;
+        if (orgId) {
+          setActiveOrgId(orgId);
+        }
       }
 
       setCurrentUser(mappedUser);
@@ -724,6 +752,10 @@ export function AppProvider({ children }) {
       const mappedUser = mapEmployee(user);
       if (typeof window !== 'undefined') {
         localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        const orgId = mappedUser?.active_organization?.id || mappedUser?.organization || mappedUser?.active_membership?.organization_id;
+        if (orgId) {
+          setActiveOrgId(orgId);
+        }
       }
 
       setCurrentUser(mappedUser);
@@ -850,6 +882,7 @@ export function AppProvider({ children }) {
       const mappedUser = mapEmployee(user);
       if (typeof window !== 'undefined') {
         localStorage.setItem('cubelogs_active_user', JSON.stringify(mappedUser));
+        setActiveOrgId(organizationId);
       }
       setCurrentUser(mappedUser);
       await fetchInitialData(mappedUser);
@@ -920,7 +953,7 @@ export function AppProvider({ children }) {
   const hasPermission = useCallback((permission) => {
     if (!currentUser) return false;
     if (currentUser.isSuperAdmin) return true;
-    return currentUser.permissions && currentUser.permissions.includes(permission);
+    return (currentUser.effective_permissions || currentUser.permissions || []).includes(permission);
   }, [currentUser]);
 
   const isFeatureUnlocked = useCallback((feature) => {

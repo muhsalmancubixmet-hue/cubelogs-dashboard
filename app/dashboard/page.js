@@ -119,7 +119,7 @@ export default function Dashboard() {
   const hasPermission = (permissionName) => {
     if (!currentUser) return false;
     if (currentUser.isSuperAdmin) return true;
-    return currentUser.permissions && currentUser.permissions.includes(permissionName);
+    return (currentUser.effective_permissions || currentUser.permissions || []).includes(permissionName);
   };
 
   // ── Inline Clock-In Modal ────────────────────────────────────────────────────
@@ -310,11 +310,11 @@ export default function Dashboard() {
 
     const checkPerm = (permName) => {
       if (userObj.isSuperAdmin) return true;
-      return userObj.permissions && userObj.permissions.includes(permName);
+      return (userObj.effective_permissions || userObj.permissions || []).includes(permName);
     };
 
     try {
-      const orgId = userObj?.organization;
+      const orgId = userObj?.active_organization?.id || userObj?.organization;
       const orgQuery = orgId ? `?organization=${orgId}` : '';
 
       const catchUnlessAuthError = (err) => {
@@ -332,15 +332,22 @@ export default function Dashboard() {
         return [];
       };
 
-      const fetchTasks = userObj?.id
+      const isProjEnabled = Boolean(
+        userObj?.subscription?.is_project_enabled !== undefined
+          ? userObj.subscription.is_project_enabled
+          : userObj?.is_project_enabled
+      );
+
+      const fetchTasks = (userObj?.id && isProjEnabled)
         ? projectService.getEmployeeAssignments(userObj.id).then(d => d.tasks || []).catch(() => [])
         : Promise.resolve([]);
       const fetchLeaves = isAttendanceEnabled
         ? apiFetch(`/leaves/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
       const fetchHolidays = isAttendanceEnabled
-        ? apiFetch('/holidays/').catch(catchUnlessAuthError)
+        ? apiFetch(`/holidays/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
+
 
       const hasEmployeesPerm = checkPerm('admin:employees') || checkPerm('attendance:admin');
       const fetchEmployees = hasEmployeesPerm
@@ -352,10 +359,9 @@ export default function Dashboard() {
         ? apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError)
         : Promise.resolve([]);
 
-      const fetchProjects = (checkPerm('projects:view') || checkPerm('projects:create') || userObj.isSuperAdmin)
+      const fetchProjects = (isProjEnabled && (checkPerm('projects:view') || checkPerm('projects:create') || userObj.isSuperAdmin))
         ? projectService.getProjects().catch(() => [])
         : Promise.resolve([]);
-      const isProjEnabled = userObj?.subscription?.is_project_enabled || userObj?.is_project_enabled;
       const fetchStatuses = isProjEnabled
         ? projectService.getProjectStatuses().catch(() => [])
         : Promise.resolve([]);
@@ -639,7 +645,7 @@ export default function Dashboard() {
               </div>
             </Link>
             {isAttendanceEnabled && (
-              <Link href="/leaves?tab=approve" className="metric-card">
+              <Link href="/attendance?tab=leaves-approve" className="metric-card">
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><LeavesIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Pending Leaves</h4>
@@ -690,7 +696,7 @@ export default function Dashboard() {
               </Link>
             )}
             {isAttendanceEnabled && (
-              <Link href="/leaves?tab=apply" className="metric-card">
+              <Link href="/attendance?tab=leaves-apply" className="metric-card">
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><LeavesIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Applied Leaves</h4>
@@ -762,7 +768,7 @@ export default function Dashboard() {
         return (
           <>
             {showOverviewSection && (
-              <div className="dashboard-module-section" style={{ marginBottom: '40px' }}>
+              <div className="dashboard-module-section platform-overview-section hidden md:block" style={{ marginBottom: '40px' }}>
                 {/* Modern header banner with a soft background gradient */}
                 <div className="platform-overview-header" style={{
                   display: 'flex',
@@ -971,9 +977,10 @@ export default function Dashboard() {
                             </div>
                           </div>
                         )}
-                        <HolidaySlider />
+                        <HolidaySlider holidays={holidays} />
                       </div>
                       <div className="dashboard-control-col-right" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
                         <div style={{ marginBottom: 0 }}>
                           <DashboardCalendar
                             holidays={holidays}
@@ -988,7 +995,7 @@ export default function Dashboard() {
                               <LeavesIcon size={20} style={{ color: 'var(--primary)' }} />
                               <span>{isAdminView ? 'Recent Leave Activity' : 'My Leave Requests'}</span>
                             </h3>
-                            <Link href="/leaves" className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
+                            <Link href={isAdminView ? "/attendance?tab=leaves-approve" : "/attendance?tab=leaves-apply"} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '0.8rem', textDecoration: 'none' }}>
                               View All
                             </Link>
                           </div>
@@ -1020,7 +1027,7 @@ export default function Dashboard() {
 
                         {canApproveLeaves && (
                           <div style={{ display: 'flex', gap: '10px' }}>
-                            <Link href="/leaves?tab=approve" className="btn btn-secondary full-width" style={{ textAlign: 'center', textDecoration: 'none' }}>
+                            <Link href="/attendance?tab=leaves-approve" className="btn btn-secondary full-width" style={{ textAlign: 'center', textDecoration: 'none' }}>
                               Approve Leave Requests
                             </Link>
                           </div>
@@ -1691,6 +1698,11 @@ export default function Dashboard() {
       <style jsx>{`
         @keyframes ciOverlayIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes ciCardIn { from { opacity: 0; transform: scale(0.93) translateY(12px) } to { opacity: 1; transform: none } }
+        @media (max-width: 768px) {
+          .platform-overview-section {
+            display: none !important;
+          }
+        }
       `}</style>
     </PageWrapper>
   );

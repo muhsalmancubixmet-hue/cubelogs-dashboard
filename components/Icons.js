@@ -507,6 +507,20 @@ export const ReceiptIcon = (props) => (
   </SvgBase>
 );
 
+export const LockIcon = (props) => (
+  <SvgBase {...props}>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </SvgBase>
+);
+
+export const UnlockIcon = (props) => (
+  <SvgBase {...props}>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+  </SvgBase>
+);
+
 
 
 

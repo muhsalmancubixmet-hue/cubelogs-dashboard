@@ -84,9 +84,11 @@ function HolidaysContent() {
     }
   };
 
+  const activeOrgKey = currentUser?.active_organization?.id || currentUser?.organization;
+
   useEffect(() => {
     fetchHolidays();
-  }, []);
+  }, [activeOrgKey]);
 
   const canManageHolidays = hasPermission('holidays:manage');
 
@@ -94,7 +96,8 @@ function HolidaysContent() {
     if (canManageHolidays) {
       fetchSettings();
     }
-  }, [canManageHolidays]);
+  }, [canManageHolidays, activeOrgKey]);
+
 
   const handleSaveRules = async () => {
     setSavingRules(true);

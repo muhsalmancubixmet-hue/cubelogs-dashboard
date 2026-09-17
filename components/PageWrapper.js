@@ -32,6 +32,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
     const tab = searchParams.get('tab');
     if (path === '/dashboard') return true;
     if (path === '/admin/settings' && tab === 'billing') return true;
+    if (path === '/admin/storage') return true;
     return false;
   };
 

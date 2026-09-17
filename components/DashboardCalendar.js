@@ -241,20 +241,20 @@ export default function DashboardCalendar({
 
     return (
       <div
-        style={{ ...cellStyle, width: '100%', height: '100%', minHeight: '80px', padding: '6px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+        style={{ ...cellStyle, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}
         onMouseEnter={(e) => tooltipData && handleMouseEnter(e, tooltipData)}
         onMouseLeave={handleMouseLeave}
         className={`calendar-cell ${holidayData ? 'calendar-cell-holiday' : ''} ${holidayData ? `cell-${holidayData.type}` : ''}`}
         aria-label={cellAriaLabel}
         title={cellAriaLabel}
       >
-        <span className="calendar-cell-day-num" style={{ fontSize: '0.88rem', fontWeight: '700', color: isToday ? 'var(--primary)' : 'var(--text-main)' }}>
+        <span className="calendar-cell-day-num" style={{ fontSize: '0.74rem', fontWeight: '700', color: isToday ? 'var(--primary)' : 'var(--text-main)', lineHeight: 1 }}>
           {dayNum}
         </span>
         {holidayData && (
-          <div className="calendar-cell-holiday-container" style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start', width: '100%', overflow: 'hidden' }}>
-            <span className="calendar-cell-holiday-dot" style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotBg, border: `1px solid ${dotBorder}`, display: 'block' }}></span>
-            <span className={`calendar-cell-holiday-name holiday-text-${holidayData.type}`} style={{ fontSize: '0.68rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', display: 'block' }}>
+          <div className="calendar-cell-holiday-container" style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
+            <span className="calendar-cell-holiday-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', background: dotBg, border: `1px solid ${dotBorder}`, display: 'block' }}></span>
+            <span className={`calendar-cell-holiday-name holiday-text-${holidayData.type}`} style={{ fontSize: '0.62rem', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', display: 'none' }}>
               {holidayData.primary.name}
             </span>
           </div>
@@ -264,7 +264,7 @@ export default function DashboardCalendar({
   };
 
   return (
-    <div className="panel calendar-panel" style={{ width: '100%', margin: 0, position: 'relative' }}>
+    <div className="panel calendar-panel" style={{ width: '100%', position: 'relative', boxSizing: 'border-box' }}>
       <SharedCalendar
         year={year}
         month={month}
@@ -350,58 +350,71 @@ export default function DashboardCalendar({
       )}
 
       <style>{`
+        .calendar-panel {
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
+          padding: 20px 24px;
+          box-sizing: border-box;
+          border-radius: var(--radius-lg);
+        }
         .calendar-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 20px;
+          margin-bottom: 14px;
+          gap: 12px;
+          flex-wrap: wrap;
         }
         .calendar-title {
           margin: 0;
           display: flex;
           align-items: center;
           gap: 8px;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: var(--text-main);
         }
         .calendar-subtitle {
-          margin: 4px 0 0 0;
-          font-size: 0.82rem;
-          color: var(--text-muted);
+          display: none;
         }
         .calendar-nav {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           align-items: center;
         }
         .calendar-nav button {
-          padding: 6px 12px;
+          padding: 6px 10px;
+          border-radius: var(--radius-sm);
         }
         .calendar-month-year {
           font-weight: 700;
-          font-size: 1rem;
+          font-size: 0.95rem;
           color: var(--text-main);
-          min-width: 130px;
+          min-width: 120px;
           text-align: center;
         }
         .calendar-legend {
           display: flex;
-          gap: 16px;
+          gap: 8px 16px;
           flex-wrap: wrap;
-          margin-bottom: 16px;
-          padding: 8px 12px;
+          justify-content: flex-start;
+          margin-bottom: 14px;
+          padding: 8px 14px;
           background: #f8fafc;
           border: 1px solid #e2e8f0;
-          border-radius: var(--radius-sm);
+          border-radius: var(--radius-md);
         }
         .calendar-legend-item {
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 0.78rem;
+          font-size: 0.75rem;
           font-weight: 600;
         }
         .legend-dot {
-          width: 12px;
-          height: 12px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
           flex-shrink: 0;
         }
@@ -432,10 +445,11 @@ export default function DashboardCalendar({
           gap: 6px;
           text-align: center;
           font-weight: 700;
-          font-size: 0.8rem;
+          font-size: 0.78rem;
           color: var(--text-muted);
           text-transform: uppercase;
           margin-bottom: 8px;
+          letter-spacing: 0.04em;
         }
         .calendar-grid {
           display: grid;
@@ -443,14 +457,26 @@ export default function DashboardCalendar({
           gap: 6px;
         }
         .calendar-cell {
-          min-height: 80px;
-          padding: 6px;
+          min-height: 48px !important;
+          padding: 6px 8px !important;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
+          align-items: flex-start;
           position: relative;
-          border-radius: var(--radius-sm);
-          transition: all 0.2s;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          box-sizing: border-box;
+          cursor: pointer;
+        }
+        .calendar-cell:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+        }
+        .calendar-cell-day-num {
+          font-size: 0.85rem;
+          font-weight: 700;
+          line-height: 1;
         }
         
         .calendar-tooltip {
@@ -465,99 +491,69 @@ export default function DashboardCalendar({
           color: rgba(255, 255, 255, 0.9) !important;
         }
         
+        .day-long {
+          display: inline;
+        }
         .day-short {
           display: none;
         }
-        @media (max-width: 640px) {
-          .calendar-panel {
-            padding: 12px 8px !important;
-          }
-          .calendar-header {
-            flex-direction: row;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 12px;
-          }
-          .calendar-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-          }
-          .title-long {
-            display: none;
-          }
-          .calendar-subtitle {
-            display: none;
-          }
-          .calendar-nav {
-            gap: 4px;
-          }
-          .calendar-nav button {
-            padding: 4px 8px;
-            font-size: 0.75rem;
-          }
-          .calendar-month-year {
-            font-size: 0.85rem;
-            min-width: 80px;
-          }
-          .calendar-legend {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 6px 10px;
-            padding: 6px;
-            margin-bottom: 12px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-          }
-          .calendar-legend-item {
-            font-size: 0.65rem;
-            gap: 4px;
-          }
-          .legend-dot {
-            width: 8px;
-            height: 8px;
-          }
-          .legend-detail {
-            display: none;
-          }
+
+        @media (max-width: 900px) {
           .day-long {
             display: none;
           }
           .day-short {
             display: inline;
           }
+          .calendar-cell {
+            min-height: 40px !important;
+            padding: 4px 6px !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .calendar-panel {
+            padding: 12px 10px !important;
+          }
+          .calendar-header {
+            margin-bottom: 10px;
+          }
+          .calendar-title {
+            font-size: 0.88rem;
+          }
+          .title-long {
+            display: none;
+          }
+          .calendar-month-year {
+            font-size: 0.82rem;
+            min-width: 80px;
+          }
+          .calendar-legend {
+            gap: 4px 8px;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+          }
+          .calendar-legend-item {
+            font-size: 0.62rem;
+          }
+          .legend-detail {
+            display: none;
+          }
           .calendar-grid-header {
-            font-size: 0.7rem !important;
-            margin-bottom: 4px;
-            gap: 4px;
+            font-size: 0.68rem !important;
+            gap: 3px;
           }
           .calendar-grid {
-            gap: 4px;
+            gap: 3px;
           }
           .calendar-cell {
-            min-height: 38px;
-            padding: 4px 2px;
-            justify-content: center;
-            align-items: center;
-            gap: 2px;
+            min-height: 32px !important;
+            padding: 2px 2px !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
           .calendar-cell-day-num {
-            font-size: 0.75rem !important;
-            line-height: 1;
-          }
-          .calendar-cell-holiday-container {
-            align-items: center !important;
-            justify-content: center;
-            gap: 0 !important;
-            margin-top: 1px;
-          }
-          .calendar-cell-holiday-dot {
-            width: 5px !important;
-            height: 5px !important;
-          }
-          .calendar-cell-holiday-name {
-            display: none !important;
+            font-size: 0.72rem !important;
           }
         }
       `}</style>

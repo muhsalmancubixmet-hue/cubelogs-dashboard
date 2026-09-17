@@ -10,7 +10,9 @@ import {
   EditIcon, 
   CheckIcon, 
   WarningIcon, 
-  CloseIcon 
+  CloseIcon,
+  ClockIcon,
+  CalendarIcon
 } from '@/components/Icons';
 import { formatCurrency } from '@/lib/currency';
 
@@ -427,16 +429,19 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#64748b' }}>Pay Basis:</span>
             {active.compensation_type === 'HOURLY' ? (
-              <span className="badge" style={{ backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
-                Hourly Wage
+              <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                <ClockIcon size={12} />
+                <span>Hourly Wage</span>
               </span>
             ) : active.compensation_type === 'DAILY' ? (
-              <span className="badge" style={{ backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
-                Daily Wage
+              <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                <CalendarIcon size={12} />
+                <span>Daily Wage</span>
               </span>
             ) : (
-              <span className="badge" style={{ backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
-                Monthly Salary
+              <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#f1f5f9', color: '#334155', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
+                <DollarIcon size={12} />
+                <span>Monthly Salary</span>
               </span>
             )}
           </div>
@@ -525,7 +530,7 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '28px' }}>
             {/* Earnings Table */}
             <div style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>
+              <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
                 {active.compensation_type === 'HOURLY' || active.compensation_type === 'DAILY' ? 'Fixed Monthly Allowances' : 'Earnings Breakdown'}
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
@@ -546,9 +551,9 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
                   ) : (
                     (active.components || []).filter(c => c.component_type === 'Earning').map((item, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px 16px', fontWeight: '600', color: '#1e293b' }}>{item.name}</td>
+                        <td style={{ padding: '10px 16px', fontWeight: '600', color: 'var(--text-main, #1e293b)' }}>{item.name}</td>
                         <td style={{ padding: '10px 16px', color: '#64748b' }}><code>{item.code}</code></td>
-                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: '700', color: '#0f172a' }}>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>
                           {parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -560,7 +565,7 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
 
             {/* Deductions Table */}
             <div style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: '#1e293b' }}>
+              <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
                 {active.compensation_type === 'HOURLY' || active.compensation_type === 'DAILY' ? 'Fixed Monthly Deductions' : 'Deductions Breakdown'}
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>

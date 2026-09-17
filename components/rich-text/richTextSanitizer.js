@@ -1,5 +1,18 @@
 import DOMPurify from 'dompurify';
 
+// Hardening fail-safe: Ensure raw data:image/ base64 URIs are never persisted in src attributes
+if (typeof DOMPurify.addHook === 'function') {
+  DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+    if (
+      data.attrName === 'src' &&
+      typeof data.attrValue === 'string' &&
+      data.attrValue.trim().toLowerCase().startsWith('data:image/')
+    ) {
+      data.keepAttr = false;
+    }
+  });
+}
+
 export function sanitizeRichTextHtml(htmlStr) {
   if (!htmlStr) return '';
   let s = String(htmlStr).trim();
