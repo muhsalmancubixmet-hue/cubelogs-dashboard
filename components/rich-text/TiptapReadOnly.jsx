@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { sanitizeRichTextHtml } from './richTextSanitizer';
-import { normalizeMediaUrl } from './richTextMedia';
+import { normalizeMediaUrl, isCubeLogsAttachmentUrl } from './richTextMedia';
+import { apiFetch } from '../../lib/api/apiClient';
+import { downloadAuthenticatedFile, viewAuthenticatedPdf } from '../projects/AuthenticatedMediaPreview';
 import { FileText, List, ChevronUp, ChevronDown, Image as ImageIcon, Maximize2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export default function TiptapReadOnly({ content = '', className = '', enableToc = true }) {
@@ -12,6 +14,8 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
   const [headings, setHeadings] = useState([]);
   const [showToc, setShowToc] = useState(true);
   const containerRef = useRef(null);
+  const [blobUrlMap, setBlobUrlMap] = useState({});
+  const blobUrlsRef = useRef([]);
 
   useEffect(() => {
     setMounted(true);
@@ -54,6 +58,20 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
     }
   );
 
+  // Substitute canonical attachment URLs with authenticated blob URLs for display.
+  // Using a string replacement (not direct DOM mutation) so React controls the DOM
+  // and we avoid stale element references after React reconciliation.
+  let displayHtml = processedHtml;
+  if (Object.keys(blobUrlMap).length > 0) {
+    Object.entries(blobUrlMap).forEach(([canonicalUrl, blobUrl]) => {
+      const escaped = canonicalUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      displayHtml = displayHtml.replace(
+        new RegExp(`(src|href)=["']${escaped}["']`, 'g'),
+        `$1="${blobUrl}"`
+      );
+    });
+  }
+
   useEffect(() => {
     if (typeof document !== 'undefined' && mounted && containerRef.current) {
       // Extract all image URLs for Lightbox
@@ -75,7 +93,54 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
         setHeadings(extracted);
       }
     }
-  }, [processedHtml, mounted, enableToc]);
+  }, [processedHtml, mounted, enableToc, blobUrlMap]);
+
+  // Resolve protected rich-text attachment images via authenticated apiFetch blob URLs.
+  // Stores blob URLs in blobUrlMap state so React injects them into displayHtml,
+  // avoiding stale DOM-element references after React reconciliation.
+  useEffect(() => {
+    if (typeof document === 'undefined' || !mounted || !containerRef.current) return;
+
+    let isCurrent = true;
+
+    const imgEls = Array.from(containerRef.current.querySelectorAll('img'));
+    imgEls.forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      const hasAttachmentId = img.hasAttribute('data-attachment-id');
+      // Skip already-resolved blob URLs to prevent re-fetching on re-renders
+      if (src && !src.startsWith('blob:') && (hasAttachmentId || isCubeLogsAttachmentUrl(src))) {
+        const canonicalUrl = src;
+        apiFetch(canonicalUrl, { responseType: 'blob' })
+          .then((blob) => {
+            if (!isCurrent) return;
+            const blobUrl = URL.createObjectURL(blob);
+            blobUrlsRef.current.push(blobUrl);
+            setBlobUrlMap(prev => ({ ...prev, [canonicalUrl]: blobUrl }));
+          })
+          .catch((err) => {
+            if (!isCurrent) return;
+            console.error('Failed to load authenticated rich-text image:', err);
+          });
+      }
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [processedHtml, mounted]);
+
+  // Revoke all blob URLs when component unmounts
+  useEffect(() => {
+    // Capture the array reference so the linter rule is satisfied.
+    // blobUrlsRef.current is a persistent Array; push() calls from the
+    // fetch effect are reflected in this same reference at cleanup time.
+    const blobUrls = blobUrlsRef.current;
+    return () => {
+      blobUrls.forEach((blobUrl) => {
+        try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (previewIndex === null) return;
@@ -101,10 +166,35 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
   }
 
   const handleContainerClick = (e) => {
+    // Intercept clicks on rich-text CubeLogs attachment links
+    const linkEl = e.target.closest ? e.target.closest('a') : (e.target.tagName === 'A' ? e.target : null);
+    if (linkEl && containerRef.current && containerRef.current.contains(linkEl)) {
+      const href = linkEl.getAttribute('href') || '';
+      const hasAttachmentId = linkEl.hasAttribute('data-attachment-id');
+      if (hasAttachmentId || isCubeLogsAttachmentUrl(href)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const text = (linkEl.textContent || '').trim();
+        const cleanName = text.replace(/^[^\w.-]+/g, '').trim() || 'attachment';
+        if (cleanName.toLowerCase().endsWith('.pdf') || href.toLowerCase().includes('.pdf')) {
+          viewAuthenticatedPdf(href);
+        } else {
+          downloadAuthenticatedFile(href, cleanName);
+        }
+        return;
+      }
+      // Ordinary external hyperlinks continue with default browser behavior
+      return;
+    }
+
     if (e.target && e.target.tagName === 'IMG') {
-      const src = e.target.getAttribute('src');
+      const currentImgs = containerRef.current
+        ? Array.from(containerRef.current.querySelectorAll('img')).map((img) => img.getAttribute('src') || img.src).filter(Boolean)
+        : allImages;
+      setAllImages(currentImgs);
+      const src = e.target.getAttribute('src') || e.target.src;
       if (src) {
-        const idx = allImages.indexOf(src);
+        const idx = currentImgs.indexOf(src);
         setPreviewIndex(idx >= 0 ? idx : 0);
       }
     }
@@ -224,7 +314,7 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
           ref={containerRef}
           className={`tiptap-readonly ${className}`}
           onClick={handleContainerClick}
-          dangerouslySetInnerHTML={{ __html: processedHtml }}
+          dangerouslySetInnerHTML={{ __html: displayHtml }}
           style={{
             lineHeight: 1.55,
             color: 'var(--text-primary, #0f172a)',
@@ -278,8 +368,9 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
             onClick={(e) => e.stopPropagation()}
             style={{ position: 'relative', maxWidth: '90vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={allImages[previewIndex]}
+              src={blobUrlMap[allImages[previewIndex]] || allImages[previewIndex]}
               alt={`Gallery Preview ${previewIndex + 1}`}
               style={{
                 maxWidth: '90vw',

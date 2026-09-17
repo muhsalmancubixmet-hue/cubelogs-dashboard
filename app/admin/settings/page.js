@@ -9,6 +9,9 @@ import TemplatesTab from '@/components/admin/settings/TemplatesTab';
 import LocationsTab from '@/components/admin/settings/LocationsTab';
 import BrandingTab from '@/components/admin/settings/BrandingTab';
 import BillingTab from '@/components/admin/settings/BillingTab';
+import AttendanceRulesTab from '@/components/admin/settings/AttendanceRulesTab';
+import PayrollSettingsTab from '@/components/admin/settings/PayrollSettingsTab';
+
 
 const FEATURE_LABELS = {
   'dashboard': 'Dashboard Analytics',
@@ -52,8 +55,7 @@ const PLANS = [
       'Apply Leaves Portal',
       '1 Geofenced Office Location',
       'Up to 15 Employees Limit'
-    ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00'
+    ]
   },
   {
     name: 'Professional',
@@ -67,7 +69,6 @@ const PLANS = [
       'Multi-Location Geofences',
       'Up to 50 Employees Limit'
     ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00',
     popular: true
   },
   {
@@ -82,33 +83,35 @@ const PLANS = [
       'Unlimited Office Locations',
       'Unlimited Employees Limit',
       '24/7 Dedicated Support'
-    ],
-    stripeLink: 'https://buy.stripe.com/test_9B6aEZ68j56a5eMbfK18c00'
+    ]
   }
 ];
 
-import { 
-  TemplatesIcon, 
-  LocationIcon, 
-  BrandLogo, 
-  EditIcon, 
+import {
+  TemplatesIcon,
+  LocationIcon,
+  BrandLogo,
+  EditIcon,
   DeleteIcon,
   CheckIcon,
   WarningIcon,
   CloseIcon,
   ClockIcon,
-  CameraIcon
+  CameraIcon,
+  DollarIcon
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
 
 function SettingsHubContent() {
   const {
     currentUser,
+    authStatus,
     brandLogo,
     saveBrandLogo,
     companyName,
     saveCompanyName,
     confirmSubscription,
+    verifyPayment,
     subscriptionDays,
     renewSubscription,
     hasPermission,
@@ -116,14 +119,23 @@ function SettingsHubContent() {
     refreshUser
   } = useApp();
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [templates, setTemplates] = useState([]);
   const [officeLocations, setOfficeLocations] = useState([]);
 
   const fetchSettingsData = async () => {
     try {
       const [rolesData, locationsData] = await Promise.all([
-        apiFetch('/roles/'),
-        apiFetch('/locations/')
+        apiFetch('/roles/').catch(err => {
+          console.warn('Could not load roles dependency:', err);
+          return [];
+        }),
+        apiFetch('/locations/').catch(err => {
+          console.warn('Could not load locations dependency:', err);
+          return [];
+        })
       ]);
       const rolesList = Array.isArray(rolesData) ? rolesData : (rolesData?.results || []);
       const locationsList = Array.isArray(locationsData) ? locationsData : (locationsData?.results || []);
@@ -140,8 +152,16 @@ function SettingsHubContent() {
   };
 
   useEffect(() => {
-    fetchSettingsData();
-  }, []);
+    if (authStatus === 'authenticated' && currentUser) {
+      fetchSettingsData();
+    }
+  }, [authStatus, currentUser]);
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      router.replace('/login');
+    }
+  }, [authStatus, router]);
 
   const saveTemplate = async (template) => {
     try {
@@ -215,8 +235,7 @@ function SettingsHubContent() {
     }
   };
 
-  const searchParams = useSearchParams();
-  const router = useRouter();
+
 
   // Confirm modal states
   const [templateConfirm, setTemplateConfirm] = useState({ open: false, id: null });
@@ -234,6 +253,7 @@ function SettingsHubContent() {
   const hasBrandingPerm = !isUnpaid && hasPermission('settings:branding');
   const hasBillingPerm = hasPermission('settings:billing');
   const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
+  const hasPayrollConfigPerm = !isUnpaid && (currentUser?.isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPermission('payroll:view'));
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
@@ -243,7 +263,8 @@ function SettingsHubContent() {
     else if (hasLocationsPerm && isAttendanceEnabled) router.replace('/admin/settings?tab=locations');
     else if (hasBrandingPerm) router.replace('/admin/settings?tab=branding');
     else if (hasBillingPerm) router.replace('/admin/settings?tab=billing');
-  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, router]);
+    else if (hasPayrollConfigPerm) router.replace('/admin/settings?tab=payroll-config');
+  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, router]);
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
@@ -261,10 +282,12 @@ function SettingsHubContent() {
       redirectToFirstAuthorized();
     } else if (currentTab === 'billing' && !hasBillingPerm) {
       redirectToFirstAuthorized();
+    } else if (currentTab === 'payroll-config' && !hasPayrollConfigPerm) {
+      redirectToFirstAuthorized();
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
     }
-  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
+  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
 
   const handleTabChange = (tabName) => {
     router.push(`/admin/settings?tab=${tabName}`);
@@ -275,8 +298,13 @@ function SettingsHubContent() {
   // -------------------------------------------------------------
   const [attendanceConfig, setAttendanceConfig] = useState({
     grace_period_minutes: 15,
+    full_day_minimum_minutes: 480,
+    half_day_minimum_minutes: 240,
     half_day_threshold_minutes: 240,
-    full_day_absent_threshold_minutes: 60,
+    minimum_session_minutes: 5,
+    break_duration_minutes: 60,
+    break_type: 'Unpaid',
+    default_weekly_holidays: ['Saturday', 'Sunday'],
     auto_approve_attendance: false,
   });
   const [attendanceConfigLoading, setAttendanceConfigLoading] = useState(false);
@@ -290,8 +318,13 @@ function SettingsHubContent() {
         const data = await apiFetch('/settings/current/');
         setAttendanceConfig({
           grace_period_minutes: data.grace_period_minutes ?? 15,
-          half_day_threshold_minutes: data.half_day_threshold_minutes ?? 240,
-          full_day_absent_threshold_minutes: data.full_day_absent_threshold_minutes ?? 60,
+          full_day_minimum_minutes: data.full_day_minimum_minutes ?? 480,
+          half_day_minimum_minutes: data.half_day_minimum_minutes ?? data.half_day_threshold_minutes ?? 240,
+          half_day_threshold_minutes: data.half_day_minimum_minutes ?? data.half_day_threshold_minutes ?? 240,
+          minimum_session_minutes: data.minimum_session_minutes ?? 5,
+          break_duration_minutes: data.break_duration_minutes ?? 60,
+          break_type: data.break_type ?? 'Unpaid',
+          default_weekly_holidays: Array.isArray(data.default_weekly_holidays) && data.default_weekly_holidays.length > 0 ? data.default_weekly_holidays : ['Saturday', 'Sunday'],
           auto_approve_attendance: data.auto_approve_attendance ?? false,
         });
       } catch (e) {
@@ -311,12 +344,66 @@ function SettingsHubContent() {
         method: 'PATCH',
         body: JSON.stringify(attendanceConfig),
       });
-      setAttendanceConfigSuccess('Attendance rules updated successfully.');
-      setTimeout(() => setAttendanceConfigSuccess(''), 4000);
+      setAttendanceConfigSuccess('These attendance rules will apply from tomorrow.');
+      setTimeout(() => setAttendanceConfigSuccess(''), 5000);
     } catch (err) {
       setAttendanceConfigError(err.message || 'Failed to save attendance configuration.');
     } finally {
       setAttendanceConfigLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // PAYROLL RULES CONFIG STATE & HANDLERS
+  // -------------------------------------------------------------
+  const [payrollConfig, setPayrollConfig] = useState({
+    payroll_currency: 'INR',
+    payroll_proration_basis: 'WORKING_DAYS',
+    daily_wage_paid_leave_eligible: true,
+    hourly_wage_paid_leave_eligible: true,
+  });
+  const [payrollConfigLoading, setPayrollConfigLoading] = useState(false);
+  const [payrollConfigSuccess, setPayrollConfigSuccess] = useState('');
+  const [payrollConfigError, setPayrollConfigError] = useState('');
+
+  useEffect(() => {
+    const loadPayrollConfig = async () => {
+      try {
+        const data = await apiFetch('/settings/current/');
+        setPayrollConfig({
+          payroll_currency: data.payroll_currency || 'INR',
+          payroll_proration_basis: data.payroll_proration_basis || 'WORKING_DAYS',
+          daily_wage_paid_leave_eligible: data.daily_wage_paid_leave_eligible !== undefined ? data.daily_wage_paid_leave_eligible : true,
+          hourly_wage_paid_leave_eligible: data.hourly_wage_paid_leave_eligible !== undefined ? data.hourly_wage_paid_leave_eligible : true,
+        });
+      } catch (e) {
+        console.warn('Could not load payroll config:', e);
+      }
+    };
+    if (hasPayrollConfigPerm) loadPayrollConfig();
+  }, [hasPayrollConfigPerm]);
+
+  const handleSavePayrollConfig = async (e) => {
+    e.preventDefault();
+    setPayrollConfigLoading(true);
+    setPayrollConfigError('');
+    setPayrollConfigSuccess('');
+    try {
+      await apiFetch('/settings/current/', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          payroll_currency: payrollConfig.payroll_currency,
+          payroll_proration_basis: payrollConfig.payroll_proration_basis,
+          daily_wage_paid_leave_eligible: payrollConfig.daily_wage_paid_leave_eligible,
+          hourly_wage_paid_leave_eligible: payrollConfig.hourly_wage_paid_leave_eligible,
+        }),
+      });
+      setPayrollConfigSuccess('Payroll configuration saved successfully.');
+      setTimeout(() => setPayrollConfigSuccess(''), 4000);
+    } catch (e) {
+      setPayrollConfigError(e.message || 'Failed to save payroll settings.');
+    } finally {
+      setPayrollConfigLoading(false);
     }
   };
 
@@ -368,40 +455,7 @@ function SettingsHubContent() {
   };
 
   const [confirmingPayment, setConfirmingPayment] = useState(false);
-
-  useEffect(() => {
-    const status = searchParams.get('status');
-    const sessionId = searchParams.get('session_id');
-    if (status === 'success' && sessionId) {
-      const handleConfirm = async () => {
-        setConfirmingPayment(true);
-        try {
-          const result = await confirmSubscription(sessionId);
-          if (result.status === 'wallet_success') {
-            showAlert(
-              `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
-              'Wallet Deposited Successfully!',
-              'success'
-            );
-            router.replace('/admin/settings?tab=billing');
-          } else {
-            showAlert(
-              `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
-              'Subscription Activated Successfully!',
-              'success'
-            );
-            router.replace('/dashboard');
-          }
-        } catch (err) {
-          showAlert(err.message || 'Payment confirmation failed.', 'Confirmation Error', 'error');
-          router.replace(`/admin/settings?tab=${currentTab}`);
-        } finally {
-          setConfirmingPayment(false);
-        }
-      };
-      handleConfirm();
-    }
-  }, [searchParams, router, confirmSubscription, currentTab, showAlert]);
+  const walletSessionConfirmedRef = useRef('');
 
   // Helper: compress logo image preserving aspect ratio and transparency
   const cropAndCompressImage = (file) =>
@@ -641,8 +695,9 @@ function SettingsHubContent() {
     );
   };
 
-  const handleSaveLocation = (e) => {
+  const handleSaveLocation = async (e) => {
     e.preventDefault();
+    if (fetchingGeo) return; // Prevent double submission
     setLocError('');
     setLocSuccess('');
 
@@ -663,34 +718,47 @@ function SettingsHubContent() {
       setLocError('Longitude must be between -180 and 180.');
       return;
     }
-    if (isNaN(radiusMeters) || radiusMeters <= 0) {
-      setLocError('Radius must be a positive number of meters.');
+    if (isNaN(radiusMeters) || radiusMeters <= 0 || radiusMeters > 50000) {
+      setLocError('Radius must be a positive number of meters up to 50,000.');
       return;
     }
 
-    let updated;
-    if (editingLocId) {
-      updated = officeLocations.map(loc => 
-        loc.id === editingLocId 
-          ? { ...loc, name: locName.trim(), lat: latitude, lon: longitude, radius: radiusMeters }
-          : loc
-      );
-      setLocSuccess('Office location coordinates updated.');
-    } else {
-      const newLoc = {
-        id: 'loc_' + Date.now(),
+    setFetchingGeo(true);
+    try {
+      const locPayload = {
         name: locName.trim(),
         lat: latitude,
         lon: longitude,
         radius: radiusMeters
       };
-      updated = [...officeLocations, newLoc];
-      setLocSuccess('New office location coordinates added.');
-    }
 
-    saveOfficeLocations(updated);
-    handleCancelLocation();
-    setTimeout(() => setLocSuccess(''), 4000);
+      if (editingLocId) {
+        // Direct PATCH update of specific location
+        const updatedLoc = await apiFetch(`/locations/${editingLocId}/`, {
+          method: 'PATCH',
+          body: JSON.stringify(locPayload)
+        });
+        const mapped = { ...updatedLoc, id: String(updatedLoc.id) };
+        setOfficeLocations(prev => prev.map(loc => String(loc.id) === String(editingLocId) ? mapped : loc));
+        setLocSuccess('Office location coordinates updated.');
+      } else {
+        // Direct POST creation of new location
+        const createdLoc = await apiFetch('/locations/', {
+          method: 'POST',
+          body: JSON.stringify(locPayload)
+        });
+        const mapped = { ...createdLoc, id: String(createdLoc.id) };
+        setOfficeLocations(prev => [...prev, mapped]);
+        setLocSuccess('New office location coordinates added.');
+      }
+      handleCancelLocation();
+      setTimeout(() => setLocSuccess(''), 4000);
+    } catch (err) {
+      console.error('Error saving location:', err);
+      setLocError(err.message || 'Error occurred while saving office location.');
+    } finally {
+      setFetchingGeo(false);
+    }
   };
 
   const handleEditLocation = (loc) => {
@@ -703,22 +771,26 @@ function SettingsHubContent() {
   };
 
   const handleDeleteLocation = (id) => {
-    if (officeLocations.length <= 1) {
-      setLocError('Cannot remove the last geofenced office premises. Geofencing check requires at least one coordinates boundary.');
-      setTimeout(() => setLocError(''), 5000);
-      return;
-    }
     setLocationConfirm({ open: true, id });
   };
 
-  const confirmDeleteLocation = () => {
+  const confirmDeleteLocation = async () => {
     const id = locationConfirm.id;
-    const updated = officeLocations.filter(loc => loc.id !== id);
-    saveOfficeLocations(updated);
-    setLocSuccess('Office location removed.');
-    setTimeout(() => setLocSuccess(''), 4000);
-    if (editingLocId === id) handleCancelLocation();
-    setLocationConfirm({ open: false, id: null });
+    if (!id) return;
+    setFetchingGeo(true);
+    try {
+      await apiFetch(`/locations/${id}/`, { method: 'DELETE' });
+      setOfficeLocations(prev => prev.filter(loc => String(loc.id) !== String(id)));
+      setLocSuccess('Office location removed.');
+      setTimeout(() => setLocSuccess(''), 4000);
+      if (editingLocId === id) handleCancelLocation();
+    } catch (err) {
+      console.error('Failed to delete location:', err);
+      setLocError(err.message || 'Failed to delete office location.');
+    } finally {
+      setFetchingGeo(false);
+      setLocationConfirm({ open: false, id: null });
+    }
   };
 
   const handleCancelLocation = () => {
@@ -743,6 +815,7 @@ function SettingsHubContent() {
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [requestingConsultation, setRequestingConsultation] = useState(false);
   const [employeeCount, setEmployeeCount] = useState(10);
+  const [billingEstimate, setBillingEstimate] = useState(null);
   const [premiumAddons, setPremiumAddons] = useState({
     attendance: false,
     project: false,
@@ -753,6 +826,102 @@ function SettingsHubContent() {
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [couponChecking, setCouponChecking] = useState(false);
+  const walletFetchInProgressRef = useRef(false);
+  const walletFailureCountRef = useRef(0);
+  const [walletUnavailable, setWalletUnavailable] = useState(false);
+
+  const fetchWallet = useCallback(async (sessionId = null, isManual = false) => {
+    if (walletFetchInProgressRef.current) return;
+    walletFetchInProgressRef.current = true;
+    try {
+      const url = sessionId ? `/wallet/current/?session_id=${encodeURIComponent(sessionId)}` : '/wallet/current/';
+      const data = await apiFetch(url);
+      if (data) {
+        setWallet(data);
+        setWalletUnavailable(false);
+        walletFailureCountRef.current = 0;
+      }
+      return data;
+    } catch (err) {
+      walletFailureCountRef.current += 1;
+      if (walletFailureCountRef.current === 1 || isManual) {
+        console.warn('Wallet service currently unavailable:', err?.message || err);
+      }
+      setWalletUnavailable(true);
+      setWallet(prev => (prev && prev.balance !== undefined ? prev : { balance: '0.00', transactions: [] }));
+    } finally {
+      walletFetchInProgressRef.current = false;
+    }
+  }, []);
+
+  const fetchBillingEstimateAndCount = useCallback(async () => {
+    try {
+      const estimate = await apiFetch('/billing-estimate/');
+      if (estimate && typeof estimate.billable_employee_count === 'number') {
+        setEmployeeCount(estimate.billable_employee_count);
+        setBillingEstimate(estimate);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch billing estimate:", e);
+    }
+    try {
+      const orgId = currentUser?.organization;
+      const orgQuery = orgId ? `?organization=${orgId}` : '';
+      const data = await apiFetch(`/employees/${orgQuery}`);
+      const list = Array.isArray(data) ? data : (data && Array.isArray(data.results)) ? data.results : [];
+      if (list.length > 0) {
+        setEmployeeCount(list.length);
+        return;
+      }
+    } catch (e) {
+      // Fallback to max_employees_allowed if API fails
+    }
+    if (currentUser?.subscription?.max_employees_allowed) {
+      setEmployeeCount(currentUser.subscription.max_employees_allowed);
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (authStatus !== 'authenticated' || !currentUser) return;
+
+    const status = searchParams.get('status');
+    const sessionId = searchParams.get('session_id');
+    const paymentType = searchParams.get('payment_type');
+    if (status === 'success' && sessionId && walletSessionConfirmedRef.current !== sessionId) {
+      walletSessionConfirmedRef.current = sessionId;
+      const isWalletSession = paymentType === 'wallet' || sessionId.includes('wallet') || sessionId.includes('topup') || sessionId.startsWith('mock_wallet_topup_');
+
+      const handleConfirm = async () => {
+        setConfirmingPayment(true);
+        try {
+          if (isWalletSession) {
+            await fetchWallet(sessionId);
+            showAlert(
+              `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+              'Wallet Deposited Successfully!',
+              'success'
+            );
+            router.replace('/admin/settings?tab=billing');
+          } else {
+            const result = await confirmSubscription(sessionId);
+            showAlert(
+              `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+              'Subscription Activated Successfully!',
+              'success'
+            );
+            router.replace('/dashboard');
+          }
+        } catch (err) {
+          showAlert(err.message || 'Payment confirmation failed.', 'Confirmation Error', 'error');
+          router.replace(`/admin/settings?tab=${currentTab}`);
+        } finally {
+          setConfirmingPayment(false);
+        }
+      };
+      handleConfirm();
+    }
+  }, [authStatus, currentUser, searchParams, router, confirmSubscription, currentTab, showAlert, fetchWallet]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode || !couponCode.trim()) {
@@ -824,7 +993,7 @@ function SettingsHubContent() {
       ? (wallet?.attendance_module_price ? parseFloat(wallet.attendance_module_price) : 100)
       : (wallet?.tasks_module_price ? parseFloat(wallet.tasks_module_price) : 100);
     const proratedAmount = ((remainingDays / totalDays) * basePrice * employeeCount).toFixed(2);
-    
+
     const executeToggle = async () => {
       setModuleConfirm(prev => ({ ...prev, open: false }));
       setToggleLoading(prev => ({ ...prev, [moduleName]: true }));
@@ -839,15 +1008,16 @@ function SettingsHubContent() {
             enable: targetState
           })
         });
-        
+
         if (res.error) {
           throw new Error(res.error);
         }
-        
+
         setPremiumAddons(prev => ({ ...prev, [moduleName]: targetState }));
         await refreshUserSession();
         await fetchWallet();
-        
+        await fetchBillingEstimateAndCount();
+
         showAlert(
           res.message || 'Module status updated successfully.',
           'Module Updated',
@@ -885,31 +1055,13 @@ function SettingsHubContent() {
       });
     }
   };
-  
+
   // Billing Search
   const [billingSearchQuery, setBillingSearchQuery] = useState('');
 
   useEffect(() => {
-    const fetchActualEmployeeCount = async () => {
-      try {
-        const orgId = currentUser?.organization;
-        const orgQuery = orgId ? `?organization=${orgId}` : '';
-        const data = await apiFetch(`/employees/${orgQuery}`);
-        const list = Array.isArray(data) ? data : (data && Array.isArray(data.results)) ? data.results : [];
-        if (list.length > 0) {
-          setEmployeeCount(list.length);
-          return;
-        }
-      } catch (e) {
-        // Fallback to max_employees_allowed if API fails
-      }
-      if (currentUser?.subscription?.max_employees_allowed) {
-        setEmployeeCount(currentUser.subscription.max_employees_allowed);
-      }
-    };
-
     if (currentUser) {
-      fetchActualEmployeeCount();
+      fetchBillingEstimateAndCount();
       if (currentUser?.subscription) {
         setPremiumAddons({
           attendance: currentUser.subscription.is_attendance_enabled || false,
@@ -917,20 +1069,23 @@ function SettingsHubContent() {
         });
       }
     }
-  }, [currentUser]);
+  }, [currentUser, fetchBillingEstimateAndCount]);
 
 
 
-  const fetchWallet = async () => {
-    try {
-      const data = await apiFetch('/wallet/current/');
-      if (data) {
-        setWallet(data);
+
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window !== 'undefined' && window.Razorpay) {
+        return resolve(true);
       }
-    } catch (err) {
-      console.error('Failed to fetch wallet:', err);
-      setWallet({ balance: '0.00', transactions: [] });
-    }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
   const handleTopup = async (e) => {
@@ -954,8 +1109,73 @@ function SettingsHubContent() {
         },
         body: JSON.stringify(payload)
       });
-      if (data && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+
+      if (data && (data.is_mock || (data.order_id && data.order_id.startsWith('mock_')))) {
+        await verifyPayment({
+          razorpay_order_id: data.order_id,
+          payment_type: 'wallet'
+        });
+        await fetchWallet();
+        showAlert(
+          `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+          'Wallet Deposited Successfully!',
+          'success'
+        );
+        setTopupModalOpen(false);
+        setTopupAmount('');
+        setAppliedCoupon(null);
+        setTopupLoading(false);
+        return;
+      }
+
+      if (data && data.gateway === 'razorpay') {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          setWalletError('Failed to load Razorpay payment SDK.');
+          setTopupLoading(false);
+          return;
+        }
+
+        const options = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: data.name || 'CubeLogs',
+          description: data.description || 'Wallet Top-up',
+          order_id: data.order_id,
+          handler: async function (response) {
+            setTopupLoading(true);
+            try {
+              await verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                payment_type: 'wallet'
+              });
+              await fetchWallet();
+              showAlert(
+                `Receipt:\n--------------------\nStatus: Success\nDetails: Prepaid Wallet Deposit\n\nYour balance has been updated!`,
+                'Wallet Deposited Successfully!',
+                'success'
+              );
+              setTopupModalOpen(false);
+              setTopupAmount('');
+              setAppliedCoupon(null);
+            } catch (err) {
+              setWalletError(err.message || 'Deposit verification failed.');
+            } finally {
+              setTopupLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setTopupLoading(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else {
         setWalletError('Failed to initiate deposit. Please try again.');
         setTopupLoading(false);
@@ -973,28 +1193,62 @@ function SettingsHubContent() {
   }, [currentTab, router]);
 
   useEffect(() => {
-    if (currentTab === 'billing') {
+    if (authStatus === 'authenticated' && currentUser && currentTab === 'billing') {
       fetchWallet();
       const status = searchParams.get('status');
       if (status === 'success') {
         setWalletSuccess('Payment processed successfully! Your balance has been updated.');
         router.replace('/admin/settings?tab=billing');
       } else if (status === 'cancel') {
-        setWalletError('Stripe checkout was cancelled.');
+        setWalletError('Payment checkout was cancelled.');
         router.replace('/admin/settings?tab=billing');
       }
     }
-  }, [currentTab, searchParams, router]);
+  }, [authStatus, currentUser, currentTab, searchParams, router, fetchWallet]);
 
   useEffect(() => {
-    if (currentTab !== 'billing') return;
+    if (authStatus !== 'authenticated' || !currentUser || currentTab !== 'billing') return;
 
-    const interval = setInterval(() => {
-      fetchWallet();
-    }, 15000);
+    let timeoutId = null;
+    let isCancelled = false;
 
-    return () => clearInterval(interval);
-  }, [currentTab]);
+    const poll = async () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        timeoutId = setTimeout(poll, 15000);
+        return;
+      }
+
+      if (!isCancelled) {
+        await fetchWallet();
+      }
+
+      if (!isCancelled) {
+        const delay = walletFailureCountRef.current > 2 ? 45000 : 15000;
+        timeoutId = setTimeout(poll, delay);
+      }
+    };
+
+    timeoutId = setTimeout(poll, 15000);
+
+    return () => {
+      isCancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [authStatus, currentUser, currentTab, fetchWallet]);
+
+  if (authStatus === 'loading') {
+    return (
+      <PageWrapper>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <p style={{ color: 'var(--text-muted, #94a3b8)' }}>Loading settings...</p>
+        </div>
+      </PageWrapper>
+    );
+  }
+
+  if (authStatus === 'unauthenticated') {
+    return null;
+  }
 
   const handleDynamicCheckout = async () => {
     setCheckoutLoading(true);
@@ -1014,8 +1268,67 @@ function SettingsHubContent() {
         })
       });
 
-      if (data && data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      if (data && (data.is_mock || (data.order_id && data.order_id.startsWith('mock_')) || data.status === 'subscription_success')) {
+        if (data.order_id) {
+          await verifyPayment({
+            razorpay_order_id: data.order_id,
+            payment_type: 'subscription'
+          });
+        }
+        showAlert(
+          `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+          'Subscription Activated Successfully!',
+          'success'
+        );
+        router.replace('/dashboard');
+        return;
+      }
+
+      if (data && data.gateway === 'razorpay') {
+        const loaded = await loadRazorpayScript();
+        if (!loaded) {
+          showAlert('Failed to load Razorpay payment SDK.', 'Error', 'error');
+          setCheckoutLoading(false);
+          return;
+        }
+
+        const options = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+          name: data.name || 'CubeLogs',
+          description: data.description || 'Dynamic Subscription Plan',
+          order_id: data.order_id,
+          handler: async function (response) {
+            setCheckoutLoading(true);
+            try {
+              await verifyPayment({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                payment_type: 'subscription'
+              });
+              showAlert(
+                `Payment Receipt:\n--------------------\nStatus: Success\nDetails: Dynamic Subscription Plan\nValidity: 30 Days\n\nThank you for choosing CubeLogs!`,
+                'Subscription Activated Successfully!',
+                'success'
+              );
+              router.replace('/dashboard');
+            } catch (err) {
+              showAlert(err.message || 'Subscription verification failed.', 'Error', 'error');
+            } finally {
+              setCheckoutLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setCheckoutLoading(false);
+            }
+          }
+        };
+
+        const rzp = new window.Razorpay(options);
+        rzp.open();
       } else {
         showAlert('Failed to initiate checkout. Please try again.', 'Checkout Failed', 'error');
         setCheckoutLoading(false);
@@ -1050,7 +1363,7 @@ function SettingsHubContent() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '16px' }}>
           <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
           <h2 style={{ color: 'var(--text-main)' }}>Verifying Payment Status...</h2>
-          <p style={{ color: 'var(--text-muted)' }}>Please wait while we confirm your Stripe payment transaction.</p>
+          <p style={{ color: 'var(--text-muted)' }}>Please wait while we verify your payment transaction.</p>
           <style jsx>{`
             @keyframes spin {
               0% { transform: rotate(0deg); }
@@ -1064,7 +1377,7 @@ function SettingsHubContent() {
 
   if (!isAuthorizedToAnyTab) {
     return (
-      <PageWrapper title="Settings Hub" requiredPermission="dashboard">
+      <PageWrapper title="Settings" requiredPermission="dashboard">
         <div className="panel alert-box alert-box-danger">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <WarningIcon size={20} style={{ color: 'var(--danger)' }} />
@@ -1077,54 +1390,183 @@ function SettingsHubContent() {
   }
 
   return (
-    <PageWrapper title="System Settings Hub" requiredPermission="dashboard">
+    <PageWrapper title="Settings" requiredPermission="dashboard">
       <div className="settings-container">
-        
+
         {/* Settings Navigation Tabs */}
-        <div className="settings-tabs">
+        <div className="settings-tabs" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           {hasTemplatesPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'templates' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'templates' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'templates' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'templates' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'templates' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'templates' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'templates' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('templates')}
             >
-              <TemplatesIcon size={16} />
-              <span>Role Templates</span>
+              <TemplatesIcon size={16} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', stroke: currentTab === 'templates' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'templates' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Role Templates</span>
             </button>
           )}
           {hasLocationsPerm && isAttendanceEnabled && (
-            <button 
-              className={`tab-link ${currentTab === 'locations' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'locations' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'locations' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'locations' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'locations' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'locations' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'locations' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('locations')}
             >
-              <LocationIcon size={16} />
-              <span>Office Locations</span>
+              <LocationIcon size={16} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', stroke: currentTab === 'locations' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'locations' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Office Locations</span>
             </button>
           )}
           {hasBrandingPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'branding' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'branding' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'branding' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'branding' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'branding' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'branding' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'branding' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('branding')}
             >
-              <BrandLogo size={16} />
-              <span>Branding</span>
+              <BrandLogo size={16} style={{ color: currentTab === 'branding' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'branding' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'branding' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Branding</span>
             </button>
           )}
           {hasBillingPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'billing' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'billing' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'billing' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'billing' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'billing' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'billing' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'billing' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('billing')}
             >
-              <ClockIcon size={16} />
-              <span>Billing & Subscription</span>
+              <ClockIcon size={16} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', stroke: currentTab === 'billing' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'billing' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Billing & Subscription</span>
             </button>
           )}
           {hasAttendanceConfigPerm && (
-            <button 
-              className={`tab-link ${currentTab === 'attendance-config' ? 'active' : ''}`}
+            <button
+              type="button"
+              data-active-blue={currentTab === 'attendance-config' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'attendance-config' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'attendance-config' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'attendance-config' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'attendance-config' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
               onClick={() => handleTabChange('attendance-config')}
             >
-              <ClockIcon size={16} />
-              <span>Attendance Rules</span>
+              <ClockIcon size={16} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'attendance-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Attendance Rules</span>
+            </button>
+          )}
+          {hasPayrollConfigPerm && (
+            <button
+              type="button"
+              data-active-blue={currentTab === 'payroll-config' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'payroll-config' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'payroll-config' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'payroll-config' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'payroll-config' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
+              onClick={() => handleTabChange('payroll-config')}
+            >
+              <DollarIcon size={16} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'payroll-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Payroll Settings</span>
             </button>
           )}
         </div>
@@ -1134,171 +1576,29 @@ function SettingsHubContent() {
 
           {/* TAB: ATTENDANCE RULES CONFIG */}
           {currentTab === 'attendance-config' && hasAttendanceConfigPerm && (
-            <div className="settings-grid">
-              <div className="panel settings-panel-card">
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ClockIcon size={18} />
-                  Attendance Time Rules
-                </h3>
-                <p className="tab-desc">
-                  Configure the time thresholds that determine how clock-in records are categorised — Late, Half Day, or Absent — during HR review.
-                </p>
-
-                <form onSubmit={handleSaveAttendanceConfig} className="settings-form">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="grace-period">
-                      Grace Period (minutes)
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      Number of minutes after shift start that an employee can clock in without being flagged as Late.
-                    </p>
-                    <input
-                      id="grace-period"
-                      type="number"
-                      className="form-input"
-                      min="0"
-                      max="120"
-                      value={attendanceConfig.grace_period_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, grace_period_minutes: parseInt(e.target.value) || 0 }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="half-day-threshold">
-                      Half Day Threshold (minutes worked)
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      Minimum total minutes on-site for a session to count as a Half Day (rather than Absent). Typically 4 hours = 240 min.
-                    </p>
-                    <input
-                      id="half-day-threshold"
-                      type="number"
-                      className="form-input"
-                      min="1"
-                      max="480"
-                      value={attendanceConfig.half_day_threshold_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, half_day_threshold_minutes: parseInt(e.target.value) || 240 }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="absent-threshold">
-                      Full-Day Absent Threshold (minutes after shift start)
-                    </label>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '8px', opacity: 0.7 }}>
-                      If an employee clocks in more than this many minutes after shift start without prior leave, they may be marked Absent.
-                    </p>
-                    <input
-                      id="absent-threshold"
-                      type="number"
-                      className="form-input"
-                      min="1"
-                      max="480"
-                      value={attendanceConfig.full_day_absent_threshold_minutes}
-                      onChange={(e) => setAttendanceConfig(prev => ({ ...prev, full_day_absent_threshold_minutes: parseInt(e.target.value) || 60 }))}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: '20px', marginTop: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--primary-light)', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)' }}>
-                      <div style={{ flex: 1, paddingRight: '16px' }}>
-                        <label className="form-label" style={{ fontSize: '0.9rem', fontWeight: '750', color: 'var(--text-main)', marginBottom: '4px', display: 'block', cursor: 'pointer' }} htmlFor="auto-approve-toggle">
-                          Auto Approval Mode
-                        </label>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0, opacity: 0.85, lineHeight: 1.4 }}>
-                          Automatically approve employee attendance logs upon clock-in/out, bypassing manual manager approval requirements.
-                        </p>
-                      </div>
-                      
-                      <label className="switch-toggle" style={{ position: 'relative', display: 'inline-block', width: '50px', height: '28px', flexShrink: 0, cursor: 'pointer' }}>
-                        <input
-                          id="auto-approve-toggle"
-                          type="checkbox"
-                          style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                          checked={attendanceConfig.auto_approve_attendance || false}
-                          onChange={(e) => setAttendanceConfig(prev => ({ ...prev, auto_approve_attendance: e.target.checked }))}
-                        />
-                        <span className="slider-round" style={{
-                          position: 'absolute',
-                          inset: 0,
-                          backgroundColor: attendanceConfig.auto_approve_attendance ? 'var(--primary)' : '#cbd5e1',
-                          borderRadius: '34px',
-                          transition: 'background-color 0.25s ease',
-                          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-                        }}>
-                          <span style={{
-                            position: 'absolute',
-                            height: '20px',
-                            width: '20px',
-                            left: attendanceConfig.auto_approve_attendance ? '26px' : '4px',
-                            bottom: '4px',
-                            backgroundColor: '#ffffff',
-                            borderRadius: '50%',
-                            transition: 'all 0.25s ease',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                          }} />
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {attendanceConfigSuccess && (
-                    <div className="tab-alert success">
-                      <CheckIcon size={14} />
-                      <span>{attendanceConfigSuccess}</span>
-                    </div>
-                  )}
-                  {attendanceConfigError && (
-                    <div className="tab-alert error">
-                      <WarningIcon size={14} />
-                      <span>{attendanceConfigError}</span>
-                    </div>
-                  )}
-
-                  <div className="form-actions-row">
-                    <button type="submit" className="btn btn-primary" disabled={attendanceConfigLoading}>
-                      {attendanceConfigLoading ? 'Saving...' : 'Save Attendance Rules'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-              {/* Info panel */}
-              <div className="panel settings-panel-card">
-                <h3>How Attendance Rules Work</h3>
-                <p className="tab-desc">These rules power the Attendance Management Portal's automatic categorisation logic.</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
-                  <div style={{ padding: '14px', background: 'rgba(234, 179, 8, 0.08)', borderRadius: '10px', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>🕐</span> Grace Period
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      Employees clocking in within the grace window are marked as on-time. Beyond it, they appear in the Late Comers tab.
-                    </p>
-                  </div>
-                  <div style={{ padding: '14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '10px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>📅</span> Half Day Threshold
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      The minimum time worked for a session to count as a productive Half Day. Sessions below this may be classified as Absent by HR.
-                    </p>
-                  </div>
-                  <div style={{ padding: '14px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '10px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                    <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '1rem' }}>🚫</span> Full-Day Absent Threshold
-                    </strong>
-                    <p style={{ fontSize: '0.82rem', lineHeight: '1.5', margin: 0 }}>
-                      The maximum delay allowed after shift start. Arrivals beyond this point without prior approved leave are considered fully absent for HR review.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AttendanceRulesTab
+              attendanceConfig={attendanceConfig}
+              setAttendanceConfig={setAttendanceConfig}
+              attendanceConfigLoading={attendanceConfigLoading}
+              attendanceConfigSuccess={attendanceConfigSuccess}
+              attendanceConfigError={attendanceConfigError}
+              handleSaveAttendanceConfig={handleSaveAttendanceConfig}
+            />
           )}
+
+
+          {/* TAB: PAYROLL SETTINGS CONFIG */}
+          {currentTab === 'payroll-config' && hasPayrollConfigPerm && (
+            <PayrollSettingsTab
+              payrollConfig={payrollConfig}
+              setPayrollConfig={setPayrollConfig}
+              payrollConfigLoading={payrollConfigLoading}
+              payrollConfigSuccess={payrollConfigSuccess}
+              payrollConfigError={payrollConfigError}
+              handleSavePayrollConfig={handleSavePayrollConfig}
+            />
+          )}
+
 
           {/* TAB 1: ROLE TEMPLATES CONTENT */}
           {currentTab === 'templates' && hasTemplatesPerm && (
@@ -1391,6 +1691,7 @@ function SettingsHubContent() {
               checkoutLoading={checkoutLoading}
               employeeCount={employeeCount}
               setEmployeeCount={setEmployeeCount}
+              billingEstimate={billingEstimate}
               premiumAddons={premiumAddons}
               setPremiumAddons={setPremiumAddons}
               toggleLoading={toggleLoading}
@@ -1417,53 +1718,153 @@ function SettingsHubContent() {
           display: flex;
           flex-direction: column;
           gap: 24px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .settings-tabs {
           display: flex;
-          gap: 8px;
-          border-bottom: 1px solid var(--border);
-          padding-bottom: 10px;
+          align-items: center;
+          gap: 10px;
           overflow-x: auto;
           white-space: nowrap;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          padding-bottom: 12px;
+          border-bottom: 1.5px solid var(--border, #d2e0f5);
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+          -webkit-overflow-scrolling: touch;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .settings-tabs::-webkit-scrollbar {
-          display: none;
+          height: 3px;
         }
 
-        .tab-link {
-          background: var(--bg-card);
-          border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 8px 16px;
-          font-weight: 600;
-          color: var(--text-muted);
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          transition: all 0.15s ease;
-          font-size: 0.85rem;
-          white-space: nowrap;
-          flex-shrink: 0;
+        .settings-tabs::-webkit-scrollbar-track {
+          background: transparent;
         }
 
-        .tab-link:hover {
-          background-color: var(--bg-hover);
-          color: var(--text-main);
+        .settings-tabs::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
         }
 
+        .settings-tabs::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+
+        .active-tab-blue,
+        .active-blue-btn,
+        button[data-active-blue="true"],
         .tab-link.active {
-          background-color: var(--primary);
-          border-color: var(--primary);
-          color: #ffffff;
+          background: #2563eb !important;
+          background-color: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
         }
 
-        .tab-link.active :global(svg) {
+        .active-tab-blue *,
+        .active-blue-btn *,
+        button[data-active-blue="true"] *,
+        .tab-link.active *,
+        .active-tab-text,
+        span.active-tab-text {
           color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        .inactive-blue-pill,
+        .inactive-tab-white,
+        .tab-link:not(.active) {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          border-color: #bfdbfe !important;
+          color: #2563eb !important;
+        }
+
+        .inactive-blue-pill *,
+        .inactive-tab-white *,
+        .tab-link:not(.active) *,
+        .inactive-tab-text,
+        span.inactive-tab-text {
+          color: #2563eb !important;
+          stroke: #2563eb !important;
+        }
+
+        .inactive-blue-pill:hover,
+        .inactive-tab-white:hover,
+        .tab-link:not(.active):hover {
+          background: #eff6ff !important;
+          background-color: #eff6ff !important;
+          border-color: #93c5fd !important;
+          color: #1d4ed8 !important;
+        }
+
+        .inactive-blue-pill:hover *,
+        .inactive-tab-white:hover *,
+        .tab-link:not(.active):hover *,
+        .inactive-blue-pill:hover span,
+        .tab-link:not(.active):hover span {
+          color: #1d4ed8 !important;
+          stroke: #1d4ed8 !important;
+        }
+
+        /* Scoped Dark Mode Overrides */
+        :global(:root.dark) .inactive-blue-pill,
+        :global(:root.dark) .inactive-tab-white,
+        :global(:root.dark) .tab-link:not(.active) {
+          background: #1e293b !important;
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #93c5fd !important;
+        }
+
+        :global(:root.dark) .inactive-blue-pill *,
+        :global(:root.dark) .inactive-tab-white *,
+        :global(:root.dark) .tab-link:not(.active) *,
+        :global(:root.dark) .inactive-tab-text,
+        :global(:root.dark) span.inactive-tab-text {
+          color: #93c5fd !important;
+          stroke: #93c5fd !important;
+        }
+
+        :global(:root.dark) .inactive-blue-pill:hover,
+        :global(:root.dark) .inactive-tab-white:hover,
+        :global(:root.dark) .tab-link:not(.active):hover {
+          background: rgba(37, 99, 235, 0.2) !important;
+          background-color: rgba(37, 99, 235, 0.2) !important;
+          border-color: #3b82f6 !important;
+          color: #60a5fa !important;
+        }
+
+        :global(:root.dark) .template-item-card,
+        :global(:root.dark) .location-item-card,
+        :global(:root.dark) .settings-panel-card,
+        :global(:root.dark) .premium-billing-card,
+        :global(:root.dark) .module-item,
+        :global(:root.dark) .calculator-panel {
+          background: #1e293b !important;
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+
+        :global(:root.dark) .template-item-card h4,
+        :global(:root.dark) .location-item-card h4,
+        :global(:root.dark) .settings-panel-card h3,
+        :global(:root.dark) .settings-panel-card h4 {
+          color: #f8fafc !important;
+        }
+
+        :global(:root.dark) .card-actions-row,
+        :global(:root.dark) .settings-tabs {
+          border-color: #334155 !important;
         }
 
         .settings-content-wrapper {
@@ -1572,7 +1973,7 @@ function SettingsHubContent() {
         }
 
         .template-item-card {
-          background: white;
+          background: var(--bg-card, #ffffff);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
           padding: 16px;
@@ -1626,7 +2027,7 @@ function SettingsHubContent() {
         }
 
         .location-item-card {
-          background: white;
+          background: var(--bg-card, #ffffff);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
           padding: 16px;
@@ -2165,17 +2566,30 @@ function SettingsHubContent() {
         }
         .dynamic-calculator-container {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-          gap: 32px;
+          grid-template-columns: 1fr;
+          gap: 24px;
           margin-top: 24px;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+        @media (min-width: 900px) {
+          .dynamic-calculator-container {
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+          }
         }
         .calculator-panel {
-          padding: 28px;
+          padding: 24px;
+          box-sizing: border-box;
+          width: 100%;
+          min-width: 0;
         }
         .billing-search-input {
           width: 250px;
           padding: 6px 12px;
           font-size: 0.85rem;
+          box-sizing: border-box;
         }
 
         @media (max-width: 992px) {
@@ -2193,13 +2607,13 @@ function SettingsHubContent() {
           }
           .dynamic-calculator-container {
             grid-template-columns: 1fr;
-            gap: 24px;
+            gap: 20px;
           }
         }
 
         @media (max-width: 480px) {
           .settings-panel-card {
-            padding: 16px !important;
+            padding: 12px 10px !important;
           }
           .settings-tabs {
             flex-direction: row;
@@ -2223,16 +2637,16 @@ function SettingsHubContent() {
             gap: 16px;
           }
           .calculator-panel {
-            padding: 16px !important;
+            padding: 14px 10px !important;
           }
           .premium-billing-card {
-            padding: 20px 16px !important;
+            padding: 14px 10px !important;
           }
           .price-value {
-            font-size: 2.2rem !important;
+            font-size: 1.8rem !important;
           }
           .currency-symbol {
-            font-size: 1.4rem !important;
+            font-size: 1.2rem !important;
           }
         }
 
@@ -2291,7 +2705,7 @@ function SettingsHubContent() {
             flexDirection: 'column',
             animation: 'scaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
           }} onClick={(e) => e.stopPropagation()}>
-            
+
             {(() => {
               const isDebit = selectedReceipt.transactionType === 'Debit';
               return (
@@ -2313,9 +2727,9 @@ function SettingsHubContent() {
                         {isDebit ? 'Subscription License Charge' : 'Prepaid Balance Refill'}
                       </span>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => setSelectedReceipt(null)} 
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReceipt(null)}
                       style={{
                         background: '#ffffff',
                         border: '1px solid var(--border)',
@@ -2409,7 +2823,7 @@ function SettingsHubContent() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
                         <span style={{ color: 'var(--text-muted)' }}>Payment Channel</span>
                         <strong style={{ color: 'var(--text-main)' }}>
-                          {isDebit ? 'Prepaid Wallet Balance' : 'Stripe e-Wallet'}
+                          {isDebit ? 'Prepaid Wallet Balance' : 'Razorpay Gateway'}
                         </strong>
                       </div>
                     </div>
@@ -2439,14 +2853,14 @@ function SettingsHubContent() {
                         className="btn btn-primary"
                         style={{ flex: 1, padding: '12px', fontWeight: '700', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
                       >
-                        <span>Stripe Receipt ↗</span>
+                        <span>Payment Receipt ↗</span>
                       </a>
                     )}
                   </div>
                 </>
               );
             })()}
-            
+
           </div>
         </div>
       )}

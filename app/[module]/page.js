@@ -35,6 +35,7 @@ function ModulePageContent({ moduleSlug, permissionsRegistry }) {
       <PageWrapper
         title={moduleConfig.metadata?.name || 'System Module'}
         requiredPermission={requiredPermission}
+        requiredSubscriptionFlag={moduleConfig.metadata?.required_subscription_flag}
       >
         <ModuleComponent />
       </PageWrapper>
@@ -47,6 +48,7 @@ function ModulePageContent({ moduleSlug, permissionsRegistry }) {
     <PageWrapper 
       title={moduleConfig.metadata?.name || 'System Module'} 
       requiredPermission={requiredPermission}
+      requiredSubscriptionFlag={moduleConfig.metadata?.required_subscription_flag}
     >
       <div className="module-fallback-panel">
         <div className="icon-wrapper">

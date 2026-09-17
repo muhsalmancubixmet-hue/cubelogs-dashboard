@@ -1,22 +1,31 @@
 'use client';
 import React, { useMemo, useState, useEffect } from 'react';
 import { HolidaysIcon } from './Icons';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, normalizeListResponse } from '@/lib/api';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-const HolidaySlider = () => {
-  const [holidays, setHolidays] = useState([]);
-  const [loading, setLoading] = useState(true);
+const HolidaySlider = ({ holidays: propHolidays }) => {
+  const [holidays, setHolidays] = useState(propHolidays || []);
+  const [loading, setLoading] = useState(!propHolidays);
 
   useEffect(() => {
+    if (propHolidays !== undefined) {
+      setHolidays(propHolidays || []);
+      setLoading(false);
+      return;
+    }
+
     const fetchHolidays = async () => {
       try {
-        const data = await apiFetch('/holidays/');
-        setHolidays(data.map(h => ({ ...h, id: String(h.id) })));
+        const activeOrgId = typeof window !== 'undefined' ? localStorage.getItem('cubelogs_active_org_id') : null;
+        const query = activeOrgId ? `?organization=${activeOrgId}` : '';
+        const data = await apiFetch(`/holidays/${query}`);
+        const holidaysList = normalizeListResponse(data);
+        setHolidays(holidaysList.map(h => ({ ...h, id: String(h.id) })));
       } catch (err) {
         console.error('Failed to fetch holidays in slider:', err);
       } finally {
@@ -24,7 +33,7 @@ const HolidaySlider = () => {
       }
     };
     fetchHolidays();
-  }, []);
+  }, [propHolidays]);
 
   // Group holidays by "YYYY-MM" key, sorted ascending
   // Filter out auto-generated "Weekly Off" recurring entries before grouping
@@ -51,12 +60,19 @@ const HolidaySlider = () => {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [modalSelectedHoliday, setModalSelectedHoliday] = useState(null);
 
+  useEffect(() => {
+    const idx = Math.max(0, grouped.findIndex((g) => g.key >= currentKey));
+    setActiveIdx(idx !== -1 ? idx : 0);
+  }, [grouped, currentKey]);
+
   if (!holidays || holidays.length === 0) return null;
   if (grouped.length === 0) return null;
 
-  const safeIdx = Math.min(activeIdx, grouped.length - 1);
+  const safeIdx = Math.min(Math.max(0, activeIdx), grouped.length - 1);
   const activeGroup = grouped[safeIdx];
+  if (!activeGroup) return null;
   const label = `${MONTH_NAMES[activeGroup.month]} ${activeGroup.year}`;
+
 
   const goPrev = () => {
     setActiveIdx((prev) => {

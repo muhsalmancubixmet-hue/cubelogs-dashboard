@@ -7,7 +7,7 @@
   --primary-dark: #0a192f;
   --primary-light: #f0f7ff;
   --primary-border: #bfdbfe;
-  
+
   --secondary: #0284c7;
   --secondary-hover: #0369a1;
   --secondary-light: #e0f2fe;
@@ -16,14 +16,26 @@
 
   /* Neutral Premium Dark Blue / Light Blue-White Palette */
   --bg-app: #f4f7fc;
-  --text-main: #0c1e3d;   /* deep navy – primary body text */
-  --text-muted: #0c1e3d;  /* dark blue – secondary text */
-  --text-light: #0c1e3d;  /* dark blue – captions, hints */
-  
+  --text-main: #0c1e3d;
+  /* deep navy – primary body text */
+  --text-muted: #0c1e3d;
+  /* dark blue – secondary text */
+  --text-light: #0c1e3d;
+  /* dark blue – captions, hints */
+
   --surface: #ffffff;
   --surface-glass: rgba(255, 255, 255, 0.9);
   --border: #d2e0f5;
-  
+  --border-color: #d2e0f5;
+  --bg-card: #ffffff;
+  --bg-card-nested: #f8fafc;
+  --bg-input: #ffffff;
+  --bg-toolbar: #f8fafc;
+  --bg-active: #e2e8f0;
+  --text-primary: #0c1e3d;
+  --text-secondary: #475569;
+  --text-disabled: #94a3b8;
+
   /* State Colors - Strictly Blue and White Theme-Blended */
   --success: #2563eb;
   --success-light: #eff6ff;
@@ -43,7 +55,7 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 10px 15px -3px rgba(37, 99, 235, 0.05), 0 4px 6px -4px rgba(37, 99, 235, 0.05);
   --shadow-premium: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 8px 10px -6px rgba(15, 23, 42, 0.05);
-  
+
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -56,34 +68,54 @@
 
 :root.dark {
   /* Curator Premium Slate/Navy Dark Palette */
-  --bg-app: #0f172a;        /* slate-900 */
-  --text-main: #f8fafc;     /* slate-50 */
-  --text-muted: #cbd5e1;    /* slate-300 */
-  --text-light: #94a3b8;    /* slate-400 */
-  
-  --surface: #1e293b;       /* slate-800 */
+  --bg-app: #0f172a;
+  /* slate-900 */
+  --text-main: #f8fafc;
+  /* slate-50 */
+  --text-muted: #cbd5e1;
+  /* slate-300 */
+  --text-light: #94a3b8;
+  /* slate-400 */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-disabled: #64748b;
+
+  --surface: #1e293b;
+  /* slate-800 */
   --surface-glass: rgba(30, 41, 59, 0.85);
-  --border: #334155;        /* slate-700 */
-  
-  --primary-dark: #020617;  /* very deep slate */
+  --border: #334155;
+  /* slate-700 */
+  --border-color: #334155;
+  --bg-card: #1e293b;
+  --bg-card-nested: #0f172a;
+  --bg-input: #0f172a;
+  --bg-toolbar: #1e293b;
+  --bg-active: #334155;
+
+  --primary-dark: #020617;
+  /* very deep slate */
   --primary-light: rgba(37, 99, 235, 0.15);
   --primary-border: #334155;
-  
+
   --secondary-light: rgba(2, 132, 199, 0.15);
 
   /* State Colors - Premium Glowing Translucent Dark Mode Colors */
-  --success: #34d399;       /* emerald-400 */
+  --success: #34d399;
+  /* emerald-400 */
   --success-light: rgba(52, 211, 153, 0.15);
 
-  --warning: #fbbf24;       /* amber-400 */
+  --warning: #fbbf24;
+  /* amber-400 */
   --warning-light: rgba(251, 191, 36, 0.15);
 
-  --danger: #f87171;        /* red-400 */
+  --danger: #f87171;
+  /* red-400 */
   --danger-light: rgba(248, 113, 113, 0.15);
 
-  --info: #38bdf8;          /* sky-400 */
+  --info: #38bdf8;
+  /* sky-400 */
   --info-light: rgba(56, 189, 248, 0.15);
-  
+
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
@@ -119,8 +151,8 @@
   color: #60a5fa !important;
 }
 
-:root.dark input, 
-:root.dark select, 
+:root.dark input,
+:root.dark select,
 :root.dark textarea {
   background-color: #0f172a !important;
   color: var(--text-main) !important;
@@ -136,6 +168,299 @@
   border-color: #334155 !important;
 }
 
+/* ================================================================
+   DARK MODE — Main Content Area Background
+   ================================================================ */
+:root.dark .main-content {
+  background-color: var(--bg-app);
+}
+:root.dark .main-content-inner {
+  background-color: var(--bg-app);
+}
+
+/* ================================================================
+   DARK MODE — Projects Workspace & Management Pages
+   ================================================================ */
+/* Projects Listing Page */
+:root.dark .pm-hero-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
+}
+:root.dark .pm-kpi-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .pm-filter-bar {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .pm-filter-tabs {
+  background: #0f172a !important;
+}
+:root.dark .pm-filter-tabs button {
+  color: #94a3b8 !important;
+}
+:root.dark .pm-search-input {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .pm-search-input::placeholder {
+  color: #64748b !important;
+}
+:root.dark .pm-status-select {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .pm-hero-icon {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: #334155 !important;
+}
+/* Project cards in the grid */
+:root.dark .pm-cards-grid > div {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+/* Progress bar track */
+:root.dark .pm-cards-grid > div div[style*="background: #e2e8f0"],
+:root.dark .pm-cards-grid > div div[style*="background:#e2e8f0"] {
+  background: #334155 !important;
+}
+:root.dark .pm-cards-grid h3 {
+  color: #f8fafc !important;
+}
+
+/* Single Project Layout: Header Banner & Tabs */
+:root.dark div[style*="box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.04)"],
+:root.dark div[style*="box-shadow:0 2px 8px -2px rgba(15, 23, 42, 0.04)"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="border-bottom: 1px solid #e2e8f0"],
+:root.dark div[style*="border-bottom:1px solid #e2e8f0"] {
+  border-bottom-color: #334155 !important;
+}
+:root.dark div[style*="border-bottom: 1px solid #e2e8f0"] a,
+:root.dark div[style*="border-bottom:1px solid #e2e8f0"] a {
+  color: #94a3b8;
+}
+
+/* Global Scrum Header & Educational Learning Components */
+:root.dark .global-scrum-header,
+:root.dark div[style*="border-radius: 14px"][style*="padding: 20px 24px"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="background: #f8fafc"][style*="border: 1px solid #e2e8f0"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="background: #f8fafc"][style*="border: 1px solid #e2e8f0"] * {
+  color: #cbd5e1 !important;
+}
+:root.dark div[style*="background: #eff6ff"][style*="border: 1px solid #bfdbfe"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+:root.dark .scrum-workflow-bar,
+:root.dark .scrum-guide-card,
+:root.dark .scrum-help-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Project Tasks Workspace Page */
+:root.dark .project-kpi-grid > div {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .project-kpi-grid > div div:last-child {
+  color: #f8fafc;
+}
+:root.dark input[placeholder*="Search tasks"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+/* Filter segmented buttons on tasks page */
+:root.dark button[style*="background: #ffffff"],
+:root.dark button[style*="background:#ffffff"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+/* Tasks cards */
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"] h3,
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"] h3 a {
+  color: #f8fafc !important;
+}
+:root.dark div[style*="border-top: 1px solid #f1f5f9"],
+:root.dark div[style*="border-top:1px solid #f1f5f9"] {
+  border-top-color: #334155 !important;
+}
+
+/* Backlog & Board dark mode */
+:root.dark .scrum-board-column,
+:root.dark .board-column {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .board-task-card,
+:root.dark .kanban-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .backlog-item-card,
+:root.dark .story-card-item {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ================================================================
+   DARK MODE — Settings Pages (All Tabs & Components)
+   ================================================================ */
+:root.dark .settings-container {
+  color: var(--text-main);
+}
+:root.dark .settings-tabs {
+  border-color: #334155 !important;
+}
+/* Inactive tab buttons in settings */
+:root.dark .inactive-blue-pill,
+:root.dark .inactive-tab-white,
+:root.dark .tab-link:not(.active) {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #93c5fd !important;
+}
+:root.dark .inactive-blue-pill *,
+:root.dark .inactive-tab-white *,
+:root.dark .tab-link:not(.active) * {
+  color: #93c5fd !important;
+  stroke: #93c5fd !important;
+}
+:root.dark .inactive-blue-pill:hover,
+:root.dark .inactive-tab-white:hover,
+:root.dark .tab-link:not(.active):hover {
+  background: rgba(37, 99, 235, 0.15) !important;
+  background-color: rgba(37, 99, 235, 0.15) !important;
+  border-color: #3b82f6 !important;
+}
+/* Settings panel cards */
+:root.dark .settings-panel-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .settings-content-wrapper .panel,
+:root.dark .settings-content-wrapper .card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Storage & Media Tab in Settings */
+:root.dark .storage-media-section {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .storage-sub-panel {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .storage-sub-panel h3,
+:root.dark .storage-sub-panel h4 {
+  color: #f8fafc !important;
+}
+:root.dark .storage-media-section .table-container,
+:root.dark .storage-media-section .data-table {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .storage-media-section .data-table th {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+:root.dark .storage-media-section .data-table td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Attendance Rules, Locations, Branding, Templates tabs */
+:root.dark .permission-category-card,
+:root.dark .rule-card,
+:root.dark .location-card,
+:root.dark .template-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .module-item {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .checkbox-custom {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .calculator-panel,
+:root.dark .premium-billing-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .billing-search-input {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ================================================================
+   DARK MODE — Modal overlays + shells
+   ================================================================ */
+:root.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+:root.dark .modal-shell,
+:root.dark .modal-content {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+:root.dark .modal-header {
+  background: #1e293b !important;
+  border-bottom-color: #334155 !important;
+}
+:root.dark .modal-body {
+  background: #1e293b !important;
+}
+:root.dark .modal-footer {
+  background: #1e293b !important;
+  border-top-color: #334155 !important;
+}
+
+/* ================================================================
+   DARK MODE — Theme toggle button dark style
+   ================================================================ */
+:root.dark .theme-toggle-btn {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: #334155 !important;
+  color: #fbbf24 !important;
+}
+:root.dark .theme-toggle-btn:hover {
+  background: rgba(51, 65, 85, 0.9) !important;
+  border-color: #fbbf24 !important;
+}
+
 /* Premium Calendar Cell Overrides */
 .calendar-cell {
   transition: all 0.2s ease !important;
@@ -143,16 +468,23 @@
 
 /* Light Mode Holiday Text Colors */
 .holiday-text-weekly {
-  color: #b91c1c !important; /* Rich Dark Red */
+  color: #b91c1c !important;
+  /* Rich Dark Red */
 }
+
 .holiday-text-monthly {
-  color: #b45309 !important; /* Rich Dark Amber */
+  color: #b45309 !important;
+  /* Rich Dark Amber */
 }
+
 .holiday-text-yearly {
-  color: #6d28d9 !important; /* Rich Dark Purple */
+  color: #6d28d9 !important;
+  /* Rich Dark Purple */
 }
+
 .holiday-text-custom {
-  color: #1d4ed8 !important; /* Rich Dark Blue */
+  color: #1d4ed8 !important;
+  /* Rich Dark Blue */
 }
 
 /* Dark Mode Overrides */
@@ -160,18 +492,22 @@
   background: rgba(30, 41, 59, 0.4) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
 }
+
 :root.dark .calendar-cell.cell-weekly {
   background: linear-gradient(145deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.06)) !important;
   border-color: rgba(239, 68, 68, 0.3) !important;
 }
+
 :root.dark .calendar-cell.cell-monthly {
   background: linear-gradient(145deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.06)) !important;
   border-color: rgba(245, 158, 11, 0.3) !important;
 }
+
 :root.dark .calendar-cell.cell-yearly {
   background: linear-gradient(145deg, rgba(139, 92, 246, 0.12), rgba(139, 92, 246, 0.06)) !important;
   border-color: rgba(139, 92, 246, 0.3) !important;
 }
+
 :root.dark .calendar-cell.cell-custom {
   background: linear-gradient(145deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.06)) !important;
   border-color: rgba(59, 130, 246, 0.3) !important;
@@ -181,12 +517,15 @@
 :root.dark .holiday-text-weekly {
   color: #fca5a5 !important;
 }
+
 :root.dark .holiday-text-monthly {
   color: #fcd34d !important;
 }
+
 :root.dark .holiday-text-yearly {
   color: #c084fc !important;
 }
+
 :root.dark .holiday-text-custom {
   color: #93c5fd !important;
 }
@@ -198,6 +537,310 @@
   border: 1px solid var(--border);
 }
 
+/* ==========================================================================
+   Shared Calendar 7-Column Grid Core System
+   ========================================================================== */
+.shared-calendar-container,
+.calendar-panel {
+  width: 100%;
+  position: relative;
+}
+
+.shared-calendar-header,
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.shared-calendar-title,
+.calendar-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.shared-calendar-subtitle,
+.calendar-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.shared-calendar-nav,
+.calendar-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.shared-calendar-month-year,
+.calendar-month-year {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-main);
+  min-width: 130px;
+  text-align: center;
+}
+
+.shared-calendar-grid-header,
+.calendar-grid-header {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.shared-calendar-grid,
+.calendar-grid {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 6px;
+  width: 100%;
+}
+
+.shared-calendar-cell {
+  position: relative;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.day-short {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .day-long {
+    display: none !important;
+  }
+
+  .day-short {
+    display: inline !important;
+  }
+
+  .shared-calendar-grid-header,
+  .calendar-grid-header {
+    font-size: 0.72rem !important;
+    gap: 4px !important;
+  }
+
+  .shared-calendar-grid,
+  .calendar-grid {
+    gap: 4px !important;
+  }
+}
+
+/* Attendance Summary Cards Strip */
+.attendance-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.summary-card .summary-value {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.summary-card .summary-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.035em;
+}
+
+.summary-card.metric-present .summary-value {
+  color: #16a34a;
+}
+
+.summary-card.metric-half .summary-value {
+  color: #4f46e5;
+}
+
+.summary-card.metric-leave .summary-value {
+  color: #9333ea;
+}
+
+.summary-card.metric-late .summary-value {
+  color: #d97706;
+}
+
+.summary-card.metric-absent .summary-value {
+  color: #dc2626;
+}
+
+.summary-card.metric-review .summary-value {
+  color: #ea580c;
+}
+
+.summary-card.metric-payable .summary-value {
+  color: var(--primary);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+@media (max-width: 1024px) {
+  .attendance-summary-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .attendance-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .summary-card {
+    padding: 8px 6px;
+  }
+
+  .summary-card .summary-value {
+    font-size: 1.1rem;
+  }
+}
+
+/* Lightened Status Legend */
+.attendance-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 0 4px 12px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #f1f5f9;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Calendar Grid Header & Grid Geometry */
+.shared-calendar-grid-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  column-gap: 5px;
+  margin-bottom: 8px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shared-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  column-gap: 5px;
+  row-gap: 5px;
+}
+
+/* Responsive Attendance Calendar Cell Styles */
+.attendance-day-cell {
+  min-height: 88px;
+  padding: 9px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.attendance-day-cell:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+  transform: none !important;
+}
+
+@media (min-width: 1200px) {
+  .attendance-day-cell {
+    min-height: 88px !important;
+    padding: 9px 10px !important;
+  }
+
+  .attendance-day-cell .status-inline-row {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .attendance-day-cell {
+    min-height: 82px !important;
+    padding: 6px 8px !important;
+  }
+
+  .attendance-day-cell .status-inline-row {
+    display: flex !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .attendance-day-cell {
+    min-height: 64px !important;
+    padding: 4px 6px !important;
+  }
+
+  .attendance-day-cell .day-num {
+    font-size: 0.8rem !important;
+  }
+
+  .attendance-day-cell .status-inline-row {
+    display: none !important;
+  }
+
+  .attendance-day-cell .mobile-status-icon {
+    display: flex !important;
+  }
+
+  .attendance-day-cell .cell-duration-row {
+    display: none !important;
+  }
+}
+
+
 :root.dark .data-table tr:hover {
   background-color: rgba(255, 255, 255, 0.03);
 }
@@ -207,41 +850,109 @@
   background: var(--surface) !important;
   border-color: var(--border) !important;
 }
+
 :root.dark .dropdown-option-item:hover:not(.exhausted) {
   background-color: rgba(96, 165, 250, 0.1) !important;
   color: #60a5fa !important;
 }
+
 :root.dark .dropdown-option-item.exhausted {
   background-color: rgba(255, 255, 255, 0.02) !important;
 }
+
 :root.dark .dropdown-toggle-btn {
   background: var(--surface) !important;
   color: var(--text-main) !important;
   border-color: var(--border) !important;
 }
+
 :root.dark .dropdown-toggle-btn:hover {
   background-color: #334155 !important;
 }
 
 /* Audit Log Badge overrides in Dark Mode */
-:root.dark .badge-login { background-color: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
-:root.dark .badge-clockin { background-color: rgba(34, 197, 94, 0.15); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
-:root.dark .badge-clockout { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
-:root.dark .badge-task-create { background-color: rgba(6, 182, 212, 0.15); color: #22d3ee; border-color: rgba(6, 182, 212, 0.3); }
-:root.dark .badge-task-update { background-color: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3); }
-:root.dark .badge-task-delete { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
-:root.dark .badge-leave-apply { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
-:root.dark .badge-leave-update { background-color: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: rgba(99, 102, 241, 0.3); }
-:root.dark .badge-emp-create { background-color: rgba(168, 85, 247, 0.15); color: #c084fc; border-color: rgba(168, 85, 247, 0.3); }
-:root.dark .badge-emp-update { background-color: rgba(14, 165, 233, 0.15); color: #38bdf8; border-color: rgba(14, 165, 233, 0.3); }
-:root.dark .badge-emp-delete { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
-:root.dark .badge-revoke { background-color: rgba(100, 116, 139, 0.15); color: #cbd5e1; border-color: rgba(100, 116, 139, 0.3); }
-:root.dark .badge-default { background-color: rgba(107, 114, 128, 0.15); color: #d1d5db; border-color: rgba(107, 114, 128, 0.3); }
+:root.dark .badge-login {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+:root.dark .badge-clockin {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+:root.dark .badge-clockout {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:root.dark .badge-task-create {
+  background-color: rgba(6, 182, 212, 0.15);
+  color: #22d3ee;
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+:root.dark .badge-task-update {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+:root.dark .badge-task-delete {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:root.dark .badge-leave-apply {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+:root.dark .badge-leave-update {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+:root.dark .badge-emp-create {
+  background-color: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+:root.dark .badge-emp-update {
+  background-color: rgba(14, 165, 233, 0.15);
+  color: #38bdf8;
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+:root.dark .badge-emp-delete {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:root.dark .badge-revoke {
+  background-color: rgba(100, 116, 139, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+:root.dark .badge-default {
+  background-color: rgba(107, 114, 128, 0.15);
+  color: #d1d5db;
+  border-color: rgba(107, 114, 128, 0.3);
+}
 
 /* Global Theme Transitions */
-body, 
-.header-bar, 
-.panel, 
+body,
+.header-bar,
+.panel,
 .step-section,
 .app-container,
 .main-content,
@@ -266,7 +977,8 @@ a {
   text-decoration: none;
 }
 
-ul, ol {
+ul,
+ol {
   list-style: none;
 }
 
@@ -284,7 +996,7 @@ body {
    GLOBAL DARK-BLUE TEXT — overrides inline style= props too
    Scoped to main-content so sidebar white-text is unaffected
    ===========================================================/* Force ALL elements inside main content to dark blue (except specific excluded components) */
-.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.btn-primary):not(.btn-primary *):not([class*="btn-primary"]):not([class*="btn-primary"] *):not(.btn-white-text):not(.btn-white-text *):not(.pm-hero-btn):not(.pm-hero-btn *):not(.btn-submit):not(.btn-submit *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.btn-danger):not(.btn-danger *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
+.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.table-emp-avatar):not(.table-emp-avatar *):not(.avatar-initials-text):not(.avatar-initials-text *):not(.tab-btn.active):not(.tab-btn.active *):not(.btn-primary):not(.btn-primary *):not([class*="btn-primary"]):not([class*="btn-primary"] *):not(.btn-white-text):not(.btn-white-text *):not(.pm-hero-btn):not(.pm-hero-btn *):not(.btn-submit):not(.btn-submit *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.active-tab-blue):not(.active-tab-blue *):not(.tab-link.active):not(.tab-link.active *):not(.module-tab-pill.active):not(.module-tab-pill.active *):not(.active-tab-text):not(.active-tab-text *):not(.btn-danger):not(.btn-danger *):not(.toggle-btn.active):not(.toggle-btn.active *):not(.month-page-pill.active):not(.month-page-pill.active *):not(.smn-pill.active):not(.smn-pill.active *):not([data-white-text="true"]):not([data-white-text="true"] *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
   color: var(--text-main) !important;
 }
 
@@ -295,6 +1007,20 @@ body {
 .main-content [class*="btn-primary"] *,
 .main-content .btn-white-text,
 .main-content .btn-white-text *,
+.main-content .tab-btn.active,
+.main-content .tab-btn.active *,
+.main-content .toggle-btn.active,
+.main-content .toggle-btn.active *,
+.main-content .month-page-pill.active,
+.main-content .month-page-pill.active *,
+.main-content .smn-pill.active,
+.main-content .smn-pill.active *,
+.main-content .table-emp-avatar,
+.main-content .table-emp-avatar *,
+.main-content .avatar-initials-text,
+.main-content .avatar-initials-text *,
+.main-content [data-white-text="true"],
+.main-content [data-white-text="true"] *,
 .main-content .pm-hero-btn,
 .main-content .pm-hero-btn *,
 .main-content .btn-submit,
@@ -304,8 +1030,17 @@ body {
 .main-content .active-blue-btn,
 .main-content .active-blue-btn *,
 .main-content [data-active-blue="true"],
-.main-content [data-active-blue="true"] * {
+.main-content [data-active-blue="true"] *,
+.main-content .active-tab-blue,
+.main-content .active-tab-blue *,
+.main-content .tab-link.active,
+.main-content .tab-link.active *,
+.main-content .module-tab-pill.active,
+.main-content .module-tab-pill.active *,
+.main-content .active-tab-text,
+.main-content .active-tab-text * {
   color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .main-content .btn-danger,
@@ -348,6 +1083,7 @@ body {
   color: inherit;
   text-decoration: none;
 }
+
 .main-content a:hover {
   text-decoration: none;
 }
@@ -364,9 +1100,15 @@ button.pm-hero-btn,
 button.btn-blue-active,
 .active-blue-btn,
 button.active-blue-btn,
+.active-tab-blue,
+button.active-tab-blue,
+.tab-link.active,
+.module-tab-pill.active,
 [data-active-blue="true"],
 button[data-active-blue="true"] {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
   color: #ffffff !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
 }
@@ -383,12 +1125,17 @@ button.pm-hero-btn:hover,
 button.btn-blue-active:hover,
 .active-blue-btn:hover,
 button.active-blue-btn:hover,
+.active-tab-blue:hover,
+button.active-tab-blue:hover,
+.tab-link.active:hover,
+.module-tab-pill.active:hover,
 [data-active-blue="true"]:hover,
 button[data-active-blue="true"]:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+  background: #1d4ed8 !important;
+  background-color: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
   color: #ffffff !important;
   box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35) !important;
-  transform: translateY(-1px);
 }
 
 .btn-primary *,
@@ -403,10 +1150,49 @@ button.pm-hero-btn *,
 button.btn-blue-active *,
 .active-blue-btn *,
 button.active-blue-btn *,
+.active-tab-blue *,
+button.active-tab-blue *,
+.tab-link.active *,
+.module-tab-pill.active *,
+.active-tab-text,
 [data-active-blue="true"] *,
 button[data-active-blue="true"] * {
   color: #ffffff !important;
   stroke: #ffffff !important;
+}
+
+/* Inactive tabs / pills styling (clean white background with blue border and blue text) */
+.inactive-blue-pill,
+.tab-link:not(.active),
+.module-tab-pill:not(.active) {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1px solid #bfdbfe !important;
+  color: #2563eb !important;
+}
+
+.inactive-blue-pill *,
+.tab-link:not(.active) *,
+.module-tab-pill:not(.active) *,
+.inactive-tab-text {
+  color: #2563eb !important;
+  stroke: #2563eb !important;
+}
+
+.inactive-blue-pill:hover,
+.tab-link:not(.active):hover,
+.module-tab-pill:not(.active):hover {
+  background: #eff6ff !important;
+  background-color: #eff6ff !important;
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+.inactive-blue-pill:hover *,
+.tab-link:not(.active):hover *,
+.module-tab-pill:not(.active):hover * {
+  color: #1d4ed8 !important;
+  stroke: #1d4ed8 !important;
 }
 
 
@@ -427,7 +1213,8 @@ button[data-active-blue="true"] * {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  margin-left: 280px; /* Width of sidebar */
+  margin-left: 280px;
+  /* Width of sidebar */
   transition: var(--transition-normal);
   padding: 24px 0;
   min-width: 0;
@@ -450,11 +1237,16 @@ body.sidebar-open {
 }
 
 /* Global Media & Text Wrapping Helpers */
-img, video, iframe, canvas, svg {
+img,
+video,
+iframe,
+canvas,
+svg {
   max-width: 100%;
 }
 
-.text-wrap-safe, .break-words {
+.text-wrap-safe,
+.break-words {
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -475,7 +1267,11 @@ img, video, iframe, canvas, svg {
 }
 
 /* Typography & Headings */
-h1, h2, h3, h4, h5 {
+h1,
+h2,
+h3,
+h4,
+h5 {
   font-family: var(--font-heading);
   font-weight: 600;
   color: var(--text-main);
@@ -537,6 +1333,7 @@ h1, h2, h3, h4, h5 {
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
+
 .btn-primary:hover {
   background-color: var(--primary-hover);
   transform: translateY(-1px);
@@ -544,12 +1341,15 @@ h1, h2, h3, h4, h5 {
 }
 
 .btn-secondary {
-  background-color: var(--primary-light);
-  color: var(--primary);
-  border: 1px solid var(--primary-border);
+  background-color: #f8fafc;
+  color: #475569;
+  border: 1px solid #cbd5e1;
 }
+
 .btn-secondary:hover {
-  background-color: #dbeafe;
+  background-color: #f1f5f9;
+  color: #1e293b;
+  border-color: #94a3b8;
   transform: translateY(-1px);
 }
 
@@ -558,6 +1358,7 @@ h1, h2, h3, h4, h5 {
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
+
 .btn-danger:hover {
   background-color: #dc2626;
   transform: translateY(-1px);
@@ -704,14 +1505,17 @@ h1, h2, h3, h4, h5 {
   background-color: var(--success-light);
   color: var(--success);
 }
+
 .badge-pending {
   background-color: var(--warning-light);
   color: var(--warning);
 }
+
 .badge-danger {
   background-color: var(--danger-light);
   color: var(--danger);
 }
+
 .badge-info {
   background-color: var(--info-light);
   color: var(--info);
@@ -785,7 +1589,8 @@ h1, h2, h3, h4, h5 {
   overflow-y: auto;
 }
 
-.modal-content, .modal-shell {
+.modal-content,
+.modal-shell {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -837,25 +1642,53 @@ h1, h2, h3, h4, h5 {
 
 /* Keyframe animations */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInFromRight {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes pulseTimer {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 @keyframes pulseActiveWork {
-  0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
 }
 
 /* Alert Boxes style */
@@ -901,7 +1734,8 @@ h1, h2, h3, h4, h5 {
   z-index: 100;
   padding: 24px 16px 12px;
   box-shadow: 10px 0 30px rgba(15, 23, 42, 0.15);
-  overflow: hidden; /* keep profile card pinned at bottom */
+  overflow: hidden;
+  /* keep profile card pinned at bottom */
 }
 
 .brand-header {
@@ -946,7 +1780,8 @@ h1, h2, h3, h4, h5 {
   flex-direction: column;
   gap: 6px;
   flex: 1;
-  min-height: 0;          /* critical: allows flexbox child to scroll */
+  min-height: 0;
+  /* critical: allows flexbox child to scroll */
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 2px;
@@ -957,6 +1792,7 @@ h1, h2, h3, h4, h5 {
 .nav-menu::-webkit-scrollbar {
   width: 4px;
 }
+
 .nav-menu::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-full);
@@ -1056,7 +1892,8 @@ h1, h2, h3, h4, h5 {
 }
 
 .accordion-content.open {
-  max-height: 450px; /* higher target for flexible heights */
+  max-height: 1200px;
+  /* target height for multi-category sections */
   transition: max-height var(--transition-normal) ease-in-out;
 }
 
@@ -1094,6 +1931,23 @@ h1, h2, h3, h4, h5 {
   opacity: 0.5;
 }
 
+/* Visual category heading inside an accordion — not a link */
+.sidebar-nav-category {
+  padding: 12px 14px 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.28);
+  text-transform: uppercase;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* First category heading inside accordion gets less top padding */
+.accordion-content .sidebar-nav-category:first-child {
+  padding-top: 4px;
+}
+
 /* Profile Section at the bottom */
 .sidebar-profile-card {
   margin-top: 16px;
@@ -1105,7 +1959,7 @@ h1, h2, h3, h4, h5 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.03);
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.03);
   transition: var(--transition-normal);
 }
 
@@ -1118,7 +1972,8 @@ h1, h2, h3, h4, h5 {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0; /* allows text truncation */
+  min-width: 0;
+  /* allows text truncation */
 }
 
 .avatar {
@@ -1181,6 +2036,23 @@ h1, h2, h3, h4, h5 {
   transform: scale(1.05);
 }
 
+.sidebar-theme-toggle-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.sidebar-theme-toggle-btn:hover {
+  background-color: rgba(37, 99, 235, 0.15);
+  transform: scale(1.05);
+}
+
 .sidebar-footer {
   padding-top: 10px;
   font-size: 0.72rem;
@@ -1189,8 +2061,15 @@ h1, h2, h3, h4, h5 {
 }
 
 @keyframes logoFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
 /* Hamburger Toggle Button */
@@ -1208,6 +2087,7 @@ h1, h2, h3, h4, h5 {
   border-radius: var(--radius-sm);
   transition: var(--transition-fast);
 }
+
 .hamburger-toggle:hover {
   background-color: var(--primary-light);
   color: var(--primary);
@@ -1229,6 +2109,7 @@ h1, h2, h3, h4, h5 {
   transition: opacity var(--transition-normal);
   pointer-events: none;
 }
+
 .sidebar-overlay.active {
   display: block;
   opacity: 1;
@@ -1239,7 +2120,7 @@ h1, h2, h3, h4, h5 {
   .hamburger-toggle {
     display: inline-flex;
   }
-  
+
   .sidebar-container {
     position: fixed;
     top: 0;
@@ -1250,11 +2131,11 @@ h1, h2, h3, h4, h5 {
     z-index: 1050;
     transition: transform var(--transition-normal);
   }
-  
+
   .sidebar-container.open {
     transform: translateX(280px);
   }
-  
+
   .main-content {
     margin-left: 0;
     padding: 16px 0;
@@ -1269,28 +2150,34 @@ h1, h2, h3, h4, h5 {
     width: 100%;
     max-width: 100%;
   }
+
   .panel {
     max-width: 100%;
     width: 100%;
   }
-  
+
   .metrics-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  
-  .modal-content, .modal-shell {
+
+  .modal-content,
+  .modal-shell {
     width: calc(100% - 24px) !important;
     margin: 12px !important;
     padding: 20px;
   }
+
   .panel h3 {
     font-size: 1.1rem;
   }
 }
 
 @media (max-width: 600px) {
-  .form-row, .grid-2-col, .form-grid-2 {
+
+  .form-row,
+  .grid-2-col,
+  .form-grid-2 {
     display: flex !important;
     flex-direction: column !important;
     grid-template-columns: 1fr !important;
@@ -1302,43 +2189,59 @@ h1, h2, h3, h4, h5 {
   .main-content {
     padding: 12px 0;
   }
+
   .main-content-inner {
-    padding: 0 12px;
+    padding: 0 8px;
   }
+
   .panel {
-    padding: 16px;
+    padding: 14px 12px;
     margin-bottom: 16px;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
+
   .panel h3 {
-    font-size: 1.05rem;
+    font-size: 1.02rem;
   }
-  .data-table th, .data-table td {
-    padding: 10px 12px;
-    font-size: 0.85rem;
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 10px;
+    font-size: 0.82rem;
   }
 }
 
 @media (max-width: 360px) {
   .main-content-inner {
-    padding: 0 8px;
+    padding: 0 6px;
   }
+
   .panel {
-    padding: 12px;
+    padding: 10px 8px;
     margin-bottom: 12px;
   }
+
   .panel h3 {
-    font-size: 1rem;
+    font-size: 0.98rem;
   }
-  .data-table th, .data-table td {
-    padding: 8px 6px;
-    font-size: 0.8rem;
+
+  .data-table th,
+  .data-table td {
+    padding: 7px 5px;
+    font-size: 0.78rem;
   }
+
   .modal-footer {
     flex-direction: column-reverse !important;
     width: 100% !important;
     gap: 8px !important;
   }
-  .modal-footer button, .modal-footer .btn {
+
+  .modal-footer button,
+  .modal-footer .btn {
     width: 100% !important;
     min-height: 44px !important;
   }
@@ -1349,6 +2252,7 @@ h1, h2, h3, h4, h5 {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
   }
+
   .metric-card {
     padding: 12px 8px !important;
     gap: 8px !important;
@@ -1357,21 +2261,25 @@ h1, h2, h3, h4, h5 {
     text-align: center !important;
     border-radius: var(--radius-md) !important;
   }
+
   .metric-icon {
     width: 36px !important;
     height: 36px !important;
     font-size: 1.1rem !important;
     border-radius: var(--radius-sm) !important;
   }
+
   .metric-icon svg {
     width: 18px !important;
     height: 18px !important;
   }
+
   .metric-details h4 {
     font-size: 0.72rem !important;
     margin-bottom: 2px !important;
     white-space: nowrap !important;
   }
+
   .metric-details p {
     font-size: 1.25rem !important;
   }
@@ -1381,15 +2289,18 @@ h1, h2, h3, h4, h5 {
 div.cm-dialog-box {
   color: #f8fafc !important;
 }
+
 div.cm-dialog-box div.cm-title {
   color: #f8fafc !important;
   font-weight: 700 !important;
   font-size: 1.1rem !important;
 }
+
 div.cm-dialog-box div.cm-message {
   color: #94a3b8 !important;
   font-size: 0.875rem !important;
 }
+
 div.cm-dialog-box button {
   font-family: inherit !important;
 }
@@ -1401,7 +2312,114 @@ div.cm-dialog-box button {
   color: #ffffff !important;
 }
 
-/* ─── Project KPI grid mobile responsiveness (2 cards per row on mobile) ─── */
+/* ─── Project KPI grid & Management Overview mobile responsiveness ─── */
+.project-mgmt-header {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 24px;
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.project-mgmt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.project-mgmt-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.project-mgmt-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.project-mgmt-title {
+  margin: 4px 0 2px;
+  font-size: 19px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.project-mgmt-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.project-mgmt-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.project-mgmt-btn-primary {
+  text-decoration: none;
+  background: #2563eb;
+  color: #ffffff !important;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+.project-mgmt-btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.project-mgmt-btn-secondary {
+  text-decoration: none;
+  background: #f8fafc;
+  color: #334155 !important;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.project-mgmt-btn-secondary:hover {
+  background: #f1f5f9;
+}
+
 .project-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1409,23 +2427,2132 @@ div.cm-dialog-box button {
 }
 
 .project-kpi-card {
-  padding: 16px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+  line-height: 1.1;
+}
+
+.project-kpi-sub {
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 4px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-dashboard-main-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.project-dashboard-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-width: 0;
 }
 
 @media (min-width: 640px) {
   .project-kpi-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
-    gap: 16px;
-  }
-  .project-kpi-card {
-    padding: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr));
+    gap: 14px;
   }
 }
 
-@media (max-width: 480px) {
-  .project-kpi-card {
-    padding: 12px 10px;
+@media (min-width: 1024px) {
+  .project-dashboard-main-split {
+    grid-template-columns: 1.6fr 1fr;
+    gap: 24px;
   }
 }
 
+@media (max-width: 640px) {
+  .project-mgmt-header {
+    padding: 12px 14px !important;
+    border-radius: 12px !important;
+    gap: 10px !important;
+  }
+  .project-mgmt-header-left {
+    gap: 10px !important;
+  }
+  .project-mgmt-icon-box {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 8px !important;
+  }
+  .project-mgmt-icon-box svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  .project-mgmt-title {
+    font-size: 15px !important;
+    margin: 2px 0 0 !important;
+  }
+  .project-mgmt-badge {
+    font-size: 9px !important;
+    padding: 1px 6px !important;
+  }
+  .project-mgmt-desc {
+    display: none !important;
+  }
+  .project-mgmt-actions {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+  .project-mgmt-btn-primary,
+  .project-mgmt-btn-secondary {
+    flex: 1 !important;
+    padding: 7px 10px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
 
+  .project-kpi-grid {
+    gap: 8px !important;
+  }
+  .project-kpi-card {
+    padding: 10px 10px !important;
+    border-radius: 10px !important;
+  }
+  .project-kpi-label {
+    font-size: 10px !important;
+  }
+  .project-kpi-value {
+    font-size: 19px !important;
+    margin-top: 2px !important;
+  }
+  .project-kpi-sub {
+    font-size: 10px !important;
+    margin-top: 2px !important;
+  }
+  .project-dashboard-panel {
+    padding: 14px !important;
+    border-radius: 10px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .project-mgmt-header {
+    padding: 10px 10px !important;
+  }
+  .project-mgmt-title {
+    font-size: 14px !important;
+  }
+  .project-mgmt-btn-primary,
+  .project-mgmt-btn-secondary {
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+  .project-kpi-card {
+    padding: 8px 8px !important;
+  }
+  .project-kpi-label {
+    font-size: 9px !important;
+  }
+  .project-kpi-value {
+    font-size: 17px !important;
+  }
+  .project-kpi-sub {
+    font-size: 9px !important;
+  }
+}
+
+/* ==========================================================================
+   MASTER DARK MODE OVERRIDES — CASCADE TERMINATOR
+   Ensures highest specificity cascade for Dashboard Project Mgmt,
+   Project Workspaces, Payroll, and Settings across all viewports.
+   ========================================================================== */
+
+/* ── 1. DASHBOARD: PROJECT MANAGEMENT SECTION ── */
+:root.dark .project-mgmt-header {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
+}
+:root.dark .project-mgmt-title {
+  color: #f8fafc !important;
+}
+:root.dark .project-mgmt-desc {
+  color: #94a3b8 !important;
+}
+:root.dark .project-mgmt-badge {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+:root.dark .project-mgmt-icon-box {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: #334155 !important;
+  color: #60a5fa !important;
+}
+:root.dark .project-mgmt-btn-secondary {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #93c5fd !important;
+}
+:root.dark .project-mgmt-btn-secondary:hover {
+  background: #1e293b !important;
+  color: #ffffff !important;
+}
+:root.dark .project-kpi-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .project-kpi-label {
+  color: #94a3b8 !important;
+}
+:root.dark .project-kpi-value {
+  color: #f8fafc !important;
+}
+:root.dark .project-dashboard-panel {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .project-dashboard-panel h3,
+:root.dark .project-dashboard-panel h4 {
+  color: #f8fafc !important;
+}
+:root.dark .project-dashboard-panel p {
+  color: #94a3b8 !important;
+}
+:root.dark .project-quick-action-card,
+:root.dark .project-dashboard-panel a[style*="background: #f8fafc"],
+:root.dark .project-dashboard-panel a[style*="background:#f8fafc"],
+:root.dark .project-dashboard-panel div[style*="gridTemplateColumns"] a {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .project-quick-action-card:hover,
+:root.dark .project-dashboard-panel div[style*="gridTemplateColumns"] a:hover {
+  background: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+:root.dark .project-dashboard-panel table,
+:root.dark .project-dashboard-panel th,
+:root.dark .project-dashboard-panel td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .project-dashboard-panel th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+:root.dark .project-dashboard-panel tr:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+:root.dark .project-dashboard-panel td strong,
+:root.dark .project-dashboard-panel td a {
+  color: #f8fafc !important;
+}
+:root.dark .project-task-item {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .project-task-item strong {
+  color: #f8fafc !important;
+}
+
+/* ── 2. PROJECT MANAGEMENT & WORKSPACE PAGES ── */
+:root.dark .project-workspace-header {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
+}
+:root.dark .project-workspace-header h1 {
+  color: #f8fafc !important;
+}
+:root.dark .project-workspace-header span,
+:root.dark .project-workspace-header strong {
+  color: #cbd5e1 !important;
+}
+:root.dark .project-workspace-icon-box {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: #334155 !important;
+  color: #60a5fa !important;
+}
+:root.dark .project-workspace-breadcrumb {
+  color: #94a3b8 !important;
+}
+:root.dark .project-workspace-breadcrumb span {
+  color: #cbd5e1 !important;
+}
+:root.dark .project-workspace-breadcrumb span[style*="color: #0f172a"],
+:root.dark .project-workspace-breadcrumb span[style*="color:#0f172a"] {
+  color: #f8fafc !important;
+}
+:root.dark .project-workspace-breadcrumb span[style*="background: #f1f5f9"],
+:root.dark .project-workspace-breadcrumb span[style*="background:#f1f5f9"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .project-workspace-tabs {
+  border-bottom-color: #334155 !important;
+}
+:root.dark .project-workspace-tabs a,
+:root.dark .project-tab-link {
+  color: #94a3b8 !important;
+}
+:root.dark .project-workspace-tabs a.active,
+:root.dark .project-workspace-tabs a[data-active="true"],
+:root.dark .project-tab-link.active,
+:root.dark .project-workspace-tabs a[style*="background: #eff6ff"],
+:root.dark .project-workspace-tabs a[style*="background:#eff6ff"] {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #60a5fa !important;
+  border-bottom-color: #3b82f6 !important;
+}
+
+/* Global Scrum Header & Help Components */
+:root.dark .global-scrum-header {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .global-scrum-header h1 {
+  color: #f8fafc !important;
+}
+:root.dark .global-scrum-header p {
+  color: #94a3b8 !important;
+}
+:root.dark .scrum-workflow-bar,
+:root.dark .scrum-guide-card,
+:root.dark .scrum-help-panel {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .scrum-help-panel * {
+  color: #cbd5e1 !important;
+}
+:root.dark .scrum-help-panel strong,
+:root.dark .scrum-help-panel h3,
+:root.dark .scrum-help-panel h4 {
+  color: #f8fafc !important;
+}
+
+/* Single Project Workspace Wrapper All Pages (Overview, Backlog, Stories, Tasks, Sprints, Board) */
+:root.dark .single-project-workspace-wrapper div[style*="background: #ffffff"],
+:root.dark .single-project-workspace-wrapper div[style*="background:#ffffff"],
+:root.dark .single-project-workspace-wrapper div[style*="backgroundColor: '#ffffff'"],
+:root.dark .single-project-workspace-wrapper div[style*="background-color: #ffffff"],
+:root.dark .single-project-workspace-wrapper div[style*="background-color:#ffffff"],
+:root.dark .single-project-workspace-body div[style*="background: #ffffff"],
+:root.dark .single-project-workspace-body div[style*="background:#ffffff"] {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+:root.dark .single-project-workspace-wrapper div[style*="background: #f8fafc"],
+:root.dark .single-project-workspace-wrapper div[style*="background:#f8fafc"],
+:root.dark .single-project-workspace-wrapper div[style*="background: #f1f5f9"],
+:root.dark .single-project-workspace-wrapper div[style*="background:#f1f5f9"],
+:root.dark .single-project-workspace-body div[style*="background: #f8fafc"],
+:root.dark .single-project-workspace-body div[style*="background:#f8fafc"],
+:root.dark .single-project-workspace-body div[style*="background: #f1f5f9"],
+:root.dark .single-project-workspace-body div[style*="background:#f1f5f9"] {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+:root.dark .single-project-workspace-wrapper h1,
+:root.dark .single-project-workspace-wrapper h2,
+:root.dark .single-project-workspace-wrapper h3,
+:root.dark .single-project-workspace-wrapper h4,
+:root.dark .single-project-workspace-body h1,
+:root.dark .single-project-workspace-body h2,
+:root.dark .single-project-workspace-body h3,
+:root.dark .single-project-workspace-body h4 {
+  color: #f8fafc !important;
+}
+
+:root.dark .single-project-workspace-wrapper p,
+:root.dark .single-project-workspace-body p {
+  color: #cbd5e1 !important;
+}
+
+:root.dark .single-project-workspace-wrapper input,
+:root.dark .single-project-workspace-wrapper select,
+:root.dark .single-project-workspace-wrapper textarea,
+:root.dark .single-project-workspace-body input,
+:root.dark .single-project-workspace-body select,
+:root.dark .single-project-workspace-body textarea {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Tasks & Backlog Cards */
+:root.dark .project-task-card,
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"],
+:root.dark div[style*="padding: 14px"][style*="borderRadius: 12px"] {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important;
+}
+:root.dark .project-task-card h3,
+:root.dark .project-task-card h3 a,
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"] h3,
+:root.dark div[style*="padding: 14px"][style*="border-radius: 12px"] h3 a,
+:root.dark div[style*="padding: 14px"][style*="borderRadius: 12px"] h3,
+:root.dark div[style*="padding: 14px"][style*="borderRadius: 12px"] h3 a {
+  color: #f8fafc !important;
+}
+:root.dark .project-task-card span {
+  color: #cbd5e1;
+}
+:root.dark .project-task-card div[style*="border-top"],
+:root.dark div[style*="border-top: 1px solid #f1f5f9"],
+:root.dark div[style*="borderTop: '1px solid #f1f5f9'"] {
+  border-top-color: #334155 !important;
+}
+
+/* Segmented Filter Buttons */
+:root.dark .project-filter-btn,
+:root.dark div[style*="scrollbarWidth: 'none'"] button:not(.btn-blue-active):not([data-active-blue="true"]),
+:root.dark div[style*="scrollbar-width: none"] button:not(.btn-blue-active):not([data-active-blue="true"]) {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .project-filter-btn span,
+:root.dark div[style*="scrollbarWidth: 'none'"] button:not(.btn-blue-active):not([data-active-blue="true"]) span {
+  color: #cbd5e1 !important;
+}
+
+/* Projects Listing Page */
+:root.dark .pm-project-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
+}
+:root.dark .pm-project-card h3 {
+  color: #f8fafc !important;
+}
+:root.dark .pm-project-card p {
+  color: #94a3b8 !important;
+}
+:root.dark .pm-project-card strong {
+  color: #cbd5e1 !important;
+}
+
+/* ── 3. PAYROLL PAGES & WORKFLOW STEPPER ── */
+:root.dark .payroll-period-selector,
+:root.dark .payroll-content-container div[style*="gap: '12px'"][style*="borderRadius: '10px'"],
+:root.dark .payroll-content-container div[style*="gap: 12px"][style*="border-radius: 10px"] {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  color: #f8fafc !important;
+}
+:root.dark .payroll-period-selector select {
+  background: transparent !important;
+  color: #f8fafc !important;
+}
+:root.dark .payroll-period-selector select option {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+:root.dark .payroll-workflow-stepper {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+:root.dark .payroll-workflow-stepper span {
+  color: #cbd5e1 !important;
+}
+:root.dark .payroll-workflow-step,
+:root.dark .payroll-workflow-stepper > div:last-child > div {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .payroll-workflow-step *,
+:root.dark .payroll-workflow-stepper > div:last-child > div * {
+  color: #cbd5e1 !important;
+}
+:root.dark .payroll-workflow-step strong,
+:root.dark .payroll-workflow-stepper > div:last-child > div strong {
+  color: #f8fafc !important;
+}
+:root.dark .payroll-content-container div[style*="background: #ffffff"],
+:root.dark .payroll-content-container div[style*="background:#ffffff"],
+:root.dark .payroll-content-container div[style*="backgroundColor: '#ffffff'"],
+:root.dark .payroll-content-container div[style*="background-color: #ffffff"],
+:root.dark .payroll-content-container div[style*="background-color:#ffffff"],
+:root.dark .payroll-content-container .card,
+:root.dark .payroll-content-container .panel {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-preflight-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-preflight-card h4,
+:root.dark .attendance-preflight-card p {
+  color: #cbd5e1 !important;
+}
+:root.dark .payroll-content-container h2,
+:root.dark .payroll-content-container h3,
+:root.dark .payroll-content-container h4 {
+  color: #f8fafc !important;
+}
+:root.dark .payroll-content-container table {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .payroll-content-container th {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+:root.dark .payroll-content-container td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .payroll-content-container tr:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+:root.dark .payroll-content-container input,
+:root.dark .payroll-content-container select {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark input#salary-search {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── 4. SETTINGS PAGES (ALL TABS) ── */
+:root.dark .settings-tabs {
+  border-bottom-color: #334155 !important;
+}
+:root.dark .settings-tabs a,
+:root.dark .settings-tabs button {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .template-item-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .template-item-card h4 {
+  color: #f8fafc !important;
+}
+:root.dark .template-item-card .preview-badge {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .location-item-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .location-item-card h4 {
+  color: #f8fafc !important;
+}
+:root.dark .location-details {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .settings-panel-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+:root.dark .settings-panel-card h2,
+:root.dark .settings-panel-card h3,
+:root.dark .settings-panel-card h4,
+:root.dark .settings-panel-card p {
+  color: #f8fafc !important;
+}
+:root.dark .custom-modal-card,
+:root.dark .modal-shell {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .custom-modal-card .modal-header,
+:root.dark .custom-modal-card .modal-footer,
+:root.dark .custom-modal-card .modal-search-row,
+:root.dark .modal-shell .modal-header,
+:root.dark .modal-shell .modal-footer {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .custom-modal-card .modal-body-scrollable,
+:root.dark .modal-shell .modal-body {
+  background: #0f172a !important;
+}
+:root.dark .custom-modal-card .modal-cat-section {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .custom-modal-card .perm-chip-card,
+:root.dark .modal-perm-chip {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .custom-modal-card .perm-chip-label,
+:root.dark .modal-perm-chip .perm-chip-label {
+  color: #f8fafc !important;
+}
+:root.dark .custom-modal-card .perm-chip-id,
+:root.dark .modal-perm-chip .perm-chip-id {
+  color: #94a3b8 !important;
+}
+
+/* ── SINGLE PROJECT WORKSPACE DARK MODE ENHANCEMENTS ── */
+:root.dark .single-project-workspace-wrapper {
+  background: #0b1329 !important;
+  color: #f8fafc !important;
+}
+:root.dark .single-project-workspace-body {
+  color: #f8fafc !important;
+}
+
+/* Any white panel/card in project workspace */
+:root.dark .single-project-workspace-body div[style*="background: #ffffff"],
+:root.dark .single-project-workspace-body div[style*="background:#ffffff"],
+:root.dark .single-project-workspace-body div[style*="background: rgb(255, 255, 255)"],
+:root.dark .single-project-workspace-body div[style*="background-color: #ffffff"],
+:root.dark .single-project-workspace-body div[style*="background-color: rgb(255, 255, 255)"],
+:root.dark .single-project-workspace-body div[style*="backgroundColor: '#ffffff'"],
+:root.dark .single-project-workspace-body div[style*="backgroundColor: 'white'"],
+:root.dark .single-project-workspace-body div[style*="background: white"],
+:root.dark .single-project-workspace-body div[style*="background: 'white'"],
+:root.dark .single-project-workspace-body .card,
+:root.dark .single-project-workspace-body .panel,
+:root.dark .single-project-workspace-body .project-panel-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Nested cards & boxes (#f8fafc, #f1f5f9) in workspace */
+:root.dark .single-project-workspace-body div[style*="background: #f8fafc"],
+:root.dark .single-project-workspace-body div[style*="background:#f8fafc"],
+:root.dark .single-project-workspace-body div[style*="background: rgb(248, 250, 252)"],
+:root.dark .single-project-workspace-body div[style*="background-color: #f8fafc"],
+:root.dark .single-project-workspace-body div[style*="background-color: rgb(248, 250, 252)"],
+:root.dark .single-project-workspace-body div[style*="backgroundColor: '#f8fafc'"],
+:root.dark .single-project-workspace-body div[style*="background: #f1f5f9"],
+:root.dark .single-project-workspace-body div[style*="background-color: #f1f5f9"],
+:root.dark .single-project-workspace-body div[style*="backgroundColor: '#f1f5f9'"] {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* Headings in project workspace */
+:root.dark .single-project-workspace-body h1,
+:root.dark .single-project-workspace-body h2,
+:root.dark .single-project-workspace-body h3,
+:root.dark .single-project-workspace-body h4,
+:root.dark .single-project-workspace-body h5,
+:root.dark .single-project-workspace-body h6,
+:root.dark .single-project-workspace-body strong {
+  color: #f8fafc !important;
+}
+
+:root.dark .single-project-workspace-body p {
+  color: #cbd5e1 !important;
+}
+
+/* Inputs, selects, and textareas in project workspace */
+:root.dark .single-project-workspace-body input:not([type="checkbox"]):not([type="radio"]),
+:root.dark .single-project-workspace-body select,
+:root.dark .single-project-workspace-body textarea {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .single-project-workspace-body select option {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Secondary / White action buttons in project workspace */
+:root.dark .single-project-workspace-body button[style*="background: #ffffff"],
+:root.dark .single-project-workspace-body button[style*="background:#ffffff"],
+:root.dark .single-project-workspace-body button[style*="background: rgb(255, 255, 255)"],
+:root.dark .single-project-workspace-body button[style*="backgroundColor: '#ffffff'"],
+:root.dark .single-project-workspace-body a[style*="background: #ffffff"],
+:root.dark .single-project-workspace-body a[style*="background:#ffffff"],
+:root.dark .single-project-workspace-body a[style*="background: rgb(255, 255, 255)"],
+:root.dark .single-project-workspace-body a[style*="backgroundColor: '#ffffff'"] {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* Scrum Learning Components */
+:root.dark .global-scrum-header {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .global-scrum-header h1 {
+  color: #f8fafc !important;
+}
+:root.dark .global-scrum-header p {
+  color: #cbd5e1 !important;
+}
+:root.dark .global-scrum-header div[style*="background: #f8fafc"],
+:root.dark .global-scrum-header div[style*="background:#f8fafc"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .learning-mode-toggle {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .scrum-help-panel {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .scrum-help-panel button {
+  background: #0f172a !important;
+  border-bottom-color: #334155 !important;
+}
+:root.dark .scrum-help-panel div[style*="background: #f8fafc"],
+:root.dark .scrum-help-panel div[style*="background: #ffffff"],
+:root.dark .scrum-help-panel div[style*="background: #fafafa"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ── PAYROLL PAYMENTS PAGE DARK MODE ── */
+:root.dark .payments-page-container .payments-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .payments-page-container .schedule-mini-card,
+:root.dark .payments-page-container .metric-card,
+:root.dark .payments-page-container .mobile-payment-card,
+:root.dark .payments-page-container .period-month-select-box {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .payments-page-container .payments-title,
+:root.dark .payments-page-container .schedule-heading,
+:root.dark .payments-page-container .schedule-card-val,
+:root.dark .payments-page-container .metric-card-val,
+:root.dark .payments-page-container .period-native-select,
+:root.dark .payments-page-container .mp-amount-val {
+  color: #f8fafc !important;
+}
+:root.dark .payments-page-container .payments-data-table thead tr {
+  background-color: #0f172a !important;
+  border-bottom-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+:root.dark .payments-page-container .payments-data-table tbody tr {
+  border-bottom-color: #334155 !important;
+}
+:root.dark .payments-page-container .payments-data-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+:root.dark .payments-page-container .toolbar-select,
+:root.dark .payments-page-container .table-search-input {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .payments-page-container .modal-shell {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .payments-page-container .modal-detail-grid {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* ── STORAGE & MEDIA SECTION DARK MODE ── */
+:root.dark .storage-media-section,
+:root.dark .storage-sub-panel {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .storage-metric-card {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── SALARY STRUCTURES PAGE DARK MODE ── */
+:root.dark .salary-kpi-card {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── MONTHLY PAYROLL PROCESSING DARK MODE ── */
+:root.dark .payroll-period-selector,
+:root.dark .payroll-workflow-stepper,
+:root.dark .payroll-action-banner,
+:root.dark .payroll-ledger-panel,
+:root.dark .payroll-kpi-card,
+:root.dark .payroll-drawer-panel {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .payroll-empty-state,
+:root.dark .payroll-workflow-step {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .payroll-ledger-panel input,
+:root.dark .payroll-ledger-panel select,
+:root.dark .payroll-period-selector select {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── SETTINGS METRIC BADGES DARK MODE ── */
+:root.dark .metric-badge.active {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #4ade80 !important;
+}
+:root.dark .metric-badge.inactive,
+:root.dark .metric-badge.manual {
+  background: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .metric-badge.auto {
+  background: rgba(37, 99, 235, 0.25) !important;
+  color: #60a5fa !important;
+}
+
+/* ==========================================================================
+   DARK MODE — ATTENDANCE MODULE COMPREHENSIVE OVERRIDES
+   Covers: Timer/Clock Panel, Summary Cards, Calendar Cells, Table Columns,
+   Day Drawer, List View, Monthly Grid, and all white-bg components
+   ========================================================================== */
+
+/* ── Shift Clock Panel: Timer Box (Work Duration display) ── */
+:root.dark .timer-box {
+  background: #1e293b !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+}
+:root.dark .timer-box .lbl {
+  color: #94a3b8 !important;
+}
+:root.dark .timer-box .val {
+  color: #f8fafc !important;
+}
+:root.dark .timer-box.break {
+  border-color: rgba(248, 113, 113, 0.5) !important;
+}
+
+/* ── Inactive Clock Panel (No Active Session state) ── */
+:root.dark .inactive-clock-panel {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+
+/* ── Active Badge (Active Working Shift / Success pill) ── */
+:root.dark .active-badge.success {
+  background-color: rgba(52, 211, 153, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+:root.dark .active-badge.danger {
+  background-color: rgba(248, 113, 113, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+/* ── Attendance Summary Metric Cards (Present/Absent/Leave etc.) ── */
+:root.dark .summary-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .summary-card .summary-value {
+  color: #f8fafc !important;
+}
+:root.dark .summary-card .summary-label {
+  color: #94a3b8 !important;
+}
+/* Preserve colored metric values in dark mode */
+:root.dark .summary-card.metric-present .summary-value {
+  color: #4ade80 !important;
+}
+:root.dark .summary-card.metric-half .summary-value {
+  color: #818cf8 !important;
+}
+:root.dark .summary-card.metric-leave .summary-value {
+  color: #c084fc !important;
+}
+:root.dark .summary-card.metric-late .summary-value {
+  color: #fbbf24 !important;
+}
+:root.dark .summary-card.metric-absent .summary-value {
+  color: #f87171 !important;
+}
+:root.dark .summary-card.metric-review .summary-value {
+  color: #fb923c !important;
+}
+:root.dark .summary-card.metric-payable .summary-value {
+  color: #60a5fa !important;
+}
+
+/* ── Attendance Calendar Legend Border ── */
+:root.dark .attendance-calendar-legend {
+  border-bottom-color: #334155 !important;
+}
+:root.dark .legend-label {
+  color: #94a3b8 !important;
+}
+
+/* ── Attendance Day Cells (Calendar Grid Cells) ── */
+:root.dark .attendance-day-cell {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-day-cell:hover {
+  background: #273548 !important;
+  border-color: #475569 !important;
+}
+:root.dark .attendance-day-cell.is-today {
+  background: rgba(37, 99, 235, 0.12) !important;
+}
+:root.dark .attendance-day-cell .day-num {
+  color: #cbd5e1 !important;
+}
+:root.dark .attendance-day-cell .status-inline-row {
+  color: #94a3b8 !important;
+}
+:root.dark .attendance-day-cell .cell-duration-row {
+  color: #64748b !important;
+}
+/* Upcoming/blank cells in dark mode */
+:root.dark .attendance-cell-blank {
+  background: transparent !important;
+}
+
+/* ── Monthly Grid Table: Sticky Employee Name Column ── */
+:root.dark .sticky-col {
+  background: #1e293b !important;
+  border-right-color: #334155 !important;
+}
+:root.dark th.sticky-col {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-right-color: #334155 !important;
+}
+:root.dark tr:hover td.sticky-col {
+  background: #273548 !important;
+}
+
+/* ── Modal Task/Log Scroll Areas ── */
+:root.dark .modal-task-scroll,
+:root.dark .modal-logs-scroll {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .modal-task-item {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .modal-log-item {
+  border-bottom-color: #334155 !important;
+}
+
+/* ── Filters Row (Month/Year filter panel) ── */
+:root.dark .filters-row {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: #334155 !important;
+}
+
+/* ── Shift Hours & Realtime Clock Displays ── */
+:root.dark .shift-hours-details {
+  background: rgba(37, 99, 235, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  color: #93c5fd !important;
+}
+:root.dark .realtime-clock-display {
+  background: rgba(37, 99, 235, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  color: #60a5fa !important;
+}
+
+/* ── Monthly Grid Time Badges ── */
+:root.dark .time-badge {
+  background: rgba(30, 41, 59, 0.9) !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .time-badge:hover {
+  background: rgba(37, 99, 235, 0.15) !important;
+}
+:root.dark .time-in {
+  color: #4ade80 !important;
+}
+:root.dark .time-out {
+  color: #60a5fa !important;
+}
+:root.dark .time-out-active {
+  background-color: rgba(52, 211, 153, 0.15) !important;
+  color: #34d399 !important;
+}
+
+/* ── Calendar View / List View toggle buttons ── */
+:root.dark .attendance-content-wrapper button[style*="background: #2563eb"],
+:root.dark .attendance-content-wrapper button[style*="background:#2563eb"] {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+/* List View button (inactive state) */
+:root.dark .attendance-content-wrapper button:not([data-active-blue="true"]):not(.btn-primary):not(.btn-danger) {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ── AttendanceDayDrawer panel ── */
+:root.dark .attendance-day-drawer,
+:root.dark .day-drawer-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .attendance-day-drawer h3,
+:root.dark .attendance-day-drawer h4,
+:root.dark .day-drawer-panel h3,
+:root.dark .day-drawer-panel h4 {
+  color: #f8fafc !important;
+}
+
+/* ── Attendance wrapper general overrides ── */
+:root.dark .attendance-content-wrapper {
+  color: #f8fafc;
+}
+:root.dark .attendance-content-wrapper .panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-content-wrapper .admin-panel,
+:root.dark .attendance-content-wrapper .action-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Monthly Table Dark Mode (admin attendance grid) ── */
+:root.dark .monthly-table-wrapper {
+  border-color: #334155 !important;
+}
+:root.dark .monthly-grid-table th,
+:root.dark .monthly-grid-table td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .monthly-grid-table th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+:root.dark .monthly-grid-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+:root.dark .absent-cell {
+  color: #475569 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — LEAVES MODULE COMPREHENSIVE OVERRIDES
+   Covers: Leave cards, filter rows, stat strips, tables, modals
+   ========================================================================== */
+
+:root.dark .leaves-content-wrapper,
+:root.dark .leaves-container {
+  color: #f8fafc;
+}
+
+/* ── Leave Panel/Card backgrounds ── */
+:root.dark .leave-card,
+:root.dark .leave-item-card,
+:root.dark .leave-request-card,
+:root.dark .leave-type-card,
+:root.dark .leave-policy-card,
+:root.dark .my-leave-card {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .leave-card h3,
+:root.dark .leave-card h4,
+:root.dark .leave-item-card h3,
+:root.dark .leave-item-card h4 {
+  color: #f8fafc !important;
+}
+:root.dark .leave-card p,
+:root.dark .leave-item-card p {
+  color: #94a3b8 !important;
+}
+
+/* ── Leave Balance / Stat Strip ── */
+:root.dark .leave-balance-card,
+:root.dark .leave-stat-card,
+:root.dark .leave-summary-strip,
+:root.dark .balance-strip-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .leave-balance-card .balance-value,
+:root.dark .leave-stat-card .stat-value {
+  color: #f8fafc !important;
+}
+:root.dark .leave-balance-card .balance-label,
+:root.dark .leave-stat-card .stat-label {
+  color: #94a3b8 !important;
+}
+
+/* ── Leave Filter/Search Rows ── */
+:root.dark .leaves-filter-row,
+:root.dark .leaves-search-row,
+:root.dark .leave-filter-bar {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Leave Table ── */
+:root.dark .leaves-table th,
+:root.dark .leaves-table td,
+:root.dark .leave-requests-table th,
+:root.dark .leave-requests-table td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .leaves-table th,
+:root.dark .leave-requests-table th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+}
+:root.dark .leaves-table tr:hover,
+:root.dark .leave-requests-table tr:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ── Leave Status Badges (overrides for dark mode) ── */
+:root.dark .leave-badge-approved,
+:root.dark .badge-approved {
+  background-color: rgba(52, 211, 153, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+}
+:root.dark .leave-badge-pending,
+:root.dark .badge-pending {
+  background-color: rgba(251, 191, 36, 0.15) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+}
+:root.dark .leave-badge-rejected,
+:root.dark .badge-rejected {
+  background-color: rgba(248, 113, 113, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+}
+
+/* ── General white-bg overrides inside leaves and attendance content ── */
+:root.dark .leaves-content-wrapper div[style*="background: #ffffff"],
+:root.dark .leaves-content-wrapper div[style*="background:#ffffff"],
+:root.dark .leaves-content-wrapper div[style*="background-color: #ffffff"],
+:root.dark .leaves-content-wrapper div[style*="backgroundColor: '#ffffff'"],
+:root.dark .leaves-content-wrapper div[style*="background: white"],
+:root.dark .attendance-content-wrapper div[style*="background: #ffffff"],
+:root.dark .attendance-content-wrapper div[style*="background:#ffffff"],
+:root.dark .attendance-content-wrapper div[style*="background-color: #ffffff"],
+:root.dark .attendance-content-wrapper div[style*="backgroundColor: '#ffffff'"],
+:root.dark .attendance-content-wrapper div[style*="background: white"] {
+  background: #1e293b !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* Nested light-grey containers inside leaves/attendance */
+:root.dark .leaves-content-wrapper div[style*="background: #f8fafc"],
+:root.dark .leaves-content-wrapper div[style*="background:#f8fafc"],
+:root.dark .leaves-content-wrapper div[style*="background: #f1f5f9"],
+:root.dark .leaves-content-wrapper div[style*="background: #eff6ff"],
+:root.dark .attendance-content-wrapper div[style*="background: #f8fafc"],
+:root.dark .attendance-content-wrapper div[style*="background:#f8fafc"],
+:root.dark .attendance-content-wrapper div[style*="background: #f1f5f9"],
+:root.dark .attendance-content-wrapper div[style*="background: #eff6ff"] {
+  background: #0f172a !important;
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* Text overrides inside leaves content */
+:root.dark .leaves-content-wrapper h1,
+:root.dark .leaves-content-wrapper h2,
+:root.dark .leaves-content-wrapper h3,
+:root.dark .leaves-content-wrapper h4,
+:root.dark .leaves-content-wrapper strong {
+  color: #f8fafc !important;
+}
+:root.dark .leaves-content-wrapper p {
+  color: #cbd5e1 !important;
+}
+
+/* Inputs in leaves content */
+:root.dark .leaves-content-wrapper input,
+:root.dark .leaves-content-wrapper select,
+:root.dark .leaves-content-wrapper textarea {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── Buttons in leaves/attendance that appear white ── */
+:root.dark .leaves-content-wrapper button[style*="background: #ffffff"],
+:root.dark .leaves-content-wrapper button[style*="background:#ffffff"],
+:root.dark .leaves-content-wrapper a[style*="background: #ffffff"],
+:root.dark .leaves-content-wrapper a[style*="background:#ffffff"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── Holidays content dark overrides ── */
+:root.dark .holidays-content-wrapper div[style*="background: #ffffff"],
+:root.dark .holidays-content-wrapper div[style*="background:#ffffff"],
+:root.dark .holidays-content-wrapper div[style*="background-color: #ffffff"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .holidays-content-wrapper div[style*="background: #f8fafc"],
+:root.dark .holidays-content-wrapper div[style*="background:#f8fafc"],
+:root.dark .holidays-content-wrapper div[style*="background: #f1f5f9"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .holidays-content-wrapper h1,
+:root.dark .holidays-content-wrapper h2,
+:root.dark .holidays-content-wrapper h3,
+:root.dark .holidays-content-wrapper h4 {
+  color: #f8fafc !important;
+}
+:root.dark .holidays-content-wrapper p {
+  color: #cbd5e1 !important;
+}
+:root.dark .holidays-content-wrapper input,
+:root.dark .holidays-content-wrapper select,
+:root.dark .holidays-content-wrapper textarea {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ==========================================================================
+   DARK MODE — SUPPLEMENTAL OVERRIDES (Round 2)
+   Covers residual light elements: tab-navigation-bar, smn-pill/btn, 
+   dropdown components, data-table thead, kpi badge colors, attendance
+   list view table, leaves filter containers
+   ========================================================================== */
+
+/* ── Leaves / Holidays / Tasks: Tab Navigation Bar ── */
+:root.dark .tab-navigation-bar {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+:root.dark .tab-navigation-bar .tab-btn {
+  color: #94a3b8 !important;
+}
+:root.dark .tab-navigation-bar .tab-btn:hover {
+  color: #60a5fa !important;
+  background: rgba(37, 99, 235, 0.1) !important;
+}
+:root.dark .tab-navigation-bar .tab-btn.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+:root.dark .tab-navigation-bar .tab-btn.active span,
+:root.dark .tab-navigation-bar .tab-btn.active svg,
+:root.dark .tab-navigation-bar .tab-btn.active path {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+:root.dark .tab-pill-badge {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .tab-btn.active .tab-pill-badge {
+  background: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+}
+:root.dark .tab-pill-badge.pending {
+  background: #d97706 !important;
+  color: #ffffff !important;
+}
+
+/* ── Standard Month Navigator (smn-*) ── */
+:root.dark .standard-month-navigator {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .smn-nav-btn {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .smn-nav-btn:hover:not(:disabled) {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f8fafc !important;
+}
+:root.dark .smn-nav-btn:disabled {
+  border-color: #1e293b !important;
+  color: #475569 !important;
+}
+:root.dark .smn-title {
+  color: #f8fafc !important;
+}
+:root.dark .smn-badge {
+  background: rgba(37, 99, 235, 0.2) !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  color: #60a5fa !important;
+}
+:root.dark .smn-pill {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
+}
+:root.dark .smn-pill:hover:not(.active) {
+  background: #273548 !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .smn-pill.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+:root.dark .smn-pill.active * {
+  color: #ffffff !important;
+}
+:root.dark .smn-pill-count {
+  background: #334155 !important;
+  color: #94a3b8 !important;
+}
+:root.dark .smn-pill.active .smn-pill-count {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+}
+
+/* ── Data Table (list view, approval tables) ── */
+:root.dark .data-table {
+  background: #1e293b !important;
+}
+:root.dark .data-table thead {
+  background: #0f172a !important;
+}
+:root.dark .data-table thead th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+:root.dark .data-table tbody tr {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .data-table tbody tr:hover {
+  background: #273548 !important;
+}
+:root.dark .data-table tbody td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ── Leave Dropdown (custom dropdown in apply form) ── */
+:root.dark .dropdown-toggle-btn {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .dropdown-toggle-btn:hover {
+  background-color: #273548 !important;
+  border-color: #475569 !important;
+}
+:root.dark .dropdown-options-list {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+}
+:root.dark .dropdown-option-item:hover:not(.exhausted) {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+  color: #60a5fa !important;
+}
+:root.dark .dropdown-option-item.exhausted {
+  background-color: #0f172a !important;
+}
+:root.dark .option-name {
+  color: #f8fafc !important;
+}
+:root.dark .option-balance {
+  color: #94a3b8 !important;
+}
+
+/* ── Leave KPI Cards (active states in dark mode) ── */
+:root.dark .kpi-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .kpi-card:hover {
+  background: #273548 !important;
+}
+:root.dark .kpi-active {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: #2563eb !important;
+}
+:root.dark .kpi-active.pending {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: #f59e0b !important;
+}
+:root.dark .kpi-active.approved {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: #10b981 !important;
+}
+:root.dark .kpi-active.rejected {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: #ef4444 !important;
+}
+:root.dark .kpi-value {
+  color: #f8fafc !important;
+}
+:root.dark .kpi-label {
+  color: #94a3b8 !important;
+}
+:root.dark .kpi-label.pending { color: #fbbf24 !important; }
+:root.dark .kpi-label.approved { color: #34d399 !important; }
+:root.dark .kpi-label.rejected { color: #f87171 !important; }
+:root.dark .kpi-value.pending { color: #fbbf24 !important; }
+:root.dark .kpi-value.approved { color: #34d399 !important; }
+:root.dark .kpi-value.rejected { color: #f87171 !important; }
+:root.dark .kpi-badge.pending {
+  background: rgba(245, 158, 11, 0.15) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+:root.dark .kpi-badge.approved {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+:root.dark .kpi-badge.rejected {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ── Leaves Filter Toolbar ── */
+:root.dark .leaves-filter-toolbar {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: #334155 !important;
+}
+
+/* ── Attendance List View: Table Wrapper ── */
+:root.dark .attendance-list-view,
+:root.dark .attendance-list-table,
+:root.dark .att-list-wrapper {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-list-view table thead th,
+:root.dark .attendance-list-table thead th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-list-view table tbody td,
+:root.dark .attendance-list-table tbody td {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-list-view table tbody tr:hover td,
+:root.dark .attendance-list-table tbody tr:hover td {
+  background: #273548 !important;
+}
+
+/* ── My Requests History: List Panel ── */
+:root.dark .leaves-content-wrapper .panel,
+:root.dark .leaves-content-wrapper .form-panel,
+:root.dark .leaves-content-wrapper .list-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .leaves-content-wrapper .panel h3,
+:root.dark .leaves-content-wrapper .panel h4 {
+  color: #f8fafc !important;
+}
+
+/* ── ConfigureLeavesTab / Leave Types section ── */
+:root.dark .configure-leaves-wrapper div[style*="background: #ffffff"],
+:root.dark .configure-leaves-wrapper div[style*="background:#ffffff"],
+:root.dark .configure-leaves-wrapper div[style*="background-color: #ffffff"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .configure-leaves-wrapper div[style*="background: #f8fafc"],
+:root.dark .configure-leaves-wrapper div[style*="background:#f8fafc"],
+:root.dark .configure-leaves-wrapper div[style*="background: #f1f5f9"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* ── Search input in My Requests History ── */
+:root.dark .leaves-content-wrapper input[type="text"],
+:root.dark .leaves-content-wrapper input[placeholder] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .leaves-content-wrapper input::placeholder {
+  color: #64748b !important;
+}
+
+/* ── Leave Request History Table (inside list panel) ── */
+:root.dark .leaves-content-wrapper table {
+  background: #1e293b !important;
+}
+:root.dark .leaves-content-wrapper table thead {
+  background: #0f172a !important;
+}
+:root.dark .leaves-content-wrapper table thead th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+:root.dark .leaves-content-wrapper table tbody tr {
+  background: #1e293b !important;
+}
+:root.dark .leaves-content-wrapper table tbody tr:hover {
+  background: #273548 !important;
+}
+:root.dark .leaves-content-wrapper table tbody td {
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+/* ── Attendance list view table (table inside attendance-content-wrapper) ── */
+:root.dark .attendance-content-wrapper table {
+  background: #1e293b !important;
+}
+:root.dark .attendance-content-wrapper table thead {
+  background: #0f172a !important;
+}
+:root.dark .attendance-content-wrapper table thead th {
+  background: #0f172a !important;
+  color: #94a3b8 !important;
+  border-color: #334155 !important;
+}
+:root.dark .attendance-content-wrapper table tbody tr {
+  background: #1e293b !important;
+}
+:root.dark .attendance-content-wrapper table tbody tr:hover {
+  background: #273548 !important;
+}
+:root.dark .attendance-content-wrapper table tbody td {
+  color: #cbd5e1 !important;
+  border-color: #334155 !important;
+}
+
+/* ── Leave Day Type Badge ("Full Day" / "Half Day" pill) ── */
+:root.dark .leaves-content-wrapper .badge {
+  background: #334155 !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark .leaves-content-wrapper .badge-info {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(37, 99, 235, 0.3) !important;
+  color: #60a5fa !important;
+}
+:root.dark .leaves-content-wrapper .badge-success {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  color: #34d399 !important;
+}
+:root.dark .leaves-content-wrapper .badge-warning {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fbbf24 !important;
+}
+:root.dark .leaves-content-wrapper .badge-danger {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+}
+
+/* ── Real Time Board right panel (dark mode) ── */
+:root.dark .realtime-board-panel,
+:root.dark .rtb-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .rtb-panel h3,
+:root.dark .realtime-board-panel h3 {
+  color: #f8fafc !important;
+}
+:root.dark .attendance-content-wrapper .panel input[type="text"],
+:root.dark .attendance-content-wrapper .panel input[placeholder] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .attendance-content-wrapper .panel input::placeholder {
+  color: #64748b !important;
+}
+
+/* ==========================================================================
+   DARK MODE — PROJECT MANAGEMENT (Round 3)
+   Overrides hardcoded inline #ffffff in projects, tasks, backlog, stories pages
+   ========================================================================== */
+
+/* ── Projects List: KPI Stat Cards ── */
+:root.dark .pm-kpi-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .pm-kpi-card span { color: #94a3b8 !important; }
+:root.dark .pm-kpi-card strong { color: #f8fafc !important; }
+
+/* ── Projects List: Tab Bar ── */
+:root.dark .pm-filter-bar {
+  background: transparent !important;
+}
+:root.dark .pm-filter-tabs {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .pm-filter-tabs button {
+  color: #94a3b8 !important;
+}
+
+/* ── Projects List: Search & Select ── */
+:root.dark .pm-search-input {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .pm-search-input::placeholder { color: #64748b !important; }
+:root.dark .pm-status-select {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── Projects List: Project Cards ── */
+:root.dark .pm-project-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .pm-project-card h3 { color: #f8fafc !important; }
+:root.dark .pm-project-card p  { color: #94a3b8 !important; }
+:root.dark .pm-project-card strong { color: #cbd5e1 !important; }
+
+/* ── Task/Overview Pages: KPI Cards ── */
+:root.dark .project-kpi-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Task Page: Inactive Filter Buttons ── */
+:root.dark .project-filter-btn {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+:root.dark .project-filter-btn:hover {
+  background: #273548 !important;
+  border-color: #60a5fa !important;
+  color: #f8fafc !important;
+}
+
+/* ── Task Page: Search Input ── */
+:root.dark .project-task-search-input {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark .project-task-search-input::placeholder { color: #64748b !important; }
+
+/* ── Generic: All white-background inputs/selects on project pages ── */
+:root.dark select[style*="background: #ffffff"],
+:root.dark select[style*="background:#ffffff"],
+:root.dark select[style*="background: white"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark input[type="text"][style*="background: #ffffff"],
+:root.dark input[type="text"][style*="background:#ffffff"],
+:root.dark input[type="text"][style*="background: white"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark input[type="text"][style*="background: #ffffff"]::placeholder,
+:root.dark input[type="text"][style*="background: white"]::placeholder {
+  color: #64748b !important;
+}
+
+/* ── Generic: White divs with border radius used as cards in project pages ── */
+:root.dark .pm-cards-grid .pm-project-card,
+:root.dark .pm-cards-grid > div {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Empty state in projects/stories/tasks ── */
+:root.dark div[style*="background: #ffffff"][style*="borderRadius: 14"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="background: #ffffff"][style*="border-radius: 14"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Backlog/Sprints item rows ── */
+:root.dark .backlog-item,
+:root.dark .sprint-item,
+:root.dark .story-item {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark .backlog-item:hover,
+:root.dark .sprint-item:hover {
+  background: #273548 !important;
+}
+
+/* ── Stories: filter dropdowns ── */
+:root.dark select.stories-filter,
+:root.dark .stories-filter-bar select {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+/* ── Tree/List view toggle buttons in Backlog ── */
+:root.dark button.view-toggle-btn,
+:root.dark .view-toggle-group button {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+:root.dark button.view-toggle-btn.active,
+:root.dark .view-toggle-group button.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Backlog / Project pages: targeted inline style overrides
+   ========================================================================== */
+
+/* ── Filter/Search bar wrapper (borderRadius: 12 + background: #ffffff) ── */
+:root.dark div[style*="background: #ffffff"][style*="borderRadius: 12"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="background: '#ffffff'"][style*="borderRadius: 12"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Epic row accordion header + table header (background: #f8fafc) ── */
+:root.dark div[style*="background: #f8fafc"],
+:root.dark tr[style*="background: #f8fafc"] {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+/* ── Search input in backlog (background: #f8fafc) ── */
+:root.dark input[style*="background: #f8fafc"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+:root.dark input[style*="background: #f8fafc"]::placeholder {
+  color: #64748b !important;
+}
+
+/* ── Backlog flat table tbody rows ── */
+:root.dark tr[style*="border-bottom: 1px solid #f1f5f9"],
+:root.dark tr[style*="border-bottom:1px solid #f1f5f9"] {
+  border-bottom-color: #334155 !important;
+}
+
+/* ── Backlog flat table links ── */
+:root.dark table a[style*="color: #0f172a"] {
+  color: #f8fafc !important;
+}
+
+/* ── Sprint block children bg (background: #ffffff) ── */
+:root.dark div[style*="background: #ffffff"][style*="overflow: hidden"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+:root.dark div[style*="background: #ffffff"][style*="overflow:hidden"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ── Text colors: hardcoded dark text inside dark bg ── */
+:root.dark strong[style*="color: #0f172a"] {
+  color: #f8fafc !important;
+}
+
+/* ── Inline-style #e2e8f0 progress/divider bars ── */
+:root.dark div[style*="background: #e2e8f0"][style*="borderRadius"] {
+  background: #334155 !important;
+}
+
+:root.dark .pm-hero-btn[style*="background: #ffffff"],
+:root.dark .pm-hero-btn[style*="background:#ffffff"] {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Remaining white elements in Project Management (Round 4)
+   ========================================================================== */
+
+/* ── KPI icon boxes + project card badges (#eff6ff light blue → dark blue tint) ── */
+:root.dark div[style*="background: #eff6ff"],
+:root.dark span[style*="background: #eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+:root.dark div[style*="background: #eff6ff"] svg,
+:root.dark div[style*="background: #eff6ff"] * {
+  color: #60a5fa !important;
+}
+
+/* ── Light gray badge backgrounds (#f1f5f9) ── */
+:root.dark span[style*="background: #f1f5f9"],
+:root.dark div[style*="background: #f1f5f9"] {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+}
+
+/* ── Filter tab active state: reinforce with higher specificity ── */
+:root.dark .pm-filter-tabs button[style*="background: #ffffff"],
+:root.dark .pm-filter-tabs button[style*="background:#ffffff"] {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+/* ── Project card action buttons (Team/Edit/Delete) in light mode bg ── */
+:root.dark .pm-cards-grid button[style*="background: #eff6ff"],
+:root.dark .pm-cards-grid button[style*="background:#eff6ff"] {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #60a5fa !important;
+}
+
+/* ── Project card status/key badge ── */
+:root.dark .pm-project-card span[style*="background: #eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+:root.dark .pm-project-card span[style*="background: #dcfce7"] {
+  background: rgba(22, 163, 74, 0.15) !important;
+  border-color: rgba(34, 197, 94, 0.3) !important;
+}
+:root.dark .pm-project-card span[style*="background: #f3e8ff"] {
+  background: rgba(126, 34, 206, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+/* ── Avatar / team member circle icons (white loading state) ── */
+:root.dark .avatar-circle[style*="background: linear-gradient"] {
+  opacity: 0.9;
+}
+:root.dark div[style*="background: linear-gradient(135deg, #3b82f6"] {
+  opacity: 0.85;
+}
+
+/* ── Project card lead/team text ── */
+:root.dark .pm-project-card div[style*="color: #64748b"] {
+  color: #94a3b8 !important;
+}
+:root.dark .pm-project-card strong[style*="color: #334155"] {
+  color: #cbd5e1 !important;
+}
+
+/* ── Project card border-top separator ── */
+:root.dark .pm-project-card div[style*="borderTop: '1px solid #f1f5f9'"],
+:root.dark .pm-project-card div[style*="border-top: 1px solid #f1f5f9"] {
+  border-top-color: #334155 !important;
+}
+
+/* ── Progress bar container (#e2e8f0 track) in project card ── */
+:root.dark .pm-project-card div[style*="background: #e2e8f0"] {
+  background: #334155 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Styled-JSX override (Round 5)
+   These rules use !important to beat styled-jsx scoped class specificity
+   ========================================================================== */
+
+/* ── Force all pm-* classes dark ── */
+:root.dark .pm-hero-card { background: #1e293b !important; border-color: #334155 !important; }
+:root.dark .pm-kpi-card  { background: #1e293b !important; border-color: #334155 !important; }
+:root.dark .pm-filter-bar { background: #1e293b !important; border-color: #334155 !important; }
+:root.dark .pm-filter-tabs { background: #0f172a !important; }
+:root.dark .pm-project-card { background: #1e293b !important; border-color: #334155 !important; }
+:root.dark .pm-cards-grid > * { background: #1e293b !important; border-color: #334155 !important; }
+
+/* ── All #eff6ff icon boxes and badges in dark mode ── */
+:root.dark div[style*="background: #eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+}
+:root.dark span[style*="background: #eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  color: #60a5fa !important;
+}
+:root.dark button[style*="background: #eff6ff"],
+:root.dark button[style*="background:#eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  color: #60a5fa !important;
+}
+
+/* ── All #f1f5f9 light gray badges in dark mode ── */
+:root.dark span[style*="background: #f1f5f9"] {
+  background: #273548 !important;
+  color: #94a3b8 !important;
+}
+:root.dark div[style*="background: #f1f5f9"][style*="borderRadius"] {
+  background: #273548 !important;
+}
+
+/* ── All white buttons (anywhere on page) in dark mode ── */
+:root.dark button[style*="background: #ffffff"] {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+:root.dark button[style*="background:#ffffff"] {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #cbd5e1 !important;
+}
+
+/* ── Hero "Agile Scrum Platform" badge ── */
+:root.dark .pm-hero-card span[style*="background: #eff6ff"] {
+  background: rgba(37, 99, 235, 0.15) !important;
+  color: #60a5fa !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* ── Filter tab active (#ffffff) → dark highlight ── */
+:root.dark .pm-filter-tabs button[style*="background: #ffffff"],
+:root.dark .pm-filter-tabs button[style*="background:#ffffff"] {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+
+/* ── Project card status badge colors in dark ── */
+:root.dark .pm-project-card span[style*="background: #dcfce7"] { background: rgba(22,163,74,0.15) !important; border-color: rgba(34,197,94,0.3) !important; }
+:root.dark .pm-project-card span[style*="background: #fef3c7"] { background: rgba(202,138,4,0.15) !important; border-color: rgba(234,179,8,0.3) !important; }
+:root.dark .pm-project-card span[style*="background: #f3e8ff"] { background: rgba(126,34,206,0.15) !important; border-color: rgba(168,85,247,0.3) !important; }
+:root.dark .pm-project-card span[style*="background: #fef2f2"] { background: rgba(220,38,38,0.15) !important; border-color: rgba(248,113,113,0.3) !important; }
+
+/* ── All #ffffff containers/panels in project pages ── */
+:root.dark div[style*="background: #ffffff"][style*="border: 1px solid #e2e8f0"] {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — DEFINITIVE STRUCTURAL RULES (bypass attribute-selector issues)
+   Targets elements by DOM position, not by inline style attribute values
+   ========================================================================== */
+
+/* ── KPI icon boxes: first-child div of each pm-kpi-card ── */
+:root.dark .pm-kpi-card > div:first-child {
+  background: rgba(37, 99, 235, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.25) !important;
+  color: #60a5fa !important;
+}
+:root.dark .pm-kpi-card > div:first-child svg,
+:root.dark .pm-kpi-card > div:first-child path {
+  color: #60a5fa !important;
+  stroke: #60a5fa;
+  fill: currentColor;
+}
+/* KPI card text */
+:root.dark .pm-kpi-card span { color: #94a3b8 !important; }
+:root.dark .pm-kpi-card strong { color: #f8fafc !important; }
+
+/* ── Filter tab ACTIVE button (has box-shadow, set by JS as active pill) ── */
+:root.dark .pm-filter-tabs button {
+  background: transparent !important;
+  color: #94a3b8 !important;
+  border-color: transparent !important;
+}
+/* The active tab has a box-shadow added by inline style */
+:root.dark .pm-filter-tabs button[style*="box-shadow"] {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+}
+/* Hero-area "Status Pool" button (white bg in pm-hero-actions) */
+:root.dark .pm-hero-actions button:not(.btn-primary) {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+
+/* ── Project card inner elements ── */
+/* Card header badges */
+:root.dark .pm-project-card > div:first-child span:first-child {
+  background: rgba(37, 99, 235, 0.15) !important;
+  color: #60a5fa !important;
+}
+/* Card title & description text */
+:root.dark .pm-project-card h3, :root.dark .pm-project-card h3 a { color: #f8fafc !important; }
+:root.dark .pm-project-card p { color: #94a3b8 !important; }
+/* Progress bar track */
+:root.dark .pm-project-card > div:last-child > div:first-child > div:last-child > div {
+  background: #334155 !important;
+}
+/* Lead label */
+:root.dark .pm-project-card > div:last-child { border-top-color: #334155 !important; }
+/* Action buttons (Team/Edit/Delete) inside project card */
+:root.dark .pm-project-card button {
+  background: rgba(37, 99, 235, 0.1) !important;
+  border-color: #475569 !important;
+  color: #60a5fa !important;
+}
+
+/* ── Hero "Agile Scrum Platform" pill badge ── */
+:root.dark .pm-hero-left > div span:first-child {
+  background: rgba(37, 99, 235, 0.15) !important;
+  color: #60a5fa !important;
+}
+
+/* ── Search input & status select in filter bar ── */
+:root.dark .pm-search-input { 
+  background: #0f172a !important; 
+  border-color: #334155 !important; 
+  color: #f8fafc !important; 
+}
+:root.dark .pm-status-select { 
+  background: #0f172a !important; 
+  border-color: #334155 !important; 
+  color: #f8fafc !important; 
+}
+
+/* ── General white inline-bg catch for ALL elements ── */
+:root.dark [style*="background: #ffffff"] { background: #1e293b !important; border-color: #334155 !important; }
+:root.dark [style*="background: #f8fafc"] { background: #0f172a !important; }
+:root.dark [style*="background: #f1f5f9"] { background: #1e293b !important; }
+:root.dark [style*="background: #eff6ff"] { background: rgba(37,99,235,0.12) !important; border-color: rgba(59,130,246,0.2) !important; }
+:root.dark [style*="background: #e2e8f0"] { background: #334155 !important; }
+/* Protect colored gradient buttons (primary blue, green success) */
+:root.dark [style*="background: linear-gradient"] { background: revert !important; }
+:root.dark [style*="background: linear-gradient(135deg"] { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; }
+/* Protect status-colored badges (red, yellow, green, purple) */
+:root.dark [style*="background: #dcfce7"] { background: rgba(22,163,74,0.15) !important; }
+:root.dark [style*="background: #fef3c7"] { background: rgba(202,138,4,0.15) !important; }
+:root.dark [style*="background: #f3e8ff"] { background: rgba(126,34,206,0.15) !important; }
+:root.dark [style*="background: #fef2f2"] { background: rgba(220,38,38,0.15) !important; }
+
+/* ── Hardcoded dark text on dark bg fix ── */
+:root.dark [style*="color: #0f172a"] { color: #f8fafc !important; }
+:root.dark [style*="color: #1e293b"] { color: #f1f5f9 !important; }
+:root.dark [style*="color: #334155"] { color: #cbd5e1 !important; }
+:root.dark [style*="color: #475569"] { color: #94a3b8 !important; }
+

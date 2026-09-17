@@ -9,10 +9,11 @@ import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 
 export default function Header({ title }) {
-  const { currentUser, logout, setSidebarOpen, subscriptionDays } = useApp();
+  const { currentUser, logout, setSidebarOpen, subscriptionDays, switchOrganization } = useApp();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -30,6 +31,29 @@ export default function Header({ title }) {
   const secondsRemaining = subInfo?.secondsRemaining || 0;
   const showNormalWarning = currentUser?.isSuperAdmin && !isWarningActive && subscriptionDays <= 15;
 
+  const availableMemberships = currentUser?.available_memberships || [];
+  const activeOrgId = currentUser?.active_organization?.id || currentUser?.organization;
+
+  const handleOrgSwitch = async (e) => {
+    const targetOrgId = e.target.value;
+    if (!targetOrgId || targetOrgId === String(activeOrgId)) return;
+    setSwitching(true);
+    try {
+      const res = await switchOrganization(targetOrgId);
+      if (res && res.success) {
+        window.location.reload();
+      } else {
+        alert(res?.message || 'Failed to switch organization');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const displayTitle = (title === 'System Settings' || title === 'System Settings Hub') ? 'Settings' : title;
+
   return (
     <header className="header-bar">
       <div className="header-title-section">
@@ -40,9 +64,27 @@ export default function Header({ title }) {
         >
           <MenuIcon size={22} />
         </button>
-        <h1>{title}</h1>
+        <h1>{displayTitle}</h1>
       </div>
       <div className="header-user-section">
+        {availableMemberships.length > 1 && (
+          <div className="workspace-switcher-container">
+            <select
+              value={String(activeOrgId)}
+              onChange={handleOrgSwitch}
+              disabled={switching}
+              className="workspace-switcher-select"
+              aria-label="Switch Workspace"
+            >
+              {availableMemberships.map(m => (
+                <option key={m.id} value={String(m.organization_id)}>
+                  {m.organization_name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {isWarningActive && (
           <div className="subscription-badge warning-urgent">
             <span className="status-pulse-dot" style={{ 
@@ -68,15 +110,13 @@ export default function Header({ title }) {
 
         {mounted && (
           <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="theme-toggle-btn"
-            aria-label="Toggle Theme"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Night Mode'}
+            aria-label={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Night Mode'}
           >
-            {theme === 'dark' ? <Sun size={18} style={{ color: '#fbbf24' }} /> : <Moon size={18} style={{ color: '#2563eb' }} />}
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-        )}
-        {!mounted && (
-          <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '1.5px solid var(--border)', background: 'var(--surface)' }} />
         )}
 
         <Link href="/profile" style={{ textDecoration: 'none' }}>
@@ -116,6 +156,7 @@ export default function Header({ title }) {
           box-sizing: border-box;
           min-width: 0;
           gap: 12px;
+          flex-wrap: nowrap;
         }
         .header-title-section {
           display: flex;
@@ -125,7 +166,7 @@ export default function Header({ title }) {
           flex: 1;
         }
         .header-title-section h1 {
-          font-size: clamp(1.05rem, 3.5vw, 1.45rem);
+          font-size: clamp(1rem, 3.5vw, 1.45rem);
           font-weight: 700;
           color: var(--text-main);
           font-family: var(--font-heading);
@@ -134,13 +175,40 @@ export default function Header({ title }) {
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent !important;
           margin: 0;
-          overflow-wrap: anywhere;
-          word-break: break-word;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
           line-height: 1.25;
         }
         :global(.main-content) .header-title-section h1 {
           -webkit-text-fill-color: transparent !important;
           color: transparent !important;
+        }
+        .workspace-switcher-container {
+          display: flex;
+          align-items: center;
+          min-width: 0;
+        }
+        .workspace-switcher-select {
+          background: var(--surface, #ffffff);
+          border: 1.5px solid var(--border, #d2e0f5);
+          border-radius: var(--radius-md, 8px);
+          padding: 6px 10px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text-main, #0c1e3d);
+          outline: none;
+          cursor: pointer;
+          max-width: 160px;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          transition: all var(--transition-fast);
+          height: 40px;
+          box-sizing: border-box;
+        }
+        .workspace-switcher-select:hover,
+        .workspace-switcher-select:focus {
+          border-color: var(--primary, #2563eb);
         }
         .header-user-section {
           display: flex;
@@ -272,24 +340,71 @@ export default function Header({ title }) {
           .hamburger-toggle {
             display: flex;
           }
+          .theme-toggle-btn {
+            display: none !important;
+          }
         }
         @media (max-width: 768px) {
           .header-bar {
-            padding: 12px 14px;
-            margin-bottom: 20px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            flex-wrap: nowrap;
           }
           .subscription-badge {
             display: none !important;
           }
+          .theme-toggle-btn {
+            display: none !important;
+          }
+        }
+        @media (max-width: 600px) {
+          .header-bar {
+            flex-wrap: nowrap;
+            padding: 6px 10px;
+            gap: 8px;
+            margin-bottom: 10px;
+          }
+          .header-title-section {
+            flex: 1 1 auto;
+            min-width: 0;
+            gap: 6px;
+          }
+          .header-title-section h1 {
+            font-size: 1rem;
+          }
+          .header-user-section {
+            flex-shrink: 0;
+            gap: 6px;
+          }
+          .workspace-switcher-select {
+            max-width: 120px;
+            font-size: 0.75rem;
+            padding: 3px 6px;
+            height: 34px;
+          }
+          .avatar-circle, .hamburger-toggle {
+            width: 34px;
+            height: 34px;
+          }
         }
         @media (max-width: 360px) {
           .header-bar {
-            padding: 10px;
-            gap: 8px;
+            padding: 5px 8px;
+            gap: 4px;
+            margin-bottom: 8px;
           }
-          .avatar-circle, .theme-toggle-btn, .hamburger-toggle {
-            width: 40px;
-            height: 40px;
+          .header-title-section h1 {
+            font-size: 0.88rem;
+          }
+          .avatar-circle, .hamburger-toggle {
+            width: 32px;
+            height: 32px;
+          }
+          .workspace-switcher-select {
+            max-width: 95px;
+            font-size: 0.72rem;
+            padding: 2px 4px;
+            height: 30px;
           }
         }
       `}</style>

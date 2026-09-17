@@ -140,7 +140,7 @@ function TasksContent() {
   const hasPermission = (permission) => {
     if (!currentUser) return false;
     if (currentUser.isSuperAdmin) return true;
-    return currentUser.permissions && currentUser.permissions.includes(permission);
+    return (currentUser.effective_permissions || currentUser.permissions || []).includes(permission);
   };
 
   // Sync edits

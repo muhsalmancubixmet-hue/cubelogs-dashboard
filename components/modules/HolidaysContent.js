@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import PageWrapper from '@/components/PageWrapper';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
-import { API_BASE_URL, apiFetch } from '@/lib/api';
+import { API_BASE_URL, apiFetch, normalizeListResponse } from '@/lib/api';
 import { 
   HolidaysIcon, 
   BrandLogo, 
@@ -46,7 +45,8 @@ function HolidaysContent() {
     setErrorMsg('');
     try {
       const data = await apiFetch('/holidays/');
-      const mapped = data.map(h => ({ ...h, id: String(h.id) }));
+      const holidaysList = normalizeListResponse(data);
+      const mapped = holidaysList.map(h => ({ ...h, id: String(h.id) }));
       setHolidays(mapped);
     } catch (err) {
       console.error(err);
@@ -84,9 +84,11 @@ function HolidaysContent() {
     }
   };
 
+  const activeOrgKey = currentUser?.active_organization?.id || currentUser?.organization;
+
   useEffect(() => {
     fetchHolidays();
-  }, []);
+  }, [activeOrgKey]);
 
   const canManageHolidays = hasPermission('holidays:manage');
 
@@ -94,7 +96,8 @@ function HolidaysContent() {
     if (canManageHolidays) {
       fetchSettings();
     }
-  }, [canManageHolidays]);
+  }, [canManageHolidays, activeOrgKey]);
+
 
   const handleSaveRules = async () => {
     setSavingRules(true);
@@ -230,7 +233,7 @@ function HolidaysContent() {
   const nonWeeklyHolidaysCount = holidays.filter(hol => !hol.name || !hol.name.includes('Weekly Off')).length;
 
   return (
-    <PageWrapper title="Corporate Holiday Calendar" requiredPermission={['holidays:view', 'holidays:manage', 'attendance:staff']}>
+    <div className="holidays-content-wrapper">
       
       {errorMsg && (
         <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px' }}>
@@ -1134,7 +1137,7 @@ function HolidaysContent() {
         onConfirm={confirmDeleteHoliday}
         onCancel={() => setConfirmModal({ open: false, id: null })}
       />
-    </PageWrapper>
+    </div>
   );
 }
 

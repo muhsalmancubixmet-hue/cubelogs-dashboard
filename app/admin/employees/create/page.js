@@ -619,25 +619,23 @@ function EmployeeCreateContent() {
               {/* Module Tabs Selector */}
               <div className="form-group" style={{ marginTop: '16px', marginBottom: '14px' }}>
                 <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Select Module to Configure</label>
-                <div className="module-tabs" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
+                <div className="module-tabs flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
                   <button
                     type="button"
-                    className="btn btn-sm"
-                    style={{
-                      whiteSpace: 'nowrap',
-                      padding: '6px 12px',
-                      fontSize: '0.78rem',
-                      background: activeModuleTab === 'all' ? 'var(--primary)' : 'var(--bg-app)',
-                      color: activeModuleTab === 'all' ? '#ffffff' : 'var(--text-main)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)',
-                      cursor: 'pointer',
-                      fontWeight: '600',
-                      transition: 'all 0.15s'
-                    }}
+                    data-active-blue={activeModuleTab === 'all' ? 'true' : undefined}
                     onClick={() => setActiveModuleTab('all')}
+                    className={`module-tab-pill px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap border transition-all duration-150 cursor-pointer select-none ${
+                      activeModuleTab === 'all'
+                        ? 'active-tab-blue active-blue-btn !bg-blue-600 !text-white !border-blue-600 shadow-sm shadow-blue-500/20'
+                        : 'inactive-tab-white inactive-blue-pill !bg-white !text-blue-600 hover:!text-blue-800 hover:!bg-blue-50 !border-blue-200 hover:!border-blue-300'
+                    }`}
+                    style={{
+                      backgroundColor: activeModuleTab === 'all' ? '#2563eb' : '#ffffff',
+                      color: activeModuleTab === 'all' ? '#ffffff' : '#2563eb',
+                      borderColor: activeModuleTab === 'all' ? '#2563eb' : '#bfdbfe',
+                    }}
                   >
-                    All Modules
+                    <span className={activeModuleTab === 'all' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: activeModuleTab === 'all' ? '#ffffff' : '#2563eb' }}>All Modules</span>
                   </button>
                   {Object.entries(MODULES_MAP)
                     .filter(([key, mod]) => visiblePermissionFlags.some(flag => mod.ids.includes(flag.id)))
@@ -645,22 +643,20 @@ function EmployeeCreateContent() {
                       <button
                         key={key}
                         type="button"
-                        className="btn btn-sm"
-                        style={{
-                          whiteSpace: 'nowrap',
-                          padding: '6px 12px',
-                          fontSize: '0.78rem',
-                          background: activeModuleTab === key ? 'var(--primary)' : 'var(--bg-app)',
-                          color: activeModuleTab === key ? '#ffffff' : 'var(--text-main)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontWeight: '600',
-                          transition: 'all 0.15s'
-                        }}
+                        data-active-blue={activeModuleTab === key ? 'true' : undefined}
                         onClick={() => setActiveModuleTab(key)}
+                        className={`module-tab-pill px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap border transition-all duration-150 cursor-pointer select-none ${
+                          activeModuleTab === key
+                            ? 'active-tab-blue active-blue-btn !bg-blue-600 !text-white !border-blue-600 shadow-sm'
+                            : 'inactive-tab-white inactive-blue-pill !bg-white !text-blue-600 hover:!text-blue-800 hover:!bg-blue-50 !border-blue-200 hover:!border-blue-300'
+                        }`}
+                        style={{
+                          backgroundColor: activeModuleTab === key ? '#2563eb' : '#ffffff',
+                          color: activeModuleTab === key ? '#ffffff' : '#2563eb',
+                          borderColor: activeModuleTab === key ? '#2563eb' : '#bfdbfe',
+                        }}
                       >
-                        {mod.label}
+                        <span className={activeModuleTab === key ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: activeModuleTab === key ? '#ffffff' : '#2563eb' }}>{mod.label}</span>
                       </button>
                     ))
                   }
@@ -692,14 +688,8 @@ function EmployeeCreateContent() {
               </div>
             </div>
 
-            {!isEditing && currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit && (
-              <div className="alert-box alert-box-danger" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px', marginBottom: '20px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', borderRadius: '6px', fontSize: '0.88rem' }}>
-                <span>⚠️ Onboarding seat limit reached ({employees.length} / {currentUser.subscription.employeeLimit} slots). Please upgrade your subscription tier via settings to onboard more personnel.</span>
-              </div>
-            )}
-
             <div className="form-actions">
-              <button type="submit" className="btn btn-primary" style={{ padding: '12px 24px' }} disabled={(!isEditing && currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit) || loading}>
+              <button type="submit" className="btn btn-primary" style={{ padding: '12px 24px' }} disabled={loading}>
                 {isEditing ? 'Save Profile adjustments' : 'Onboard & Register Staff'}
               </button>
               <Link href="/admin/employees" className="btn btn-secondary" style={{ padding: '12px 24px' }}>

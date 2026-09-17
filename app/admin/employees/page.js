@@ -114,8 +114,16 @@ export default function Employees() {
       setEmployees(mappedEmployees);
       setEmployeePhotos(photoMap);
 
-      // Cache employees list
-      localStorage.setItem('cubelogs_employees', JSON.stringify(mappedEmployees));
+      // Cache employees list safely without large base64 data URLs
+      try {
+        const sanitizedForCache = mappedEmployees.map(emp => ({
+          ...emp,
+          profilePhoto: (typeof emp.profilePhoto === 'string' && emp.profilePhoto.startsWith('data:image/')) ? null : emp.profilePhoto
+        }));
+        localStorage.setItem('cubelogs_employees', JSON.stringify(sanitizedForCache));
+      } catch (e) {
+        console.warn('LocalStorage employee cache skipped:', e);
+      }
     } catch (err) {
       console.error(err);
       setErrorMsg(err.message || 'Failed to load employee list.');
@@ -166,14 +174,36 @@ export default function Employees() {
     setConfirmModal({ open: false, id: null });
   };
 
-  const handleStatusChange = async (empId, newStatus) => {
+  const [statusModal, setStatusModal] = useState({ open: false, empId: null, empName: '', status: '', lastWorkingDate: '' });
+
+  const triggerStatusChange = (emp, newStatus) => {
+    if (newStatus === 'Resigned' || newStatus === 'Terminated') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      setStatusModal({
+        open: true,
+        empId: emp.id,
+        empName: emp.name || emp.email,
+        status: newStatus,
+        lastWorkingDate: emp.last_working_date || todayStr
+      });
+    } else {
+      handleStatusChange(emp.id, newStatus, null);
+    }
+  };
+
+  const handleStatusChange = async (empId, newStatus, lwd) => {
     setLoading(true);
     setErrorMsg('');
     try {
+      const payload = { status: newStatus };
+      if (lwd) {
+        payload.last_working_date = lwd;
+      }
       await apiFetch(`/employees/${empId}/change-status/`, {
         method: 'POST',
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify(payload)
       });
+      setStatusModal({ open: false, empId: null, empName: '', status: '', lastWorkingDate: '' });
       await fetchEmployeesData();
     } catch (err) {
       console.error(err);
@@ -228,24 +258,12 @@ export default function Employees() {
               <ExcelIcon size={16} style={{ color: '#16a34a' }} />
               <span>Bulk Upload (Excel/CSV)</span>
             </button>
-            {currentUser?.subscription && employees.length >= currentUser.subscription.employeeLimit ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
-                <button className="btn btn-primary" disabled style={{ opacity: 0.5, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <AddIcon size={16} />
-                  <span>Onboard New Employee</span>
-                </button>
-                <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: '600' }}>
-                  ⚠️ Seat limit reached ({employees.length} / {currentUser.subscription.employeeLimit} allowed).
-                </span>
-              </div>
-            ) : (
-              <Link href="/admin/employees/create" className="btn btn-primary">
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <AddIcon size={16} />
-                  <span>Onboard New Employee</span>
-                </span>
-              </Link>
-            )}
+            <Link href="/admin/employees/create" className="btn btn-primary">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <AddIcon size={16} />
+                <span>Onboard New Employee</span>
+              </span>
+            </Link>
           </div>
         </div>
 
@@ -411,7 +429,7 @@ export default function Employees() {
                                         type="button"
                                         onClick={() => {
                                           setOpenActionMenuId(null);
-                                          handleStatusChange(emp.id, 'Deactivated');
+                                          triggerStatusChange(emp, 'Deactivated');
                                         }}
                                         style={{
                                           display: 'flex',
@@ -436,7 +454,7 @@ export default function Employees() {
                                         type="button"
                                         onClick={() => {
                                           setOpenActionMenuId(null);
-                                          handleStatusChange(emp.id, 'Terminated');
+                                          triggerStatusChange(emp, 'Terminated');
                                         }}
                                         style={{
                                           display: 'flex',
@@ -461,7 +479,7 @@ export default function Employees() {
                                         type="button"
                                         onClick={() => {
                                           setOpenActionMenuId(null);
-                                          handleStatusChange(emp.id, 'Resigned');
+                                          triggerStatusChange(emp, 'Resigned');
                                         }}
                                         style={{
                                           display: 'flex',
@@ -489,7 +507,7 @@ export default function Employees() {
                                         type="button"
                                         onClick={() => {
                                           setOpenActionMenuId(null);
-                                          handleStatusChange(emp.id, 'Active');
+                                          triggerStatusChange(emp, 'Active');
                                         }}
                                         style={{
                                           display: 'flex',
@@ -665,6 +683,50 @@ export default function Employees() {
         onConfirm={confirmDelete}
         onCancel={() => setConfirmModal({ open: false, id: null })}
       />
+
+      {/* Last Working Date Modal for Resigned/Terminated Status */}
+      {statusModal.open && (
+        <div className="modal-overlay" onClick={() => setStatusModal({ open: false, empId: null, empName: '', status: '', lastWorkingDate: '' })} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '24px', boxShadow: 'var(--shadow-premium)', width: '100%', position: 'relative' }}>
+            <h3 style={{ marginBottom: '12px', fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main)' }}>
+              Set Last Working Date
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: '1.4' }}>
+              Marking <strong>{statusModal.empName}</strong> as <span style={{ fontWeight: '700', color: statusModal.status === 'Terminated' ? '#dc2626' : '#7c3aed' }}>{statusModal.status}</span> requires specifying their official Last Working Date.
+            </p>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px', color: 'var(--text-main)' }}>
+                Last Working Date <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="date"
+                className="input"
+                value={statusModal.lastWorkingDate}
+                onChange={e => setStatusModal(prev => ({ ...prev, lastWorkingDate: e.target.value }))}
+                required
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '0.88rem', backgroundColor: 'var(--surface-card)', color: 'var(--text-main)' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary btn-sm"
+                onClick={() => setStatusModal({ open: false, empId: null, empName: '', status: '', lastWorkingDate: '' })}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-sm"
+                disabled={!statusModal.lastWorkingDate}
+                onClick={() => handleStatusChange(statusModal.empId, statusModal.status, statusModal.lastWorkingDate)}
+              >
+                Confirm Status Change
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {bulkModalOpen && (
         <div className="modal-overlay" onClick={() => {

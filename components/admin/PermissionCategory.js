@@ -16,7 +16,8 @@ import {
   StoryIcon,
   BoardIcon,
   ShieldIcon,
-  ChevronIcon
+  ChevronIcon,
+  PayrollIcon
 } from '@/components/Icons';
 
 const ICON_MAP = {
@@ -26,6 +27,8 @@ const ICON_MAP = {
   roles: TemplatesIcon,
   settings: SettingsIcon,
   billing: BriefcaseIcon,
+  salary: PayrollIcon,
+  payroll: PayrollIcon,
   clocking: ClockIcon,
   attendance_admin: AttendanceIcon,
   leave: LeavesIcon,

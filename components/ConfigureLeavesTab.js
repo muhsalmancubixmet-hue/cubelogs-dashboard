@@ -9,7 +9,7 @@ import {
   CloseIcon 
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, normalizeListResponse } from '@/lib/api';
 
 export default function ConfigureLeavesTab() {
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -18,7 +18,8 @@ export default function ConfigureLeavesTab() {
   const fetchLeaveTypes = async () => {
     try {
       const data = await apiFetch('/leave-types/');
-      setLeaveTypes(data.map(lt => ({ ...lt, id: String(lt.id) })));
+      const list = normalizeListResponse(data);
+      setLeaveTypes(list.map(lt => ({ ...lt, id: String(lt.id) })));
     } catch (e) {
       console.error('Error fetching leave types:', e);
     } finally {
@@ -65,6 +66,7 @@ export default function ConfigureLeavesTab() {
   };
 
   // Form states
+  const [isCreating, setIsCreating] = useState(false);
   const [editingType, setEditingType] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -73,6 +75,7 @@ export default function ConfigureLeavesTab() {
   const [maxLimit, setMaxLimit] = useState(12);
   const [carryForward, setCarryForward] = useState(false);
   const [maxCarryForward, setMaxCarryForward] = useState(0);
+  const [isPaid, setIsPaid] = useState(true);
   const [status, setStatus] = useState('Active');
 
   // Restricted dates states
@@ -94,10 +97,10 @@ export default function ConfigureLeavesTab() {
       setMaxLimit(editingType.maxLimit !== undefined && editingType.maxLimit !== null ? editingType.maxLimit : 12);
       setCarryForward(!!editingType.carryForward);
       setMaxCarryForward(editingType.maxCarryForward || 0);
+      setIsPaid(editingType.is_paid !== undefined ? !!editingType.is_paid : true);
       setStatus(editingType.status || 'Active');
       setRestrictedDates(editingType.restrictedDates || []);
-    } else {
-      clearForm();
+      setIsCreating(false);
     }
   }, [editingType]);
 
@@ -109,11 +112,13 @@ export default function ConfigureLeavesTab() {
     setMaxLimit(12);
     setCarryForward(false);
     setMaxCarryForward(0);
+    setIsPaid(true);
     setStatus('Active');
     setRestrictedDates([]);
     setNewRestrictedDate('');
     setNewRestrictedReason('');
     setEditingType(null);
+    setIsCreating(false);
   };
 
   const handleAddRestrictedDate = () => {
@@ -171,6 +176,7 @@ export default function ConfigureLeavesTab() {
       maxLimit: parseInt(maxLimit, 10),
       carryForward,
       maxCarryForward: carryForward ? parseInt(maxCarryForward, 10) : 0,
+      is_paid: isPaid,
       status,
       restrictedDates,
     };
@@ -195,18 +201,168 @@ export default function ConfigureLeavesTab() {
     setConfirmModal({ open: false, id: null, name: '' });
   };
 
+  const showForm = isCreating || !!editingType;
+
   return (
     <>
       <div className="leaves-config-container">
-        <p className="page-subtitle" style={{ marginBottom: '24px', color: 'var(--text-light)', fontSize: '0.9rem' }}>
-          Configure leaves allowances, block restricted dates, set carry forward options, and write employee guidelines.
-        </p>
+        {successMsg && (
+          <div className="tab-alert success">
+            <CheckIcon size={14} />
+            <span>{successMsg}</span>
+          </div>
+        )}
+        {errorMsg && (
+          <div className="tab-alert danger">
+            <WarningIcon size={14} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-        <div className="config-grid">
-          {/* Form Side */}
-          <div className="panel form-panel-card">
-            <h3>{editingType ? 'Modify Leave Type' : 'Create Leave Type'}</h3>
-            <p className="panel-desc">Set limits, restricted dates and rules for employee vacation scopes.</p>
+        {!showForm ? (
+          /* View A: Configured Leave Types List with "+ Create Leave Type" Button */
+          <div className="panel list-panel-card" style={{ width: '100%', maxWidth: '100%' }}>
+            <div className="list-top-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700', color: 'var(--text-main)' }}>
+                  Configured Leave Types ({leaveTypes.length})
+                </h3>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.82rem', color: 'var(--text-light)' }}>
+                  Manage leave allowances, carry forward policies, and blocked blackout dates.
+                </p>
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-primary btn-white-text"
+                onClick={() => {
+                  clearForm();
+                  setIsCreating(true);
+                }}
+                style={{
+                  background: '#2563eb',
+                  color: '#ffffff',
+                  fontWeight: '700',
+                  padding: '9px 18px',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.25)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <span>+ Create Leave Type</span>
+              </button>
+            </div>
+
+            <div className="leave-types-stack" style={{ marginTop: '16px' }}>
+              {leaveTypes.length === 0 ? (
+                <p className="no-data">No leave types configured yet. Click &quot;+ Create Leave Type&quot; above to create one.</p>
+              ) : (
+                leaveTypes.map((type) => (
+                  <div className={`leave-type-item-card ${type.status === 'Inactive' ? 'inactive' : ''}`} key={type.id}>
+                    <div className="card-top">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h4>{type.name}</h4>
+                        <span className={`badge ${type.is_paid !== false ? 'badge-primary' : 'badge-warning'}`} style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', background: type.is_paid !== false ? '#2563eb' : '#f59e0b', color: '#ffffff' }}>
+                          {type.is_paid !== false ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </div>
+                      <span className={`badge ${type.status === 'Active' ? 'badge-success' : 'badge-danger'}`} style={{ color: '#ffffff' }}>
+                        {type.status}
+                      </span>
+                    </div>
+
+                    <div className="rules-details-list">
+                      <div className="rule-item">
+                        <strong>Max Limit:</strong> {type.maxLimit} Days/{type.limitPeriod || 'Year'}
+                      </div>
+                      <div className="rule-item">
+                        <strong>Min Advance:</strong> {type.minAdvanceDays > 0 ? `${type.minAdvanceDays} Days` : 'None'}
+                      </div>
+                      <div className="rule-item">
+                        <strong>Carry Forward:</strong> {type.carryForward ? `Yes (Max ${type.maxCarryForward} Days)` : 'No'}
+                      </div>
+                    </div>
+
+                    {type.restrictedDates && type.restrictedDates.length > 0 && (
+                      <div className="card-blocked-dates-preview">
+                        <strong>Blocked Dates:</strong>
+                        <div className="blocked-tags-container">
+                          {type.restrictedDates.map((item, idx) => (
+                            <span key={idx} className="blocked-mini-tag" title={item.reason}>
+                              {item.date}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {type.description && (
+                      <p className="rule-description">
+                        <em>&quot;{type.description}&quot;</em>
+                      </p>
+                    )}
+
+                    <div className="card-actions-row">
+                      <button 
+                        type="button"
+                        className="btn btn-primary btn-white-text btn-sm" 
+                        onClick={() => {
+                          setEditingType(type);
+                          setIsCreating(false);
+                        }}
+                        style={{ background: '#2563eb', color: '#ffffff', fontWeight: '600', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <EditIcon size={12} />
+                        <span>Edit Rules</span>
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn btn-danger btn-white-text btn-sm" 
+                        onClick={() => handleDelete(type.id, type.name)}
+                        style={{ background: '#ef4444', color: '#ffffff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                      >
+                        <DeleteIcon size={12} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          /* View B: The Form (shown only when clicking "+ Create Leave Type" or "Edit Rules") */
+          <div className="panel form-panel-card fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>
+                  {editingType ? `Modify Leave Type: ${name || editingType.name}` : 'Create Leave Type'}
+                </h3>
+                <p className="panel-desc" style={{ margin: '4px 0 0 0' }}>
+                  Set limits, restricted dates and rules for employee vacation scopes.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={clearForm}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer'
+                }}
+              >
+                &larr; Back to Rules
+              </button>
+            </div>
 
             <form onSubmit={handleSave} className="config-form">
               <div className="form-group">
@@ -251,12 +407,39 @@ export default function ConfigureLeavesTab() {
                 />
               </div>
 
+              {/* Leave Pay Type Toggle: Paid vs Unpaid (LWP) */}
+              <div className="form-group">
+                <label className="form-label">Compensation / Pay Type</label>
+                <div className="limit-period-toggle">
+                  <button 
+                    type="button" 
+                    data-white-text={isPaid ? "true" : undefined}
+                    className={`toggle-btn ${isPaid ? 'active' : ''}`}
+                    onClick={() => setIsPaid(true)}
+                  >
+                    Paid Leave
+                  </button>
+                  <button 
+                    type="button" 
+                    data-white-text={!isPaid ? "true" : undefined}
+                    className={`toggle-btn ${!isPaid ? 'active' : ''}`}
+                    onClick={() => setIsPaid(false)}
+                  >
+                    Unpaid (LWP)
+                  </button>
+                </div>
+                <span className="field-hint" style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: '4px', display: 'block' }}>
+                  {isPaid ? 'Employees receive normal attendance pay credit for approved leave days.' : 'Employees do not receive salary pay credit for approved leave days (Unpaid Leave).'}
+                </span>
+              </div>
+
               {/* Monthly vs Yearly Switch Toggle */}
               <div className="form-group">
                 <label className="form-label">Leave Limit Accumulation Type</label>
                 <div className="limit-period-toggle">
                   <button 
                     type="button" 
+                    data-white-text={limitPeriod === 'Monthly' ? "true" : undefined}
                     className={`toggle-btn ${limitPeriod === 'Monthly' ? 'active' : ''}`}
                     onClick={() => setLimitPeriod('Monthly')}
                   >
@@ -264,6 +447,7 @@ export default function ConfigureLeavesTab() {
                   </button>
                   <button 
                     type="button" 
+                    data-white-text={limitPeriod === 'Yearly' ? "true" : undefined}
                     className={`toggle-btn ${limitPeriod === 'Yearly' ? 'active' : ''}`}
                     onClick={() => setLimitPeriod('Yearly')}
                   >
@@ -290,24 +474,26 @@ export default function ConfigureLeavesTab() {
 
               {/* Restricted Blocked Dates configuration */}
               <div className="restricted-dates-section">
-                <h4 className="section-title-sub">Restricted Dates (Blocked Days)</h4>
+                <div className="section-title-sub">Restricted Dates (Blocked Days)</div>
                 <p className="section-desc-sub">Select dates where employees cannot take this leave and add reasons.</p>
-                
+
                 <div className="blocked-inputs-row">
-                  <div className="input-block date-input">
-                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Date</label>
-                    <input 
-                      type="date" 
-                      className="form-input" 
-                      style={{ padding: '8px 12px', fontSize: '0.85rem' }}
+                  <div className="date-input-wrap">
+                    <label className="form-label" htmlFor="blocked-date">Date</label>
+                    <input
+                      id="blocked-date"
+                      type="date"
+                      className="form-input"
                       value={newRestrictedDate}
                       onChange={(e) => setNewRestrictedDate(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.85rem' }}
                     />
                   </div>
-                  <div className="input-block reason-input">
-                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px' }}>Block Reason</label>
-                    <input 
-                      type="text" 
+                  <div className="reason-input-wrap">
+                    <label className="form-label" htmlFor="blocked-reason">Block Reason</label>
+                    <input
+                      id="blocked-reason"
+                      type="text"
                       className="form-input" 
                       placeholder="e.g. Audit day / Product release"
                       style={{ padding: '8px 12px', fontSize: '0.85rem' }}
@@ -317,8 +503,9 @@ export default function ConfigureLeavesTab() {
                   </div>
                   <button 
                     type="button" 
-                    className="btn btn-secondary add-block-btn" 
+                    className="btn btn-primary btn-white-text add-block-btn" 
                     onClick={handleAddRestrictedDate}
+                    style={{ background: '#2563eb', color: '#ffffff', fontWeight: '700', border: 'none' }}
                   >
                     Block Day
                   </button>
@@ -387,98 +574,26 @@ export default function ConfigureLeavesTab() {
                 </select>
               </div>
 
-              {successMsg && (
-                <div className="tab-alert success">
-                  <CheckIcon size={14} />
-                  <span>{successMsg}</span>
-                </div>
-              )}
-
-              {errorMsg && (
-                <div className="tab-alert danger">
-                  <WarningIcon size={14} />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-
               <div className="form-actions-row">
-                <button type="submit" className="btn btn-primary">
-                  {editingType ? 'Save Changes' : 'Create Type'}
+                <button 
+                  type="submit" 
+                  className="btn btn-primary btn-white-text"
+                  style={{ background: '#2563eb', color: '#ffffff', fontWeight: '700', border: 'none', padding: '10px 20px' }}
+                >
+                  {editingType ? 'Save Changes' : 'Create Leave Type'}
                 </button>
-                {editingType && (
-                  <button type="button" className="btn btn-secondary" onClick={clearForm}>
-                    Cancel
-                  </button>
-                )}
+                <button 
+                  type="button" 
+                  className="btn" 
+                  onClick={clearForm}
+                  style={{ background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1', padding: '10px 20px', fontWeight: '600' }}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
-
-          {/* List Directory Side */}
-          <div className="panel list-panel-card">
-            <h3>Leave Type Rules Directory</h3>
-            <p className="panel-desc">All configured leave templates active in database.</p>
-
-            <div className="leave-types-stack">
-              {leaveTypes.length === 0 ? (
-                <p className="no-data">No leave types configured yet.</p>
-              ) : (
-                leaveTypes.map((type) => (
-                  <div className={`leave-type-item-card ${type.status === 'Inactive' ? 'inactive' : ''}`} key={type.id}>
-                    <div className="card-top">
-                      <h4>{type.name}</h4>
-                      <span className={`badge ${type.status === 'Active' ? 'badge-success' : 'badge-danger'}`}>
-                        {type.status}
-                      </span>
-                    </div>
-
-                    <div className="rules-details-list">
-                      <div className="rule-item">
-                        <strong>Max Limit:</strong> {type.maxLimit} Days/{type.limitPeriod || 'Year'}
-                      </div>
-                      <div className="rule-item">
-                        <strong>Min Advance:</strong> {type.minAdvanceDays > 0 ? `${type.minAdvanceDays} Days` : 'None'}
-                      </div>
-                      <div className="rule-item">
-                        <strong>Carry Forward:</strong> {type.carryForward ? `Yes (Max ${type.maxCarryForward} Days)` : 'No'}
-                      </div>
-                    </div>
-
-                    {type.restrictedDates && type.restrictedDates.length > 0 && (
-                      <div className="card-blocked-dates-preview">
-                        <strong>Blocked Dates:</strong>
-                        <div className="blocked-tags-container">
-                          {type.restrictedDates.map((item, idx) => (
-                            <span key={idx} className="blocked-mini-tag" title={item.reason}>
-                              {item.date}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {type.description && (
-                      <p className="rule-description">
-                        <em>"{type.description}"</em>
-                      </p>
-                    )}
-
-                    <div className="card-actions-row">
-                      <button className="btn btn-secondary btn-sm" onClick={() => setEditingType(type)}>
-                        <EditIcon size={12} />
-                        <span>Edit Rules</span>
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDelete(type.id, type.name)}>
-                        <DeleteIcon size={12} />
-                        <span>Remove</span>
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       <ConfirmModal
@@ -494,6 +609,13 @@ export default function ConfigureLeavesTab() {
       <style jsx>{`
         .leaves-config-container {
           width: 100%;
+        }
+
+        .page-subtitle {
+          margin-bottom: 20px;
+          color: var(--text-light);
+          font-size: 0.88rem;
+          line-height: 1.45;
         }
 
         .config-grid {
@@ -533,32 +655,45 @@ export default function ConfigureLeavesTab() {
         /* limit switcher toggle styled segmented controls */
         .limit-period-toggle {
           display: inline-flex;
-          background: #eff6ff;
-          padding: 4px;
+          background: #f1f5f9;
+          padding: 3px;
           border-radius: var(--radius-md);
-          border: 1px solid var(--primary-border);
+          border: 1px solid #cbd5e1;
           width: 100%;
           margin-top: 4px;
+          gap: 4px;
         }
 
         .limit-period-toggle .toggle-btn {
           flex: 1;
           padding: 8px 12px;
-          border: none;
-          background: none;
+          border: 1px solid #e2e8f0;
+          background: #ffffff;
           font-size: 0.85rem;
           font-weight: 600;
-          color: var(--primary);
+          color: #475569 !important;
           cursor: pointer;
           border-radius: var(--radius-sm);
           transition: all var(--transition-fast);
           text-align: center;
         }
 
+        .limit-period-toggle .toggle-btn:hover:not(.active) {
+          background: #f8fafc;
+          border-color: #94a3b8;
+          color: #1e293b !important;
+        }
+
         .limit-period-toggle .toggle-btn.active {
-          background: var(--primary);
-          color: white !important;
-          box-shadow: var(--shadow-sm);
+          background: #2563eb !important;
+          color: #ffffff !important;
+          border-color: #2563eb !important;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+          font-weight: 700;
+        }
+
+        .limit-period-toggle .toggle-btn.active * {
+          color: #ffffff !important;
         }
 
         /* Blocked Dates Layout styling */
@@ -783,21 +918,128 @@ export default function ConfigureLeavesTab() {
         }
 
         @media (max-width: 768px) {
+          .page-subtitle {
+            margin-bottom: 12px;
+            font-size: 0.8rem;
+          }
+          .config-grid {
+            gap: 12px;
+          }
           .form-panel-card, .list-panel-card {
             min-width: 0 !important;
             width: 100% !important;
             flex: 1 1 100% !important;
+            padding: 14px 12px !important;
+          }
+          .form-panel-card h3, .list-panel-card h3 {
+            font-size: 1.05rem;
+            margin-bottom: 4px;
+          }
+          .panel-desc {
+            font-size: 0.78rem;
+            margin-bottom: 12px;
+          }
+          .config-form {
+            gap: 10px;
+          }
+          .form-group {
+            margin-bottom: 0;
+          }
+          .form-label {
+            font-size: 0.78rem;
+            margin-bottom: 4px;
+          }
+          .form-input {
+            padding: 6px 10px;
+            font-size: 0.82rem;
+            height: 36px;
+          }
+          textarea.form-input {
+            height: auto;
+            min-height: 60px;
+          }
+          .limit-period-toggle {
+            padding: 2px;
+            margin-top: 2px;
+          }
+          .limit-period-toggle .toggle-btn {
+            padding: 6px 8px;
+            font-size: 0.78rem;
+          }
+          .field-hint {
+            font-size: 0.72rem !important;
           }
           .form-grid-2 {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 8px;
+          }
+          .restricted-dates-section {
+            padding-top: 10px;
+            margin-top: 6px;
+          }
+          .section-title-sub {
+            font-size: 0.85rem;
+          }
+          .section-desc-sub {
+            font-size: 0.74rem;
+            margin-bottom: 8px;
           }
           .blocked-inputs-row {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 8px;
+            margin-bottom: 8px;
           }
           .add-block-btn {
             width: 100%;
+            height: 34px;
+            padding: 6px 12px !important;
+            font-size: 0.78rem !important;
+          }
+          .form-actions-row {
+            gap: 8px;
+          }
+          .form-actions-row .btn {
+            flex: 1;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+          }
+          .leave-types-stack {
+            gap: 10px;
+          }
+          .leave-type-item-card {
+            padding: 10px 12px;
+            gap: 8px;
+          }
+          .card-top h4 {
+            font-size: 0.9rem;
+          }
+          .rules-details-list {
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            padding: 6px 8px;
+            font-size: 0.74rem;
+          }
+          .card-actions-row .btn {
+            padding: 4px 8px;
+            font-size: 0.72rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .page-subtitle {
+            font-size: 0.76rem;
+            margin-bottom: 10px;
+          }
+          .form-panel-card, .list-panel-card {
+            padding: 10px 8px !important;
+          }
+          .form-input {
+            font-size: 0.8rem;
+            height: 34px;
+            padding: 5px 8px;
+          }
+          .rules-details-list {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>

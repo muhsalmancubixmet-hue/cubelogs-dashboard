@@ -4,21 +4,34 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useApp } from '../../../../../../../context/AppContext';
-import { Send, Paperclip, X, MessageSquare } from 'lucide-react';
+import { Send, Paperclip, X, MessageSquare, FolderUp, FileText, FileSpreadsheet, FileArchive, FileCode, File, Video, Music, Trash2, UploadCloud } from 'lucide-react';
 import { getBackendBaseUrl, generateUUID } from '../../../../../../../lib/api/apiClient';
 import { projectService } from '../../../../../../../lib/services/projectService';
 import { EditIcon, TrashIcon, EyeIcon, DownloadIcon } from '../../../../../../../components/Icons';
 import { TiptapEditor, TiptapReadOnly } from '../../../../../../../components/rich-text';
 import SingleMemberSelector from '../../../../../../../components/projects/SingleMemberSelector';
+import AuthenticatedMediaPreview, { downloadAuthenticatedFile, viewAuthenticatedPdf } from '../../../../../../../components/projects/AuthenticatedMediaPreview';
+import { packageFolderToZip } from '../../../../../../../components/projects/FolderUploadHelper';
+import FileUploadModal from '../../../../../../../components/projects/FileUploadModal';
 import { useChatWebSocket } from '../../../../../../../lib/hooks/useChatWebSocket';
 
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'];
 
 function normalizeFileUrl(rawUrl) {
-  if (!rawUrl) return '';
-  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  const url = rawUrl.trim();
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('blob:') ||
+    url.startsWith('data:')
+  ) {
+    return url;
+  }
   const baseUrl = getBackendBaseUrl();
-  return `${baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl}${rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`}`;
+  const base = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  if (url.startsWith('/media/')) return `${base}${url}`;
+  return `${base}/${url.replace(/^\/+/, '')}`;
 }
 
 function formatFileSize(bytes) {
@@ -27,6 +40,99 @@ function formatFileSize(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function renderAttachmentFileBadge(fn, mime, isCurrentUser) {
+  const isAudio = mime?.startsWith('audio/') || fn.endsWith('.mp3') || fn.endsWith('.wav') || fn.endsWith('.ogg') || fn.endsWith('.m4a');
+  const isPdf = mime === 'application/pdf' || fn.endsWith('.pdf');
+  const isDoc = fn.endsWith('.doc') || fn.endsWith('.docx') || fn.endsWith('.odt');
+  const isXls = fn.endsWith('.xls') || fn.endsWith('.xlsx') || fn.endsWith('.csv') || fn.endsWith('.ods');
+  const isZip = fn.endsWith('.zip') || fn.endsWith('.tar') || fn.endsWith('.gz') || fn.endsWith('.rar') || fn.endsWith('.7z');
+  const isVideo = mime?.startsWith('video/') || fn.endsWith('.mp4') || fn.endsWith('.webm') || fn.endsWith('.mov');
+  const isCode = fn.endsWith('.js') || fn.endsWith('.jsx') || fn.endsWith('.ts') || fn.endsWith('.tsx') || fn.endsWith('.py') || fn.endsWith('.html') || fn.endsWith('.css') || fn.endsWith('.json') || fn.endsWith('.sql');
+
+  let extLabel = 'FILE';
+  const lastDot = fn.lastIndexOf('.');
+  if (lastDot !== -1) {
+    extLabel = fn.slice(lastDot + 1).toUpperCase().slice(0, 4);
+  }
+
+  let icon = <File size={30} color={isCurrentUser ? '#ffffff' : '#64748b'} strokeWidth={2.2} />;
+  let bg = isCurrentUser ? 'linear-gradient(135deg, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.12) 100%)' : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+  let pillBg = '#475569';
+  let pillColor = '#ffffff';
+
+  if (isPdf) {
+    icon = <FileText size={30} color={isCurrentUser ? '#ffffff' : '#dc2626'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.4) 0%, rgba(185, 28, 28, 0.25) 100%)' : 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+    pillBg = '#dc2626';
+    extLabel = 'PDF';
+  } else if (isDoc) {
+    icon = <FileText size={30} color={isCurrentUser ? '#ffffff' : '#2563eb'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.4) 0%, rgba(29, 78, 216, 0.25) 100%)' : 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+    pillBg = '#2563eb';
+    extLabel = extLabel || 'DOC';
+  } else if (isXls) {
+    icon = <FileSpreadsheet size={30} color={isCurrentUser ? '#ffffff' : '#059669'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.4) 0%, rgba(5, 150, 105, 0.25) 100%)' : 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+    pillBg = '#059669';
+    extLabel = extLabel || 'XLS';
+  } else if (isZip) {
+    icon = <FileArchive size={30} color={isCurrentUser ? '#ffffff' : '#d97706'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.45) 0%, rgba(180, 83, 9, 0.3) 100%)' : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+    pillBg = '#d97706';
+    extLabel = fn.endsWith('.rar') ? 'RAR' : (fn.endsWith('.7z') ? '7Z' : (fn.endsWith('.tar') ? 'TAR' : (fn.endsWith('.gz') ? 'GZ' : 'ZIP')));
+  } else if (isCode) {
+    icon = <FileCode size={30} color={isCurrentUser ? '#ffffff' : '#6366f1'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(67, 56, 202, 0.25) 100%)' : 'linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%)';
+    pillBg = '#4f46e5';
+    extLabel = extLabel || 'CODE';
+  } else if (isAudio) {
+    icon = <Music size={30} color={isCurrentUser ? '#ffffff' : '#9333ea'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(168, 85, 247, 0.4) 0%, rgba(126, 34, 206, 0.25) 100%)' : 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)';
+    pillBg = '#9333ea';
+    extLabel = extLabel || 'AUD';
+  } else if (isVideo) {
+    icon = <Video size={30} color={isCurrentUser ? '#ffffff' : '#0284c7'} strokeWidth={2.2} />;
+    bg = isCurrentUser ? 'linear-gradient(135deg, rgba(14, 165, 233, 0.4) 0%, rgba(3, 105, 161, 0.25) 100%)' : 'linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)';
+    pillBg = '#0284c7';
+    extLabel = extLabel || 'VID';
+  }
+
+  return (
+    <div style={{
+      height: 62,
+      borderRadius: 10,
+      background: bg,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+      marginBottom: 6,
+      border: isCurrentUser ? '1px solid rgba(255, 255, 255, 0.28)' : '1px solid rgba(0, 0, 0, 0.08)',
+      boxShadow: isCurrentUser ? 'inset 0 1px 2px rgba(255,255,255,0.25)' : '0 2px 6px rgba(0,0,0,0.04)'
+    }}>
+      <div style={{ filter: isCurrentUser ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' : 'drop-shadow(0 1px 2px rgba(0,0,0,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {icon}
+      </div>
+      <span style={{
+        position: 'absolute',
+        bottom: 4,
+        right: 6,
+        fontSize: 8.5,
+        fontWeight: 800,
+        padding: '2px 5px',
+        borderRadius: 4,
+        background: pillBg,
+        color: pillColor,
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+      }}>
+        {extLabel}
+      </span>
+    </div>
+  );
 }
 
 export default function TaskDetailPage() {
@@ -69,6 +175,9 @@ export default function TaskDetailPage() {
   const { currentUser } = useApp() || {};
   const chatFeedRef = useRef(null);
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
+  const [packagingFolder, setPackagingFolder] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState([]);
@@ -168,11 +277,16 @@ export default function TaskDetailPage() {
     const files = Array.from(fileOrList.length !== undefined ? fileOrList : [fileOrList]);
     if (files.length === 0) return;
 
+    if (pendingFiles.length + files.length > 10) {
+      setErrorBanner('A maximum of 10 attachments is allowed per message.');
+      return;
+    }
+
     files.forEach(file => {
       const pendingId = 'p-' + Math.random().toString(36).substring(2);
       const abortController = new AbortController();
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
-      const maxLimit = 10 * 1024 * 1024;
+      const maxLimit = 2 * 1024 * 1024 * 1024; // 2GB
       const isTooLarge = file.size > maxLimit;
 
       const item = {
@@ -185,7 +299,7 @@ export default function TaskDetailPage() {
         attachmentId: null,
         previewUrl,
         abortController,
-        errorMsg: isTooLarge ? 'File size exceeds 10MB limit.' : ''
+        errorMsg: isTooLarge ? 'File size exceeds 2GB limit.' : ''
       };
 
       setPendingFiles(prev => [...prev, item]);
@@ -194,7 +308,32 @@ export default function TaskDetailPage() {
         startFileUpload(item);
       }
     });
-  }, [startFileUpload]);
+  }, [startFileUpload, pendingFiles]);
+
+  const handleFolderSelect = useCallback(async (e) => {
+    const files = e.target.files;
+    e.target.value = '';
+    if (!files || files.length === 0) return;
+
+    if (packagingFolder) return;
+
+    if (pendingFiles.length >= 10) {
+      setErrorBanner('A maximum of 10 attachments is allowed per message.');
+      return;
+    }
+
+    try {
+      setPackagingFolder(true);
+      setErrorBanner('');
+      const zipFile = await packageFolderToZip(files);
+      handleFileSelect(zipFile);
+    } catch (err) {
+      console.error('Folder packaging error:', err);
+      setErrorBanner(err.message || 'Failed to package folder.');
+    } finally {
+      setPackagingFolder(false);
+    }
+  }, [packagingFolder, pendingFiles.length, handleFileSelect]);
 
   const handleCancelPendingFile = useCallback((pendingId) => {
     setPendingFiles(prev => {
@@ -1106,19 +1245,19 @@ export default function TaskDetailPage() {
       </div>
 
       {/* ── UNIFIED CHAT POOL & ACTIVITY STREAM ── */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px -2px rgba(15, 23, 42, 0.04)', marginTop: 20 }}>
+      <div className="chat-section-panel" style={{ marginTop: 20 }}>
         
         {/* Header */}
-        <div style={{ padding: '16px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="chat-section-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="chat-header-icon-box">
               <MessageSquare size={18} color="#2563eb" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#0f172a' }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800 }}>
                 Activity & Discussion
               </h3>
-              <span style={{ fontSize: 11.5, color: '#64748b' }}>
+              <span className="subtext" style={{ fontSize: 11.5 }}>
                 {comments.length} messages shared by team
               </span>
             </div>
@@ -1155,16 +1294,10 @@ export default function TaskDetailPage() {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
+          className={`chat-section-feed ${dragOver ? 'drag-over' : ''}`}
           style={{
             height: comments.length === 0 ? 220 : 440,
-            overflowY: 'auto',
             padding: comments.length === 0 ? '24px 20px' : 20,
-            background: dragOver ? '#f0f9ff' : '#f8fafc',
-            position: 'relative',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            transition: 'background 0.2s'
           }}
         >
           {dragOver && (
@@ -1173,9 +1306,9 @@ export default function TaskDetailPage() {
               border: '2px dashed #2563eb', borderRadius: 12, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', gap: 8, zIndex: 10
             }}>
-              <span style={{ fontSize: 36 }}>📥</span>
+              <UploadCloud size={38} color="#2563eb" />
               <strong style={{ fontSize: 16, color: '#1d4ed8' }}>Drop files here to attach to message!</strong>
-              <span style={{ fontSize: 12, color: '#3b82f6' }}>Supports images, PDFs, documents up to 10MB</span>
+              <span style={{ fontSize: 12, color: '#3b82f6' }}>Supports images, PDFs, documents up to 2GB</span>
             </div>
           )}
 
@@ -1223,12 +1356,10 @@ export default function TaskDetailPage() {
                   </div>
 
                   <div
+                    className={isCurrentUser ? 'chat-bubble-self' : 'chat-bubble-other'}
                     style={{
                       padding: '10px 14px',
                       borderRadius: isCurrentUser ? '16px 16px 2px 16px' : '16px 16px 16px 2px',
-                      background: isCurrentUser ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' : '#ffffff',
-                      color: isCurrentUser ? '#ffffff' : '#0f172a',
-                      border: isCurrentUser ? 'none' : '1px solid #cbd5e1',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                       fontSize: 13.5,
                       lineHeight: 1.45,
@@ -1253,6 +1384,7 @@ export default function TaskDetailPage() {
                           const fn = (att.file_name || att.name || '').toLowerCase();
                           const mime = (att.mime_type || '').toLowerCase();
                           const isImage = mime.startsWith('image/') || fn.endsWith('.jpg') || fn.endsWith('.jpeg') || fn.endsWith('.png') || fn.endsWith('.webp') || fn.endsWith('.gif');
+                          const isVideo = mime.startsWith('video/') || fn.endsWith('.mp4') || fn.endsWith('.webm');
                           const isPdf = mime === 'application/pdf' || fn.endsWith('.pdf');
                           const isDoc = fn.endsWith('.doc') || fn.endsWith('.docx');
                           const isXls = fn.endsWith('.xls') || fn.endsWith('.xlsx');
@@ -1262,6 +1394,7 @@ export default function TaskDetailPage() {
                           return (
                             <div
                               key={att.id}
+                              className={isCurrentUser ? 'chat-att-card-self' : 'chat-att-card-other'}
                               style={{
                                 padding: 8,
                                 borderRadius: 10,
@@ -1270,72 +1403,118 @@ export default function TaskDetailPage() {
                                 color: isCurrentUser ? '#ffffff' : '#0f172a'
                               }}
                             >
-                              {/* Inline Image Preview */}
-                              {isImage ? (
-                                <div
-                                  onClick={() => imgIdx !== -1 && setActiveLightboxIndex(imgIdx)}
-                                  style={{ height: 160, borderRadius: 6, overflow: 'hidden', cursor: 'pointer', background: '#000', position: 'relative', marginBottom: 6 }}
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={fullUrl} alt={att.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  <div style={{ position: 'absolute', bottom: 4, right: 4, background: 'rgba(15,23,42,0.8)', color: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700, backdropFilter: 'blur(4px)' }}>
-                                    Click to expand
-                                  </div>
-                                </div>
+                              {/* Inline Image or Video Preview via Authenticated Blob */}
+                              {isImage || isVideo ? (
+                                <AuthenticatedMediaPreview
+                                  type={isImage ? 'image' : 'video'}
+                                  url={fullUrl}
+                                  alt={att.file_name || att.name}
+                                  mimeType={mime}
+                                  onClick={isImage && imgIdx !== -1 ? () => setActiveLightboxIndex(imgIdx) : undefined}
+                                />
                               ) : (
-                                <div style={{ height: 50, borderRadius: 6, background: isCurrentUser ? 'rgba(255,255,255,0.2)' : '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, marginBottom: 6 }}>
-                                  {isPdf ? '📕' : (isDoc ? '📄' : (isXls ? '📊' : (isZip ? '📦' : '📁')))}
-                                </div>
+                                renderAttachmentFileBadge(fn, mime, isCurrentUser)
                               )}
 
                               <div style={{ padding: '2px 4px' }}>
                                 <strong style={{ fontSize: 12, display: 'block', overflowWrap: 'anywhere', wordBreak: 'break-word', color: isCurrentUser ? '#ffffff' : '#0f172a' }}>
                                   {att.file_name || att.name}
                                 </strong>
-                                <span style={{ fontSize: 10.5, color: isCurrentUser ? 'rgba(255,255,255,0.8)' : '#64748b' }}>
+                                <span style={{ fontSize: 10.5, color: isCurrentUser ? 'rgba(255,255,255,0.85)' : '#64748b' }}>
                                   {formatFileSize(att.size_bytes || att.file_size)}
                                 </span>
                               </div>
 
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, marginTop: 4, borderTop: isCurrentUser ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e2e8f0' }}>
-                                <div style={{ display: 'flex', gap: 8 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 6, marginTop: 4, borderTop: isCurrentUser ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e2e8f0', gap: 6 }}>
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                                   {isImage && (
                                     <button
                                       type="button"
                                       onClick={() => imgIdx !== -1 && setActiveLightboxIndex(imgIdx)}
-                                      style={{ background: 'none', border: 'none', color: isCurrentUser ? '#ffffff' : '#2563eb', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                                      className={isCurrentUser ? 'chat-action-btn-self' : 'chat-action-btn-other view'}
+                                      style={{
+                                        background: isCurrentUser ? 'rgba(255,255,255,0.2)' : 'rgba(37,99,235,0.08)',
+                                        border: isCurrentUser ? '1px solid rgba(255,255,255,0.25)' : 'none',
+                                        color: isCurrentUser ? '#ffffff' : '#2563eb',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        padding: '4px 9px',
+                                        borderRadius: 6
+                                      }}
                                     >
                                       <EyeIcon size={12} color={isCurrentUser ? '#ffffff' : '#2563eb'} /> View
                                     </button>
                                   )}
                                   {isPdf && (
-                                    <a
-                                      href={fullUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      style={{ color: isCurrentUser ? '#ffffff' : '#2563eb', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                                    <button
+                                      type="button"
+                                      onClick={() => viewAuthenticatedPdf(fullUrl)}
+                                      className={isCurrentUser ? 'chat-action-btn-self' : 'chat-action-btn-other view'}
+                                      style={{
+                                        background: isCurrentUser ? 'rgba(255,255,255,0.2)' : 'rgba(37,99,235,0.08)',
+                                        border: isCurrentUser ? '1px solid rgba(255,255,255,0.25)' : 'none',
+                                        color: isCurrentUser ? '#ffffff' : '#2563eb',
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        padding: '4px 9px',
+                                        borderRadius: 6
+                                      }}
                                     >
                                       <EyeIcon size={12} color={isCurrentUser ? '#ffffff' : '#2563eb'} /> View PDF
-                                    </a>
+                                    </button>
                                   )}
-                                  <a
-                                    href={fullUrl}
-                                    download={att.file_name || att.name}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ color: isCurrentUser ? '#dcfce7' : '#059669', fontSize: 11, fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadAuthenticatedFile(fullUrl, att.file_name || att.name)}
+                                    className={isCurrentUser ? 'chat-action-btn-self' : 'chat-action-btn-other download'}
+                                    style={{
+                                      background: isCurrentUser ? 'rgba(255,255,255,0.2)' : 'rgba(5,150,105,0.08)',
+                                      border: isCurrentUser ? '1px solid rgba(255,255,255,0.25)' : 'none',
+                                      color: isCurrentUser ? '#ffffff' : '#059669',
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '4px 9px',
+                                      borderRadius: 6
+                                    }}
                                   >
-                                    <DownloadIcon size={12} color={isCurrentUser ? '#dcfce7' : '#059669'} /> Download
-                                  </a>
+                                    <DownloadIcon size={12} color={isCurrentUser ? '#ffffff' : '#059669'} /> Download
+                                  </button>
                                 </div>
 
                                 {isCurrentUser && (
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteAttachment(item.id, att.id)}
-                                    style={{ background: 'none', border: 'none', color: '#fca5a5', fontSize: 10.5, fontWeight: 600, cursor: 'pointer' }}
+                                    className="chat-action-btn-self delete"
+                                    style={{
+                                      background: 'rgba(255,255,255,0.2)',
+                                      border: '1px solid rgba(255,255,255,0.25)',
+                                      color: '#ffffff',
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '4px 9px',
+                                      borderRadius: 6,
+                                      flexShrink: 0
+                                    }}
+                                    title="Delete attachment"
                                   >
-                                    Delete
+                                    <Trash2 size={12} color="#ffffff" /> Delete
                                   </button>
                                 )}
                               </div>
@@ -1353,7 +1532,7 @@ export default function TaskDetailPage() {
 
         {/* Transient Typing Indicator Banner */}
         {Object.keys(typingUsers).length > 0 && (
-          <div style={{ padding: '6px 18px', background: '#f1f5f9', borderTop: '1px solid #e2e8f0', fontSize: 12, color: '#2563eb', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="chat-typing-banner">
             <span className="typing-dots">💬</span>
             <span>
               {Object.values(typingUsers).map(u => u.user_name).join(', ')} {Object.keys(typingUsers).length === 1 ? 'is' : 'are'} typing...
@@ -1362,7 +1541,7 @@ export default function TaskDetailPage() {
         )}
 
         {/* Chat Input & Attachment Toolbar */}
-        <form onSubmit={handleSendChat} style={{ borderTop: '1px solid #e2e8f0', background: '#ffffff', padding: 14 }}>
+        <form onSubmit={handleSendChat} className="chat-section-footer">
           
           {/* Pending Attachments Toolbar */}
           {pendingFiles.length > 0 && (
@@ -1383,7 +1562,13 @@ export default function TaskDetailPage() {
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img src={p.previewUrl} alt="Preview" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />
                     ) : (
-                      <span style={{ fontSize: 16 }}>📄</span>
+                      <div style={{ width: 28, height: 28, borderRadius: 4, background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {p.type?.startsWith('video/') || p.name?.toLowerCase().endsWith('.mp4') || p.name?.toLowerCase().endsWith('.webm') ? (
+                          <Video size={16} color="#2563eb" />
+                        ) : (
+                          <FileText size={16} color="#64748b" />
+                        )}
+                      </div>
                     )}
                     <div style={{ overflow: 'hidden' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: p.status === 'error' ? '#991b1b' : (p.status === 'completed' ? '#166534' : '#1e40af'), display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1427,7 +1612,23 @@ export default function TaskDetailPage() {
               ref={fileInputRef}
               type="file"
               multiple
-              onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+              accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,.mp4,.webm,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.zip,.rar"
+              onChange={(e) => {
+                if (e.target.files) handleFileSelect(e.target.files);
+                e.target.value = '';
+              }}
+              style={{ display: 'none' }}
+            />
+
+            {/* Hidden Folder Input */}
+            <input
+              id="folder-browse-input"
+              ref={folderInputRef}
+              type="file"
+              webkitdirectory=""
+              directory=""
+              multiple
+              onChange={handleFolderSelect}
               style={{ display: 'none' }}
             />
 
@@ -1436,13 +1637,22 @@ export default function TaskDetailPage() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               title="Attach file or image"
-              style={{
-                width: 40, height: 40, borderRadius: 8, border: '1px solid #cbd5e1',
-                background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#64748b', transition: 'all 0.15s', flexShrink: 0
-              }}
+              className="chat-paperclip-btn"
             >
-              <Paperclip size={18} color="#64748b" />
+              <Paperclip size={18} />
+            </button>
+
+            {/* Upload Files Modal Button */}
+            <button
+              type="button"
+              onClick={() => setShowUploadModal(true)}
+              title="Upload files"
+              className="chat-upload-files-btn"
+            >
+              <FolderUp size={16} className="chat-upload-icon" />
+              <span>
+                Upload files
+              </span>
             </button>
 
             {/* Text Input with Typing & Paste listener */}
@@ -1453,22 +1663,17 @@ export default function TaskDetailPage() {
               onBlur={handleInputBlur}
               onPaste={handlePaste}
               placeholder="Write a message... (Paste images Ctrl+V, drag & drop files)"
-              style={{
-                flex: 1, padding: '10px 14px', borderRadius: 8, border: '1px solid #cbd5e1',
-                fontSize: 13.5, outline: 'none', color: '#0f172a', background: '#ffffff'
-              }}
+              className="chat-message-input"
             />
 
             {/* Send Button */}
             <button
               type="submit"
-              disabled={(!commentText.trim() && pendingFiles.filter(f => f.status === 'completed').length === 0) || submittingComment || pendingFiles.some(f => f.status === 'uploading')}
-              className="btn-white-text"
+              disabled={submittingComment || (!commentText.trim() && pendingFiles.every(p => p.status !== 'completed'))}
+              className="btn-primary"
               style={{
                 height: 40, padding: '0 18px', borderRadius: 8, border: 'none',
-                background: ((!commentText.trim() && pendingFiles.filter(f => f.status === 'completed').length === 0) || pendingFiles.some(f => f.status === 'uploading')) ? '#94a3b8' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                color: '#ffffff', fontWeight: 700, fontSize: 13, cursor: ((!commentText.trim() && pendingFiles.filter(f => f.status === 'completed').length === 0) || pendingFiles.some(f => f.status === 'uploading')) ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
               }}
             >
               <Send size={15} color="#ffffff" />
@@ -1505,15 +1710,16 @@ export default function TaskDetailPage() {
                 </span>
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <a
-                  href={normalizeFileUrl(imageAttachments[activeLightboxIndex].file_url || imageAttachments[activeLightboxIndex].file)}
-                  download={imageAttachments[activeLightboxIndex].file_name}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: '#38bdf8', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
+                <button
+                  type="button"
+                  onClick={() => downloadAuthenticatedFile(
+                    normalizeFileUrl(imageAttachments[activeLightboxIndex].file_url || imageAttachments[activeLightboxIndex].file),
+                    imageAttachments[activeLightboxIndex].file_name
+                  )}
+                  style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
                 >
                   ⬇️ Download
-                </a>
+                </button>
                 <button
                   onClick={() => setActiveLightboxIndex(null)}
                   style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
@@ -1537,11 +1743,11 @@ export default function TaskDetailPage() {
                 </button>
               )}
 
-              {/* eslint-disable-next-line @next/next/no-img-element -- Dynamic lightbox preview */}
-              <img
-                src={normalizeFileUrl(imageAttachments[activeLightboxIndex].file_url || imageAttachments[activeLightboxIndex].file)}
+              <AuthenticatedMediaPreview
+                type="image"
+                url={normalizeFileUrl(imageAttachments[activeLightboxIndex].file_url || imageAttachments[activeLightboxIndex].file)}
                 alt={imageAttachments[activeLightboxIndex].file_name}
-                style={{ maxWidth: '85vw', maxHeight: '70vh', objectFit: 'contain', borderRadius: 6 }}
+                isLightbox
               />
 
               {imageAttachments.length > 1 && (
@@ -1559,6 +1765,14 @@ export default function TaskDetailPage() {
           </div>
         </div>
       )}
+
+      {/* File Upload Modal */}
+      <FileUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUpload={(files) => handleFileSelect(files)}
+        maxFiles={Math.max(1, 10 - pendingFiles.length)}
+      />
 
       {/* ADD EMPLOYEE TO PROJECT MODAL */}
       {showAddEmployeeModal && (
@@ -1765,6 +1979,279 @@ export default function TaskDetailPage() {
           </div>
         </div>
       )}
+      <style jsx>{`
+        /* Day Mode defaults */
+        .chat-section-panel {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 2px 12px -2px rgba(15, 23, 42, 0.04);
+        }
+        .chat-section-header {
+          padding: 16px 20px;
+          background: #f8fafc;
+          border-bottom: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .chat-section-header h3 {
+          color: #0f172a;
+        }
+        .chat-section-header .subtext {
+          color: #64748b;
+        }
+        .chat-header-icon-box {
+          width: 34px;
+          height: 34px;
+          border-radius: 10px;
+          background: #eff6ff;
+          border: 1px solid #bfdbfe;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .chat-section-feed {
+          background: #f8fafc;
+          overflow-y: auto;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          transition: background 0.2s;
+        }
+        .chat-section-feed.drag-over {
+          background: #f0f9ff;
+        }
+        .chat-bubble-self {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          border: none;
+        }
+        .chat-bubble-other {
+          background: #ffffff;
+          color: #0f172a;
+          border: 1px solid #cbd5e1;
+        }
+        .chat-action-btn-self {
+          color: #ffffff !important;
+          background: rgba(255, 255, 255, 0.2) !important;
+          border: 1px solid rgba(255, 255, 255, 0.25) !important;
+          transition: all 0.15s;
+        }
+        .chat-action-btn-self:hover {
+          background: rgba(255, 255, 255, 0.35) !important;
+          color: #ffffff !important;
+        }
+        .chat-action-btn-self svg,
+        .chat-action-btn-self :global(svg) {
+          stroke: #ffffff !important;
+          color: #ffffff !important;
+        }
+        .chat-action-btn-other {
+          transition: all 0.15s;
+        }
+        .chat-typing-banner {
+          padding: 6px 18px;
+          background: #f1f5f9;
+          border-top: 1px solid #e2e8f0;
+          font-size: 12px;
+          color: #2563eb;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .chat-upload-icon {
+          color: #2563eb;
+          transition: color 0.15s;
+        }
+        .chat-section-footer {
+          padding: 14px 20px;
+          background: #ffffff;
+          border-top: 1px solid #e2e8f0;
+        }
+        .chat-paperclip-btn {
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: #64748b;
+          transition: all 0.15s;
+          flex-shrink: 0;
+        }
+        .chat-paperclip-btn:hover {
+          background: #f1f5f9;
+          border-color: #94a3b8;
+          color: #1e293b;
+        }
+        .chat-upload-files-btn {
+          height: 40px;
+          padding: 0 12px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          background: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: #334155;
+          transition: all 0.15s;
+          flex-shrink: 0;
+          font-size: 12px;
+          font-weight: 600;
+          gap: 6px;
+        }
+        .chat-upload-files-btn:hover {
+          background: #f1f5f9;
+          border-color: #94a3b8;
+          color: #0f172a;
+        }
+        .chat-message-input {
+          flex: 1;
+          padding: 10px 14px;
+          border-radius: 8px;
+          border: 1px solid #cbd5e1;
+          font-size: 13.5px;
+          outline: none;
+          color: #0f172a;
+          background: #ffffff;
+          transition: all 0.15s;
+        }
+        .chat-message-input:focus {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* ── Night Mode (Dark Mode) Theming ── */
+        :global(html.dark) .chat-section-panel,
+        :global(:root.dark) .chat-section-panel {
+          background: #1e293b;
+          border-color: #334155;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        :global(html.dark) .chat-section-header,
+        :global(:root.dark) .chat-section-header {
+          background: #0f172a;
+          border-color: #334155;
+        }
+        :global(html.dark) .chat-section-header h3,
+        :global(:root.dark) .chat-section-header h3 {
+          color: #f8fafc;
+        }
+        :global(html.dark) .chat-section-header .subtext,
+        :global(:root.dark) .chat-section-header .subtext {
+          color: #94a3b8;
+        }
+        :global(html.dark) .chat-header-icon-box,
+        :global(:root.dark) .chat-header-icon-box {
+          background: rgba(37, 99, 235, 0.2);
+          border-color: rgba(59, 130, 246, 0.3);
+        }
+        :global(html.dark) .chat-section-feed,
+        :global(:root.dark) .chat-section-feed {
+          background: #090d16;
+        }
+        :global(html.dark) .chat-section-feed.drag-over,
+        :global(:root.dark) .chat-section-feed.drag-over {
+          background: rgba(30, 58, 138, 0.3);
+        }
+        :global(html.dark) .chat-bubble-other,
+        :global(:root.dark) .chat-bubble-other {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+        :global(html.dark) .chat-bubble-other div,
+        :global(:root.dark) .chat-bubble-other div {
+          color: #f8fafc;
+        }
+        :global(html.dark) .chat-section-footer,
+        :global(:root.dark) .chat-section-footer {
+          background: #0f172a !important;
+          border-color: #334155 !important;
+        }
+        :global(html.dark) .chat-paperclip-btn,
+        :global(:root.dark) .chat-paperclip-btn {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #cbd5e1 !important;
+        }
+        :global(html.dark) .chat-paperclip-btn:hover,
+        :global(:root.dark) .chat-paperclip-btn:hover {
+          background: #334155 !important;
+          border-color: #475569 !important;
+          color: #ffffff !important;
+        }
+        :global(html.dark) .chat-upload-files-btn,
+        :global(:root.dark) .chat-upload-files-btn {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #e2e8f0 !important;
+        }
+        :global(html.dark) .chat-upload-files-btn:hover,
+        :global(:root.dark) .chat-upload-files-btn:hover {
+          background: #334155 !important;
+          border-color: #475569 !important;
+          color: #ffffff !important;
+        }
+        :global(html.dark) .chat-upload-icon,
+        :global(:root.dark) .chat-upload-icon {
+          color: #60a5fa !important;
+        }
+        :global(html.dark) .chat-message-input,
+        :global(:root.dark) .chat-message-input {
+          background: #0f172a !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+        :global(html.dark) .chat-message-input::placeholder,
+        :global(:root.dark) .chat-message-input::placeholder {
+          color: #64748b !important;
+        }
+        :global(html.dark) .chat-message-input:focus,
+        :global(:root.dark) .chat-message-input:focus {
+          border-color: #60a5fa !important;
+          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2) !important;
+        }
+        :global(html.dark) .chat-att-card-other,
+        :global(:root.dark) .chat-att-card-other {
+          background: rgba(15, 23, 42, 0.7) !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+        :global(html.dark) .chat-att-card-other strong,
+        :global(:root.dark) .chat-att-card-other strong {
+          color: #f8fafc !important;
+        }
+        :global(html.dark) .chat-att-card-other span,
+        :global(:root.dark) .chat-att-card-other span {
+          color: #94a3b8 !important;
+        }
+        :global(html.dark) .chat-action-btn-other.view,
+        :global(:root.dark) .chat-action-btn-other.view {
+          background: rgba(59, 130, 246, 0.2) !important;
+          color: #93c5fd !important;
+        }
+        :global(html.dark) .chat-action-btn-other.download,
+        :global(:root.dark) .chat-action-btn-other.download {
+          background: rgba(16, 185, 129, 0.2) !important;
+          color: #6ee7b7 !important;
+        }
+        :global(html.dark) .chat-typing-banner,
+        :global(:root.dark) .chat-typing-banner {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #60a5fa !important;
+        }
+      `}</style>
     </div>
   );
 }
+

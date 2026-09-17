@@ -342,27 +342,54 @@ export default function VerifierModal({
             )}
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <button 
-                type="button" 
-                className="btn btn-primary" 
-                onClick={handleVerifyAndPunch}
-                disabled={verifierLoading || (!cameraStream && !verifierPhoto)}
-                style={{ flex: 1 }}
-              >
-                {verifierLoading ? 'Uploading photo...' : verifierPhoto ? 'Punch-In with Photo File' : 'Capture Photo & Punch-In'}
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={() => {
-                  handleCloseVerifier();
-                }}
-                disabled={verifierLoading}
-                style={{ flex: 0.4 }}
-              >
-                Cancel
-              </button>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {verifierPhoto ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      startWebcam(facingMode);
+                    }}
+                    disabled={verifierLoading}
+                    style={{ flex: 0.8 }}
+                  >
+                    Retake
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleVerifyAndPunch}
+                    disabled={verifierLoading}
+                    style={{ flex: 1.2 }}
+                  >
+                    {verifierLoading ? 'Uploading photo...' : 'Clock In'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    onClick={handleVerifyAndPunch}
+                    disabled={verifierLoading || !cameraStream}
+                    style={{ flex: 1 }}
+                  >
+                    {verifierLoading ? 'Uploading photo...' : 'Capture Photo & Clock In'}
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      handleCloseVerifier();
+                    }}
+                    disabled={verifierLoading}
+                    style={{ flex: 0.4 }}
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
