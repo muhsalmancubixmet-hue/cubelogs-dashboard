@@ -38,6 +38,32 @@ const formatLocalTime = (value) => {
   });
 };
 
+// Module-level client-side cache to provide instant rendering without navigation flickering
+let _dashboardMemoryCache = null;
+
+function getInitialDashboardData(userId) {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return null;
+  }
+  if (!userId) return null;
+  if (_dashboardMemoryCache && _dashboardMemoryCache.userId === userId) {
+    return _dashboardMemoryCache;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem(`cubelogs_dashboard_cache_${userId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.userId === userId) {
+          _dashboardMemoryCache = parsed;
+          return _dashboardMemoryCache;
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const { currentUser, authStatus, permissionsRegistry } = useApp();
@@ -48,19 +74,23 @@ export default function Dashboard() {
        currentUser?.subscription?.is_attendance_enabled !== false &&
        Boolean(currentUser?.subscription?.is_attendance_enabled ?? currentUser?.is_attendance_enabled ?? false));
 
+  const currentUserId = currentUser?.id ? String(currentUser.id) : null;
+  const cachedData = getInitialDashboardData(currentUserId);
+
   // Local state for dashboard data
-  const [employees, setEmployees] = useState([]);
-  const [attendanceLogs, setAttendanceLogs] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [leaves, setLeaves] = useState([]);
-  const [holidays, setHolidays] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [statuses, setStatuses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState(() => cachedData?.employees || []);
+  const [attendanceLogs, setAttendanceLogs] = useState(() => cachedData?.attendanceLogs || []);
+  const [tasks, setTasks] = useState(() => cachedData?.tasks || []);
+  const [leaves, setLeaves] = useState(() => cachedData?.leaves || []);
+  const [holidays, setHolidays] = useState(() => cachedData?.holidays || []);
+  const [projects, setProjects] = useState(() => cachedData?.projects || []);
+  const [statuses, setStatuses] = useState(() => cachedData?.statuses || []);
+  const [loading, setLoading] = useState(() => !cachedData);
+  const [hasInitialData, setHasInitialData] = useState(() => !!cachedData);
   const [error, setError] = useState('');
 
   // Dashboard corporate calendar logged-in user attendance state
-  const [userAttendanceSummaries, setUserAttendanceSummaries] = useState([]);
+  const [userAttendanceSummaries, setUserAttendanceSummaries] = useState(() => cachedData?.userAttendanceSummaries || []);
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
 
@@ -133,7 +163,7 @@ export default function Dashboard() {
   const [ciStream, setCiStream] = useState(null);
   const [ciFacing, setCiFacing] = useState('user');
   const [ciSubmitting, setCiSubmitting] = useState(false);
-  const [officeLocations, setOfficeLocations] = useState([]);
+  const [officeLocations, setOfficeLocations] = useState(() => cachedData?.officeLocations || []);
   const ciVideoRef = useRef(null);
   const ciLockRef = useRef(false);
 
@@ -298,15 +328,20 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-
+  const fetchDashboardData = useCallback(async (isSilent = false) => {
     const userObj = currentUser;
     if (!userObj) {
       setLoading(false);
       return;
     }
+
+    const uid = userObj.id ? String(userObj.id) : null;
+    const hasCache = Boolean(_dashboardMemoryCache && _dashboardMemoryCache.userId === uid);
+
+    if (!isSilent && !hasCache) {
+      setLoading(true);
+    }
+    setError('');
 
     const checkPerm = (permName) => {
       if (userObj.isSuperAdmin) return true;
@@ -403,6 +438,26 @@ export default function Dashboard() {
       setHolidays(mappedHolidays);
       setProjects(Array.isArray(projectsData) ? projectsData : []);
       setStatuses(Array.isArray(statusesData) ? statusesData : []);
+      setHasInitialData(true);
+
+      if (uid && typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+        const newCache = {
+          userId: uid,
+          employees: mappedEmployees,
+          attendanceLogs: mappedAttendance,
+          tasks: mappedTasks,
+          leaves: mappedLeaves,
+          holidays: mappedHolidays,
+          projects: Array.isArray(projectsData) ? projectsData : [],
+          statuses: Array.isArray(statusesData) ? statusesData : [],
+          userAttendanceSummaries: _dashboardMemoryCache?.userAttendanceSummaries || [],
+          officeLocations: _dashboardMemoryCache?.officeLocations || []
+        };
+        _dashboardMemoryCache = newCache;
+        try {
+          sessionStorage.setItem(`cubelogs_dashboard_cache_${uid}`, JSON.stringify(newCache));
+        } catch (e) {}
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to load dashboard data');
@@ -429,16 +484,22 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (authStatus === 'authenticated') {
-      fetchDashboardData();
+    if (authStatus === 'authenticated' && currentUser) {
+      const uid = currentUser?.id ? String(currentUser.id) : null;
+      const hasCache = Boolean(_dashboardMemoryCache && _dashboardMemoryCache.userId === uid);
+      fetchDashboardData(hasCache);
       if (isAttendanceEnabled) {
         apiFetch('/locations/').then(d => {
           const list = Array.isArray(d) ? d : (d?.results || []);
-          setOfficeLocations(list.map(l => ({ ...l, id: String(l.id) })));
+          const mapped = list.map(l => ({ ...l, id: String(l.id) }));
+          setOfficeLocations(mapped);
+          if (_dashboardMemoryCache && _dashboardMemoryCache.userId === uid) {
+            _dashboardMemoryCache.officeLocations = mapped;
+          }
         }).catch(() => { });
       }
     }
-  }, [authStatus, fetchDashboardData, isAttendanceEnabled]);
+  }, [authStatus, fetchDashboardData, isAttendanceEnabled, currentUser]);
 
   const handleRowClick = (empId) => {
     router.push(`/admin/employees/profile?id=${empId}`);
@@ -641,7 +702,7 @@ export default function Dashboard() {
               <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><EmployeesIcon size={24} /></span>
               <div className="metric-details">
                 <h4>Total Staff</h4>
-                <p>{totalEmployees}</p>
+                <p>{hasInitialData ? totalEmployees : <span className="metric-skeleton" />}</p>
               </div>
             </Link>
             {isAttendanceEnabled && (
@@ -649,7 +710,9 @@ export default function Dashboard() {
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><LeavesIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Pending Leaves</h4>
-                  <p style={{ color: pendingLeaves > 0 ? 'var(--primary)' : 'inherit' }}>{pendingLeaves}</p>
+                  <p style={{ color: pendingLeaves > 0 ? 'var(--primary)' : 'inherit' }}>
+                    {hasInitialData ? pendingLeaves : <span className="metric-skeleton" />}
+                  </p>
                 </div>
               </Link>
             )}
@@ -658,7 +721,7 @@ export default function Dashboard() {
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><TasksIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Open Tasks</h4>
-                  <p>{openTasks}</p>
+                  <p>{hasInitialData ? openTasks : <span className="metric-skeleton" />}</p>
                 </div>
               </Link>
             )}
@@ -667,7 +730,7 @@ export default function Dashboard() {
                 <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}><HolidaysIcon size={24} /></span>
                 <div className="metric-details">
                   <h4>Scheduled Holidays</h4>
-                  <p>{upcomingHolidaysCount}</p>
+                  <p>{hasInitialData ? upcomingHolidaysCount : <span className="metric-skeleton" />}</p>
                 </div>
               </Link>
             )}
@@ -1747,6 +1810,19 @@ export default function Dashboard() {
       <style jsx>{`
         @keyframes ciOverlayIn { from { opacity: 0 } to { opacity: 1 } }
         @keyframes ciCardIn { from { opacity: 0; transform: scale(0.93) translateY(12px) } to { opacity: 1; transform: none } }
+        .metric-skeleton {
+          display: inline-block;
+          width: 24px;
+          height: 20px;
+          background: var(--border, #cbd5e1);
+          border-radius: 4px;
+          animation: metricPulse 1.2s ease-in-out infinite;
+          vertical-align: middle;
+        }
+        @keyframes metricPulse {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.8; }
+        }
         @media (max-width: 768px) {
           .platform-overview-section {
             display: none !important;
