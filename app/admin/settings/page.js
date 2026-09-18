@@ -293,6 +293,16 @@ function SettingsHubContent() {
     router.push(`/admin/settings?tab=${tabName}`);
   };
 
+  const tabNavRef = React.useRef(null);
+  useEffect(() => {
+    if (tabNavRef.current) {
+      const activeEl = tabNavRef.current.querySelector('[data-active-blue="true"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    }
+  }, [currentTab]);
+
   // -------------------------------------------------------------
   // ATTENDANCE RULES CONFIG STATE & HANDLERS
   // -------------------------------------------------------------
@@ -1394,7 +1404,7 @@ function SettingsHubContent() {
       <div className="settings-container">
 
         {/* Settings Navigation Tabs */}
-        <div className="settings-tabs" style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingBottom: '12px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+        <div ref={tabNavRef} className="settings-tabs" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '12px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           {hasTemplatesPerm && (
             <button
               type="button"
@@ -1421,7 +1431,10 @@ function SettingsHubContent() {
               onClick={() => handleTabChange('templates')}
             >
               <TemplatesIcon size={16} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', stroke: currentTab === 'templates' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
-              <span className={currentTab === 'templates' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Role Templates</span>
+              <span className={currentTab === 'templates' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'templates' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Role Templates</span>
+                <span className="tab-label-short">Templates</span>
+              </span>
             </button>
           )}
           {hasLocationsPerm && isAttendanceEnabled && (
@@ -1450,7 +1463,10 @@ function SettingsHubContent() {
               onClick={() => handleTabChange('locations')}
             >
               <LocationIcon size={16} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', stroke: currentTab === 'locations' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
-              <span className={currentTab === 'locations' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Office Locations</span>
+              <span className={currentTab === 'locations' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'locations' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Office Locations</span>
+                <span className="tab-label-short">Locations</span>
+              </span>
             </button>
           )}
           {hasBrandingPerm && (
@@ -1508,7 +1524,10 @@ function SettingsHubContent() {
               onClick={() => handleTabChange('billing')}
             >
               <ClockIcon size={16} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', stroke: currentTab === 'billing' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
-              <span className={currentTab === 'billing' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Billing & Subscription</span>
+              <span className={currentTab === 'billing' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'billing' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Billing & Subscription</span>
+                <span className="tab-label-short">Billing</span>
+              </span>
             </button>
           )}
           {hasAttendanceConfigPerm && (
@@ -1537,7 +1556,10 @@ function SettingsHubContent() {
               onClick={() => handleTabChange('attendance-config')}
             >
               <ClockIcon size={16} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
-              <span className={currentTab === 'attendance-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Attendance Rules</span>
+              <span className={currentTab === 'attendance-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'attendance-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Attendance Rules</span>
+                <span className="tab-label-short">Attendance</span>
+              </span>
             </button>
           )}
           {hasPayrollConfigPerm && (
@@ -1566,7 +1588,10 @@ function SettingsHubContent() {
               onClick={() => handleTabChange('payroll-config')}
             >
               <DollarIcon size={16} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
-              <span className={currentTab === 'payroll-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>Payroll Settings</span>
+              <span className={currentTab === 'payroll-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'payroll-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Payroll Settings</span>
+                <span className="tab-label-short">Payroll</span>
+              </span>
             </button>
           )}
         </div>
@@ -1869,12 +1894,24 @@ function SettingsHubContent() {
 
         .settings-content-wrapper {
           min-height: auto;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
+        }
+
+        .tab-label-short {
+          display: none;
         }
 
         .settings-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
           gap: 24px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .settings-single-card {
@@ -2611,22 +2648,42 @@ function SettingsHubContent() {
           }
         }
 
+        @media (max-width: 768px) {
+          .settings-grid {
+            grid-template-columns: 1fr !important;
+            gap: 16px !important;
+          }
+        }
+
         @media (max-width: 480px) {
           .settings-panel-card {
-            padding: 12px 10px !important;
+            padding: 14px 12px !important;
           }
           .settings-tabs {
             flex-direction: row;
             overflow-x: auto;
             white-space: nowrap;
-            gap: 6px;
-            padding-bottom: 8px;
+            gap: 6px !important;
+            padding-bottom: 8px !important;
+            scroll-snap-type: x proximity;
+            scrollbar-width: none !important;
+          }
+          .settings-tabs::-webkit-scrollbar {
+            display: none !important;
           }
           .tab-link {
             width: auto;
             justify-content: flex-start;
-            padding: 7px 12px;
-            font-size: 0.8rem;
+            padding: 6px 12px !important;
+            font-size: 0.78rem !important;
+            gap: 6px !important;
+            scroll-snap-align: center;
+          }
+          .tab-label-full {
+            display: none !important;
+          }
+          .tab-label-short {
+            display: inline !important;
           }
           .billing-search-input {
             width: 100% !important;

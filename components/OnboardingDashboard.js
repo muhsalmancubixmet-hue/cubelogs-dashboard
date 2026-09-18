@@ -5,8 +5,30 @@ import { useApp } from '../context/AppContext';
 import { WarningIcon, CheckIcon } from './Icons';
 
 export default function OnboardingDashboard() {
-  const { completeOnboarding, logout } = useApp();
-  const [companyName, setCompanyName] = useState('');
+  const { completeOnboarding, logout, currentUser, switchOrganization } = useApp();
+  const availableMemberships = currentUser?.available_memberships || [];
+  const activeOrgId = currentUser?.active_organization?.id || currentUser?.organization;
+  const [switching, setSwitching] = useState(false);
+
+  const handleOrgSwitch = async (e) => {
+    const targetOrgId = e.target.value;
+    if (!targetOrgId || targetOrgId === String(activeOrgId)) return;
+    setSwitching(true);
+    try {
+      const res = await switchOrganization(targetOrgId);
+      if (res && res.success) {
+        window.location.reload();
+      } else {
+        alert(res?.message || 'Failed to switch organization');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  const [companyName, setCompanyName] = useState(currentUser?.active_organization?.name || '');
   const [logoBase64, setLogoBase64] = useState('');
   const [logoName, setLogoName] = useState('');
   const [mapsUrl, setMapsUrl] = useState('');
@@ -121,7 +143,37 @@ export default function OnboardingDashboard() {
     <div className="onboard-overlay">
       <div className="onboard-card">
         <header className="onboard-header">
-          <span className="logo-badge">📦 CubeLogs</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+            <span className="logo-badge">📦 CubeLogs</span>
+            {availableMemberships.length > 1 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Switch:</span>
+                <select
+                  value={String(activeOrgId)}
+                  onChange={handleOrgSwitch}
+                  disabled={switching}
+                  style={{
+                    background: '#1e293b',
+                    color: '#ffffff',
+                    border: '1.5px solid #3b82f6',
+                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    fontWeight: '600'
+                  }}
+                  aria-label="Switch Workspace"
+                >
+                  {availableMemberships.map(m => (
+                    <option key={m.id} value={String(m.organization_id)}>
+                      {m.organization_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
           <h1>Setup Your Organization</h1>
           <p className="subtitle">
             Welcome to CubeLogs. To fully unlock workspace tracking, configure your organization identity parameters below.

@@ -132,7 +132,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
     const primaryLoc = officeLocations.find(loc => loc.isPrimary) || officeLocations[0];
     const hasCustomLogo = !!brandLogo;
     const hasCustomLocation = primaryLoc && !(primaryLoc.name === 'Head Office' && primaryLoc.lat === 11.1143 && primaryLoc.lon === 76.2274);
-    const isProfileComplete = hasCustomLogo && hasCustomLocation;
+    const isProfileComplete = hasCustomLogo || hasCustomLocation;
 
     if (!isProfileComplete) {
       if (currentUser.isSuperAdmin) {
