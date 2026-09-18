@@ -1404,7 +1404,7 @@ function SettingsHubContent() {
       <div className="settings-container">
 
         {/* Settings Navigation Tabs */}
-        <div ref={tabNavRef} className="settings-tabs" style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingBottom: '12px', overflowX: 'auto', whiteSpace: 'nowrap', borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+        <div ref={tabNavRef} className="settings-tabs" style={{ borderBottom: '1.5px solid var(--border, #d2e0f5)', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           {hasTemplatesPerm && (
             <button
               type="button"
@@ -2653,37 +2653,54 @@ function SettingsHubContent() {
             grid-template-columns: 1fr !important;
             gap: 16px !important;
           }
-        }
-
-        @media (max-width: 480px) {
-          .settings-panel-card {
-            padding: 14px 12px !important;
-          }
           .settings-tabs {
-            flex-direction: row;
-            overflow-x: auto;
-            white-space: nowrap;
-            gap: 6px !important;
-            padding-bottom: 8px !important;
-            scroll-snap-type: x proximity;
-            scrollbar-width: none !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+            padding-bottom: 16px !important;
+            overflow-x: visible !important;
+            white-space: normal !important;
+            width: 100% !important;
+            border-bottom: 1.5px solid var(--border, #d2e0f5) !important;
           }
           .settings-tabs::-webkit-scrollbar {
             display: none !important;
           }
           .tab-link {
-            width: auto;
-            justify-content: flex-start;
-            padding: 6px 12px !important;
-            font-size: 0.78rem !important;
-            gap: 6px !important;
-            scroll-snap-align: center;
+            width: 100% !important;
+            min-height: 44px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 10px 8px !important;
+            font-size: 0.82rem !important;
+            gap: 8px !important;
+            box-sizing: border-box !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+            border-radius: 8px !important;
+          }
+          .tab-link span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
           .tab-label-full {
             display: none !important;
           }
           .tab-label-short {
             display: inline !important;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .settings-panel-card {
+            padding: 14px 12px !important;
+          }
+          .tab-link {
+            padding: 9px 6px !important;
+            font-size: 0.78rem !important;
+            gap: 6px !important;
           }
           .billing-search-input {
             width: 100% !important;
