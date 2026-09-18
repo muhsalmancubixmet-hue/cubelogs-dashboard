@@ -1220,6 +1220,7 @@ button[data-active-blue="true"] * {
   min-width: 0;
   width: 100%;
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 .main-content-inner {
@@ -1229,6 +1230,7 @@ button[data-active-blue="true"] * {
   padding: 0 32px;
   min-width: 0;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 body.sidebar-open {
@@ -2149,6 +2151,13 @@ h5 {
     min-width: 0;
     width: 100%;
     max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  @media (max-width: 480px) {
+    .main-content-inner {
+      padding: 0 12px;
+    }
   }
 
   .panel {
