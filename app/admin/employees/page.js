@@ -16,14 +16,50 @@ import {
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/context/AppContext';
 
+// Module-level client-side cache for employees
+let _employeesMemoryCache = null;
+
+function getCachedEmployees(orgId) {
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return null;
+  }
+  if (_employeesMemoryCache && (!orgId || _employeesMemoryCache.orgId === orgId)) {
+    return _employeesMemoryCache.list;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const storageKey = orgId ? `cubelogs_employees_${orgId}` : 'cubelogs_employees';
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          _employeesMemoryCache = { orgId, list: parsed };
+          return parsed;
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
 export default function Employees() {
   const router = useRouter();
   const { currentUser, authStatus } = useApp();
 
+  const orgKey = currentUser?.active_organization?.id || currentUser?.organization || '';
+  const initialCached = getCachedEmployees(orgKey);
+
   // Local states
-  const [employees, setEmployees] = useState([]);
-  const [employeePhotos, setEmployeePhotos] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState(() => initialCached || []);
+  const [employeePhotos, setEmployeePhotos] = useState(() => {
+    if (!initialCached) return {};
+    const photoMap = {};
+    initialCached.forEach(emp => {
+      if (emp.profilePhoto) photoMap[emp.id] = emp.profilePhoto;
+    });
+    return photoMap;
+  });
+  const [loading, setLoading] = useState(() => !initialCached || initialCached.length === 0);
   const [errorMsg, setErrorMsg] = useState('');
 
   // Server-Side Search Filter (State updates trigger refetch)
@@ -91,9 +127,12 @@ export default function Employees() {
     }
   };
 
-  const fetchEmployeesData = async () => {
+  const fetchEmployeesData = async (isSilent = false) => {
     if (authStatus !== 'authenticated') return;
-    setLoading(true);
+    const hasCache = Boolean(_employeesMemoryCache?.list?.length);
+    if (!isSilent && !hasCache && !searchQuery) {
+      setLoading(true);
+    }
     setErrorMsg('');
     try {
       const employeesData = await apiFetch(`/employees/?search=${encodeURIComponent(searchQuery)}`);
@@ -115,14 +154,18 @@ export default function Employees() {
       setEmployeePhotos(photoMap);
 
       // Cache employees list safely without large base64 data URLs
-      try {
-        const sanitizedForCache = mappedEmployees.map(emp => ({
-          ...emp,
-          profilePhoto: (typeof emp.profilePhoto === 'string' && emp.profilePhoto.startsWith('data:image/')) ? null : emp.profilePhoto
-        }));
-        localStorage.setItem('cubelogs_employees', JSON.stringify(sanitizedForCache));
-      } catch (e) {
-        console.warn('LocalStorage employee cache skipped:', e);
+      if (!searchQuery && typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
+        _employeesMemoryCache = { orgId: orgKey, list: mappedEmployees };
+        try {
+          const sanitizedForCache = mappedEmployees.map(emp => ({
+            ...emp,
+            profilePhoto: (typeof emp.profilePhoto === 'string' && emp.profilePhoto.startsWith('data:image/')) ? null : emp.profilePhoto
+          }));
+          const storageKey = orgKey ? `cubelogs_employees_${orgKey}` : 'cubelogs_employees';
+          localStorage.setItem(storageKey, JSON.stringify(sanitizedForCache));
+        } catch (e) {
+          console.warn('LocalStorage employee cache skipped:', e);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -132,14 +175,22 @@ export default function Employees() {
     }
   };
 
+  const isInitialMount = useRef(true);
   // Trigger main fetch when search query or auth status changes
   useEffect(() => {
-    if (authStatus === 'authenticated') {
-      const delayDebounce = setTimeout(() => {
-        fetchEmployeesData();
-      }, 300);
-      return () => clearTimeout(delayDebounce);
+    if (authStatus !== 'authenticated') return;
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const hasCache = Boolean(initialCached && initialCached.length > 0);
+      fetchEmployeesData(hasCache);
+      return;
     }
+
+    const delayDebounce = setTimeout(() => {
+      fetchEmployeesData(false);
+    }, 300);
+    return () => clearTimeout(delayDebounce);
   }, [searchQuery, authStatus]);
 
   const localDeleteEmployee = async (id) => {
