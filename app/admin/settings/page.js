@@ -296,9 +296,11 @@ function SettingsHubContent() {
   const tabNavRef = React.useRef(null);
   useEffect(() => {
     if (tabNavRef.current) {
-      const activeEl = tabNavRef.current.querySelector('[data-active-blue="true"]');
+      const container = tabNavRef.current;
+      const activeEl = container.querySelector('[data-active-blue="true"]');
       if (activeEl) {
-        activeEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        const scrollLeft = activeEl.offsetLeft - (container.offsetWidth / 2) + (activeEl.offsetWidth / 2);
+        container.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' });
       }
     }
   }, [currentTab]);
@@ -2654,36 +2656,38 @@ function SettingsHubContent() {
             gap: 16px !important;
           }
           .settings-tabs {
-            display: grid !important;
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 10px !important;
-            padding-bottom: 16px !important;
-            overflow-x: visible !important;
-            white-space: normal !important;
-            width: 100% !important;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 8px !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
+            padding: 4px 4px 12px 2px !important;
             border-bottom: 1.5px solid var(--border, #d2e0f5) !important;
+            width: 100% !important;
           }
           .settings-tabs::-webkit-scrollbar {
             display: none !important;
           }
           .tab-link {
-            width: 100% !important;
-            min-height: 44px !important;
-            display: flex !important;
+            flex: 0 0 auto !important;
+            width: auto !important;
+            height: 38px !important;
+            min-height: 38px !important;
+            display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            padding: 10px 8px !important;
+            padding: 0 16px !important;
             font-size: 0.82rem !important;
-            gap: 8px !important;
+            gap: 7px !important;
             box-sizing: border-box !important;
-            text-align: center !important;
             white-space: nowrap !important;
-            border-radius: 8px !important;
+            border-radius: 9999px !important;
           }
           .tab-link span {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            white-space: nowrap !important;
           }
           .tab-label-full {
             display: none !important;
@@ -2698,8 +2702,10 @@ function SettingsHubContent() {
             padding: 14px 12px !important;
           }
           .tab-link {
-            padding: 9px 6px !important;
-            font-size: 0.78rem !important;
+            height: 36px !important;
+            min-height: 36px !important;
+            padding: 0 13px !important;
+            font-size: 0.8rem !important;
             gap: 6px !important;
           }
           .billing-search-input {
