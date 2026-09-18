@@ -11,6 +11,7 @@ import BrandingTab from '@/components/admin/settings/BrandingTab';
 import BillingTab from '@/components/admin/settings/BillingTab';
 import AttendanceRulesTab from '@/components/admin/settings/AttendanceRulesTab';
 import PayrollSettingsTab from '@/components/admin/settings/PayrollSettingsTab';
+import StorageMediaSection from '@/components/admin/settings/StorageMediaSection';
 
 
 const FEATURE_LABELS = {
@@ -98,7 +99,8 @@ import {
   CloseIcon,
   ClockIcon,
   CameraIcon,
-  DollarIcon
+  DollarIcon,
+  FolderIcon
 } from '@/components/Icons';
 import ConfirmModal from '@/components/ConfirmModal';
 
@@ -252,6 +254,7 @@ function SettingsHubContent() {
   const hasLocationsPerm = !isUnpaid && hasPermission('locations:manage');
   const hasBrandingPerm = !isUnpaid && hasPermission('settings:branding');
   const hasBillingPerm = hasPermission('settings:billing');
+  const hasStoragePerm = hasBillingPerm;
   const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
   const hasPayrollConfigPerm = !isUnpaid && (currentUser?.isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPermission('payroll:view'));
 
@@ -263,8 +266,10 @@ function SettingsHubContent() {
     else if (hasLocationsPerm && isAttendanceEnabled) router.replace('/admin/settings?tab=locations');
     else if (hasBrandingPerm) router.replace('/admin/settings?tab=branding');
     else if (hasBillingPerm) router.replace('/admin/settings?tab=billing');
+    else if (hasStoragePerm) router.replace('/admin/settings?tab=storage');
+    else if (hasAttendanceConfigPerm) router.replace('/admin/settings?tab=attendance-config');
     else if (hasPayrollConfigPerm) router.replace('/admin/settings?tab=payroll-config');
-  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, router]);
+  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasStoragePerm, hasAttendanceConfigPerm, hasPayrollConfigPerm, router]);
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
@@ -282,12 +287,16 @@ function SettingsHubContent() {
       redirectToFirstAuthorized();
     } else if (currentTab === 'billing' && !hasBillingPerm) {
       redirectToFirstAuthorized();
+    } else if (currentTab === 'storage' && !hasStoragePerm) {
+      redirectToFirstAuthorized();
+    } else if (currentTab === 'attendance-config' && !hasAttendanceConfigPerm) {
+      redirectToFirstAuthorized();
     } else if (currentTab === 'payroll-config' && !hasPayrollConfigPerm) {
       redirectToFirstAuthorized();
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
     }
-  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, hasPayrollConfigPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
+  }, [currentTab, hasTemplatesPerm, hasLocationsPerm, hasBrandingPerm, hasBillingPerm, hasStoragePerm, hasAttendanceConfigPerm, hasPayrollConfigPerm, isAttendanceEnabled, router, isUnpaid, redirectToFirstAuthorized]);
 
   const handleTabChange = (tabName) => {
     router.push(`/admin/settings?tab=${tabName}`);
@@ -1532,6 +1541,38 @@ function SettingsHubContent() {
               </span>
             </button>
           )}
+          {hasStoragePerm && (
+            <button
+              type="button"
+              data-active-blue={currentTab === 'storage' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'storage' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'storage' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'storage' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'storage' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'storage' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
+              onClick={() => handleTabChange('storage')}
+            >
+              <FolderIcon size={16} style={{ color: currentTab === 'storage' ? '#ffffff' : '#2563eb', stroke: currentTab === 'storage' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'storage' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'storage' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Storage &amp; Media</span>
+                <span className="tab-label-short">Storage</span>
+              </span>
+            </button>
+          )}
           {hasAttendanceConfigPerm && (
             <button
               type="button"
@@ -1735,6 +1776,25 @@ function SettingsHubContent() {
               PLANS={PLANS}
               WalletIcon={WalletIcon}
             />
+          )}
+
+          {/* TAB: STORAGE & MEDIA CONTENT */}
+          {currentTab === 'storage' && hasStoragePerm && (
+            <div className="tab-content-pane active-tab-pane">
+              <div className="panel settings-panel-card" style={{ maxWidth: '1080px', margin: '0 auto' }}>
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 6px 0' }}>
+                    <FolderIcon size={20} style={{ color: 'var(--primary)' }} />
+                    <span>Storage &amp; Media</span>
+                  </h3>
+                  <p className="tab-desc" style={{ margin: 0 }}>
+                    View storage usage, billing credits, file activity, and daily history.
+                  </p>
+                </div>
+
+                <StorageMediaSection />
+              </div>
+            </div>
           )}
 
         </div>

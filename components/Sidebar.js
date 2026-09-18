@@ -294,8 +294,8 @@ const Sidebar = React.memo(function Sidebar() {
               )}
               {hasSettingsBilling && (
                 <Link
-                  href="/admin/storage"
-                  className={`sub-nav-link ${pathname === '/admin/storage' ? 'active' : ''}`}
+                  href="/admin/settings?tab=storage"
+                  className={`sub-nav-link ${(pathname === '/admin/settings' && activeTab === 'storage') || pathname === '/admin/storage' ? 'active' : ''}`}
                   onClick={handleNavLinkClick}
                 >
                   <span className="dot"></span>
