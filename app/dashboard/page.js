@@ -1433,6 +1433,55 @@ export default function Dashboard() {
           .clock-actions-row .btn {
             width: 100%;
           }
+          .metrics-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+            margin-bottom: 20px !important;
+          }
+          .metric-card {
+            padding: 12px 8px !important;
+            gap: 8px !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            border-radius: var(--radius-md) !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+          }
+          .metric-icon {
+            width: 36px !important;
+            height: 36px !important;
+            font-size: 1.1rem !important;
+            border-radius: var(--radius-sm) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 auto !important;
+          }
+          .metric-icon svg {
+            width: 18px !important;
+            height: 18px !important;
+          }
+          .metric-details {
+            width: 100% !important;
+            min-width: 0 !important;
+            text-align: center !important;
+          }
+          .metric-details h4 {
+            font-size: 0.72rem !important;
+            margin-bottom: 2px !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 100% !important;
+          }
+          .metric-details p {
+            font-size: 1.25rem !important;
+            font-weight: 700 !important;
+            margin: 0 !important;
+            line-height: 1.2 !important;
+          }
           .realtime-clock-display {
             padding: 8px 16px !important;
             font-size: 0.82rem !important;
