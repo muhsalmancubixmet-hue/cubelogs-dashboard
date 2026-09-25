@@ -201,7 +201,12 @@ function EmployeeProfileContent() {
         employeeId: String(log.employee)
       }));
       const mappedHolidays = unpack(holidaysData).map(h => ({ ...h, id: String(h.id) }));
-      const mappedSchedules = unpack(schedulesData).map(s => ({ ...s, id: String(s.id) }));
+      const mappedSchedules = unpack(schedulesData).map(s => ({
+        ...s,
+        id: String(s.id),
+        shiftStart: s.shiftStart || s.shift_start || '09:00',
+        shiftEnd: s.shiftEnd || s.shift_end || '17:00'
+      }));
 
       const photoMap = {};
       if (mappedEmployee.profilePhoto) {
@@ -494,22 +499,28 @@ function EmployeeProfileContent() {
 
   // Employee designation schedule configuration
   const rolesList = (employee?.designation || '').split(',').map(r => r.trim()).filter(Boolean);
-  const empSchedule = schedules?.find(s => rolesList.includes(s.designation)) || {
-    shiftStart: "09:00",
-    shiftEnd: "17:00"
+  const foundSchedule = schedules?.find(s => rolesList.includes(s.designation));
+  const empSchedule = {
+    shiftStart: foundSchedule?.shiftStart || foundSchedule?.shift_start || "09:00",
+    shiftEnd: foundSchedule?.shiftEnd || foundSchedule?.shift_end || "17:00"
   };
 
   const isLate = (clockInIso) => {
     if (!clockInIso) return false;
+    const shiftStart = empSchedule?.shiftStart || "09:00";
+    if (typeof shiftStart !== 'string' || !shiftStart.includes(':')) return false;
     const d = new Date(clockInIso);
+    if (isNaN(d.getTime())) return false;
     const inMin = d.getHours() * 60 + d.getMinutes();
-    const [startH, startM] = empSchedule.shiftStart.split(':').map(Number);
-    return inMin > (startH * 60 + startM);
+    const parts = shiftStart.split(':').map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
+    return inMin > (parts[0] * 60 + parts[1]);
   };
 
   const formatDateTimeLocal = (isoString) => {
     if (!isoString) return '';
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
     const tzOffset = date.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
     return localISOTime;
@@ -539,8 +550,10 @@ function EmployeeProfileContent() {
   };
 
   const formatTimeStr = (isoStr) => {
-    if (!isoStr) return '';
-    return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (!isoStr) return '--:--';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   const formatDurationStr = (logOrSecs, clockIn, clockOut) => {
@@ -1208,14 +1221,14 @@ function EmployeeProfileContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
+                    {monthLogs.filter(log => log && (!recentLogsSearchQuery || (log.date && String(log.date).includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase())))).length === 0 ? (
                       <tr>
                         <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
                           No attendance logs recorded matching search.
                         </td>
                       </tr>
                     ) : (
-                      monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
+                      monthLogs.filter(log => log && (!recentLogsSearchQuery || (log.date && String(log.date).includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase())))).map(log => {
                         const wasLate = isLate(log.clockIn);
                         return (
                           <tr key={log.id}>
