@@ -204,8 +204,8 @@ function AttendanceContent() {
     }
   };
 
-  const primaryPremises = officeLocations.find(loc => loc.isPrimary) || officeLocations[0] || { lat: 11.1143, lon: 76.2274 };
-  const officePremises = { lat: primaryPremises.lat, lon: primaryPremises.lon };
+  const primaryPremises = officeLocations.find(loc => loc.isPrimary) || officeLocations[0] || null;
+  const officePremises = primaryPremises ? { lat: primaryPremises.lat, lon: primaryPremises.lon } : null;
 
   // Sync session & cached data on mount
   useEffect(() => {
@@ -492,12 +492,12 @@ function AttendanceContent() {
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
-          const dist = getDistanceInMeters(lat, lon, officePremises.lat, officePremises.lon);
+          const dist = officePremises ? getDistanceInMeters(lat, lon, officePremises.lat, officePremises.lon) : 0;
           
           setVerifierLocation({ lat, lon });
           setVerifierDistance(dist);
 
-          if (dist > 100) {
+          if (officePremises && dist > 100) {
             reject(new Error(`Outside corporate premises. Distance: ${dist.toFixed(1)} meters. Validation requires being within 100 meters.`));
           } else {
             resolve({ lat, lon, dist });

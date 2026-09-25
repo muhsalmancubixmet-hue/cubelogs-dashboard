@@ -473,7 +473,7 @@ const isAuthDataEqual = (a, b) => {
 
 export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [officePremises, setOfficePremises] = useState({ lat: 11.1143, lon: 76.2274 });
+  const [officePremises, setOfficePremises] = useState(null);
   const [officeLocations, setOfficeLocations] = useState([]);
   const [brandLogo, setBrandLogo] = useState(null);
   const [companyName, setCompanyName] = useState('');
@@ -516,6 +516,8 @@ export function AppProvider({ children }) {
       if (locs.length > 0) {
         const primary = locs.find(loc => loc.isPrimary) || locs[0];
         setOfficePremises({ lat: primary.lat, lon: primary.lon });
+      } else {
+        setOfficePremises(null);
       }
 
       if (settingsData && typeof settingsData === 'object') {
@@ -915,7 +917,7 @@ export function AppProvider({ children }) {
     return verifyPayment({ razorpay_order_id: sessionId, payment_type: 'subscription' });
   }, [verifyPayment]);
 
-  const completeOnboarding = useCallback(async (companyName, logoBase64, lat, lon, defaultWeeklyHolidays = []) => {
+  const completeOnboarding = useCallback(async (companyName, logoBase64, lat = null, lon = null, defaultWeeklyHolidays = []) => {
     try {
       await organizationService.saveSettings({ 
         brandLogo: logoBase64, 
@@ -923,9 +925,11 @@ export function AppProvider({ children }) {
         default_weekly_holidays: defaultWeeklyHolidays
       });
 
-      await saveOfficeLocations([
-        { name: companyName, lat, lon, radius: 100.0, isPrimary: true }
-      ]);
+      if (lat !== null && lon !== null) {
+        await saveOfficeLocations([
+          { name: companyName, lat, lon, radius: 100.0, isPrimary: true }
+        ]);
+      }
 
       await fetchInitialData(currentUser);
     } catch (e) {

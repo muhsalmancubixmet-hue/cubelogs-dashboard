@@ -738,10 +738,10 @@ function SettingsHubContent() {
           navigator.geolocation.getCurrentPosition(
             resolve,
             reject,
-            { enableHighAccuracy: false, timeout: timeoutMs }
+            { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000 }
           );
         },
-        { enableHighAccuracy: true, timeout: timeoutMs }
+        { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 }
       );
     });
   };
