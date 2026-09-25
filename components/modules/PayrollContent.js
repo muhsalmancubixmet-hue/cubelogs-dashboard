@@ -29,8 +29,10 @@ import {
   ReceiptIcon,
   ActivityIcon,
   ShieldIcon,
+  BankIcon,
 } from '@/components/Icons';
 import PayslipModal from '@/components/PayslipModal';
+import BankExportModal from '@/components/BankExportModal';
 
 export default function PayrollContent() {
   const { currentUser, hasPermission } = useApp();
@@ -94,6 +96,7 @@ export default function PayrollContent() {
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [downloadingPdfId, setDownloadingPdfId] = useState(null);
   const [isExportingZip, setIsExportingZip] = useState(false);
+  const [showBankExportModal, setShowBankExportModal] = useState(false);
 
   // Payment Tracking Modal States
   const [showPayModal, setShowPayModal] = useState(false);
@@ -1256,6 +1259,20 @@ export default function PayrollContent() {
             >
               <DownloadIcon size={14} />
               <span>{isExportingZip ? 'Exporting ZIP...' : 'Export All Payslips (ZIP)'}</span>
+            </button>
+          )}
+
+          {isPayrollFinalized && (
+            <button
+              type="button"
+              className="btn btn-secondary banner-btn"
+              onClick={() => setShowBankExportModal(true)}
+              disabled={actionLoading || isExportingZip}
+              style={{ fontSize: '0.85rem', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', color: '#1d4ed8', borderColor: '#bfdbfe', background: '#eff6ff' }}
+              title="Generate bank-compatible salary payment disbursement file (HDFC, ICICI, SBI, Generic)"
+            >
+              <BankIcon size={14} />
+              <span>Export Bank File</span>
             </button>
           )}
 
@@ -2771,6 +2788,14 @@ export default function PayrollContent() {
         payslipData={selectedPayslipData}
         onDownloadPdf={handleDownloadAdminPdf}
         isDownloading={downloadingPdfId === (selectedPayslipData?.id || selectedPayslipData?.payslip_id)}
+      />
+
+      {/* BANK PAYMENT EXPORT MODAL */}
+      <BankExportModal
+        isOpen={showBankExportModal}
+        onClose={() => setShowBankExportModal(false)}
+        year={selectedYear}
+        month={selectedMonth}
       />
 
       <style jsx>{`

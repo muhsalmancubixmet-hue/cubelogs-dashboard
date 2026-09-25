@@ -104,39 +104,38 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
+  const fetchUserAttendance = useCallback(async () => {
     const loggedInEmpId = currentUser?.employeeId || currentUser?.id;
     if (!loggedInEmpId || !isAttendanceEnabled) {
       setUserAttendanceSummaries([]);
       return;
     }
 
-    const fetchUserAttendance = async () => {
-      try {
-        const y = typeof calendarYear === 'number' ? calendarYear : new Date().getFullYear();
-        const m = typeof calendarMonth === 'number' ? calendarMonth : new Date().getMonth();
-        const validDate = new Date(y, m, 1);
-        const yearStr = validDate.getFullYear();
-        const monthStr = String(validDate.getMonth() + 1).padStart(2, '0');
-        const data = await apiFetch(`/attendance/daily-summary/?employee_id=${loggedInEmpId}&month=${yearStr}-${monthStr}`);
-        if (Array.isArray(data)) {
-          setUserAttendanceSummaries(data);
-        } else if (data && Array.isArray(data?.results)) {
-          setUserAttendanceSummaries(data.results);
-        } else {
-          setUserAttendanceSummaries([]);
-        }
-      } catch (err) {
-        const isPlanError = err?.message?.includes('subscription plan') || err?.message?.includes('403');
-        if (!isPlanError) {
-          console.warn('Failed to fetch user attendance summary for dashboard calendar:', err);
-        }
-        setUserAttendanceSummaries([]);
+    try {
+      const y = typeof calendarYear === 'number' ? calendarYear : new Date().getFullYear();
+      const m = typeof calendarMonth === 'number' ? calendarMonth : new Date().getMonth();
+      const validDate = new Date(y, m, 1);
+      const yearStr = validDate.getFullYear();
+      const monthStr = String(validDate.getMonth() + 1).padStart(2, '0');
+      const data = await apiFetch(`/attendance/daily-summary/?employee_id=${loggedInEmpId}&month=${yearStr}-${monthStr}`);
+      const rawList = Array.isArray(data) ? data : (data && Array.isArray(data?.results) ? data.results : []);
+      const normalized = rawList.map(s => ({
+        ...s,
+        status: s.status || s.daily_status
+      }));
+      setUserAttendanceSummaries(normalized);
+    } catch (err) {
+      const isPlanError = err?.message?.includes('subscription plan') || err?.message?.includes('403');
+      if (!isPlanError) {
+        console.warn('Failed to fetch user attendance summary for dashboard calendar:', err);
       }
-    };
-
-    fetchUserAttendance();
+      setUserAttendanceSummaries([]);
+    }
   }, [currentUser?.id, currentUser?.employeeId, calendarYear, calendarMonth, isAttendanceEnabled]);
+
+  useEffect(() => {
+    fetchUserAttendance();
+  }, [fetchUserAttendance]);
 
   const handleCalendarMonthChange = (newYear, newMonth) => {
     setCalendarYear(newYear);
@@ -166,6 +165,8 @@ export default function Dashboard() {
   const [officeLocations, setOfficeLocations] = useState(() => cachedData?.officeLocations || []);
   const ciVideoRef = useRef(null);
   const ciLockRef = useRef(false);
+  const coLockRef = useRef(false);
+  const [isClockingOut, setIsClockingOut] = useState(false);
 
   // Attach camera stream to <video> element whenever ciStream changes
   useEffect(() => {
@@ -234,14 +235,18 @@ export default function Dashboard() {
     if (ciLockRef.current) return { success: false };
     ciLockRef.current = true;
     try {
+      const d = new Date();
+      const localToday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const responseLog = await apiFetch('/attendance/clock-in/', {
         method: 'POST',
-        body: JSON.stringify({ employeeId: parseInt(currentUser.id), verificationData }),
+        body: JSON.stringify({ employeeId: parseInt(currentUser.id), date: localToday, verificationData }),
       });
       setAttendanceLogs(prev => [
         { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) },
         ...prev
       ]);
+      await fetchDashboardData(true);
+      await fetchUserAttendance();
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message || 'Clock-in failed.' };
@@ -467,6 +472,9 @@ export default function Dashboard() {
   }, [currentUser, isAttendanceEnabled]);
 
   const handleClockOut = async (employeeId) => {
+    if (coLockRef.current) return;
+    coLockRef.current = true;
+    setIsClockingOut(true);
     setLoading(true);
     setError('');
     try {
@@ -474,12 +482,20 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ employeeId: parseInt(employeeId) }),
       });
-      await fetchDashboardData();
+      await fetchDashboardData(true);
+      await fetchUserAttendance();
     } catch (err) {
-      console.error(err);
-      setError(err.message || 'Clock-out failed');
+      if (err?.message && err.message.includes('No active clock-in session found')) {
+        await fetchDashboardData(true);
+        await fetchUserAttendance();
+      } else {
+        console.error(err);
+        setError(err.message || 'Clock-out failed');
+      }
     } finally {
       setLoading(false);
+      setIsClockingOut(false);
+      setTimeout(() => { coLockRef.current = false; }, 1000);
     }
   };
 
@@ -534,12 +550,25 @@ export default function Dashboard() {
   useEffect(() => {
     if (!currentUser) return;
 
-    // Find today's active log for this employee
+    // Find active log for this employee
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const log = attendanceLogs.find(
-      l => l.employeeId === currentUser.id && l.date === today && !l.clockOut
-    );
+    const log = attendanceLogs.find(l => {
+      const isMatch = (
+        String(l.employeeId || l.employee) === String(currentUser.id) ||
+        String(l.employeeId || l.employee) === String(currentUser.employeeId)
+      );
+      if (!isMatch || l.clockOut) return false;
+      if (l.date === today) return true;
+      if (l.clockIn) {
+        const inDate = new Date(l.clockIn);
+        const inDateLocal = `${inDate.getFullYear()}-${String(inDate.getMonth() + 1).padStart(2, '0')}-${String(inDate.getDate()).padStart(2, '0')}`;
+        if (inDateLocal === today) return true;
+        const diffHours = Math.abs(Date.now() - inDate.getTime()) / (1000 * 60 * 60);
+        if (diffHours < 24) return true;
+      }
+      return true;
+    });
 
     setActiveLog(log || null);
 
@@ -594,8 +623,8 @@ export default function Dashboard() {
   const showQuickNavigation = canOnboard || canManageTemplates || canAssignTasks || canApproveLeaves;
 
   // Filter staff objects
-  const myTasks = tasks.filter(t => t.assignedTo === currentUser?.id);
-  const myLeaves = leaves.filter(l => l.employeeId === currentUser?.id);
+  const myTasks = tasks.filter(t => String(t.assignedTo) === String(currentUser?.id));
+  const myLeaves = leaves.filter(l => String(l.employeeId) === String(currentUser?.id));
 
   // Sort and display the 3 most recent leaves
   const displayLeaves = isAdminView
@@ -1025,9 +1054,10 @@ export default function Dashboard() {
                                     <button 
                                       className={`btn ${isAvailable ? 'btn-danger' : 'btn-secondary'} full-width`} 
                                       onClick={() => handleClockOut(currentUser.id)}
-                                      style={{ opacity: isAvailable ? 1 : 0.85, cursor: 'pointer' }}
+                                      disabled={!isAvailable || isClockingOut}
+                                      style={{ opacity: isAvailable && !isClockingOut ? 1 : 0.85, cursor: isAvailable && !isClockingOut ? 'pointer' : 'not-allowed' }}
                                     >
-                                      {isAvailable ? 'Clock Out' : `Clock Out (Available in ${remM}:${remS})`}
+                                      {isClockingOut ? 'Clocking Out...' : (isAvailable ? 'Clock Out' : `Clock Out (Available in ${remM}:${remS})`)}
                                     </button>
                                     {!isAvailable && (
                                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -1048,6 +1078,7 @@ export default function Dashboard() {
                           <DashboardCalendar
                             holidays={holidays}
                             attendanceSummaries={userAttendanceSummaries}
+                            activeLog={activeLog}
                             onMonthChange={handleCalendarMonthChange}
                           />
                         </div>

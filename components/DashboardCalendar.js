@@ -7,6 +7,7 @@ import { HolidaysIcon } from './Icons';
 export default function DashboardCalendar({
   holidays = [],
   attendanceSummaries = [],
+  activeLog = null,
   onMonthChange,
   initialDate,
   year: propYear,
@@ -43,7 +44,7 @@ export default function DashboardCalendar({
   const getAttendanceTint = (statusKey) => {
     if (!statusKey) return null;
     const key = String(statusKey).trim();
-    if (key === 'Present') return '#f0fdf4';
+    if (key === 'Present' || key === 'In Progress' || key === 'Active') return '#f0fdf4';
     if (key === 'Absent') return '#fff1f2';
     if (key === 'Late') return '#fffbeb';
     if (key === 'Half Day') return '#eef2ff';
@@ -51,6 +52,29 @@ export default function DashboardCalendar({
     if (key === 'Not Started' || key === 'Pending') return '#f8fafc';
     if (key === 'Needs Review' || key === 'Incomplete') return '#fff7ed';
     return null;
+  };
+
+  const getDayAttendanceInfo = (d) => {
+    if (!d) return { status: null, isActiveSession: false, attSummary: null };
+    const dateStr = formatDateISO(year, month, d);
+    const attSummary = (attendanceSummaries || []).find(s => s.date === dateStr);
+    
+    // Check if activeLog falls on this day
+    let isActiveSession = false;
+    if (activeLog && !activeLog.clockOut) {
+      if (activeLog.date === dateStr) {
+        isActiveSession = true;
+      } else if (activeLog.clockIn) {
+        const inD = new Date(activeLog.clockIn);
+        const inStr = formatDateISO(inD.getFullYear(), inD.getMonth(), inD.getDate());
+        if (inStr === dateStr) {
+          isActiveSession = true;
+        }
+      }
+    }
+
+    const rawStatus = isActiveSession ? 'In Progress' : (attSummary?.status || attSummary?.daily_status || null);
+    return { status: rawStatus, isActiveSession, attSummary };
   };
 
   const getHolidayData = (d) => {
@@ -79,15 +103,14 @@ export default function DashboardCalendar({
 
   const getCellTooltipData = (d) => {
     if (!d) return null;
-    const dateStr = formatDateISO(year, month, d);
     const holidayData = getHolidayData(d);
-    const attSummary = (attendanceSummaries || []).find(s => s.date === dateStr);
+    const { status: attStatus, isActiveSession } = getDayAttendanceInfo(d);
     const dateObj = new Date(year, month, d);
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const isFutureDay = dateObj > todayStart;
 
-    const hasAtt = !isFutureDay && attSummary && attSummary.status && attSummary.status !== 'Upcoming';
+    const hasAtt = (isActiveSession || !isFutureDay) && attStatus && attStatus !== 'Upcoming';
 
     if (!holidayData && !hasAtt) return null;
 
@@ -104,7 +127,16 @@ export default function DashboardCalendar({
       title = dateFormatted;
     }
 
-    const attStatusLabel = hasAtt ? (attSummary.status === 'Not Started' ? 'Pending' : attSummary.status) : null;
+    let attStatusLabel = null;
+    if (hasAtt) {
+      if (attStatus === 'In Progress') {
+        attStatusLabel = 'Clocked In (Active Session)';
+      } else if (attStatus === 'Not Started') {
+        attStatusLabel = 'Pending';
+      } else {
+        attStatusLabel = attStatus;
+      }
+    }
 
     return {
       primary: { name: title, description: desc },
@@ -170,13 +202,13 @@ export default function DashboardCalendar({
   const renderDay = (dayNum, isToday, isBlank) => {
     if (isBlank || !dayNum) return null;
     const holidayData = getHolidayData(dayNum);
-    const dateStr = formatDateISO(year, month, dayNum);
-    const attSummary = (attendanceSummaries || []).find(s => s.date === dateStr);
+    const { status: attStatus, isActiveSession, attSummary } = getDayAttendanceInfo(dayNum);
 
     const dateObj = new Date(year, month, dayNum);
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const isFutureDay = dateObj > todayStart;
+    const hasAtt = (isActiveSession || !isFutureDay) && attStatus && attStatus !== 'Upcoming';
 
     let cellStyle = {
       borderRadius: 'var(--radius-sm)',
@@ -209,18 +241,34 @@ export default function DashboardCalendar({
         dotBg = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
         dotBorder = '#3b82f6';
       }
-    } else if (!isFutureDay && attSummary && attSummary.status) {
-      const tint = getAttendanceTint(attSummary.status);
+
+      // If user worked or has active session on a holiday / weekly off
+      if (hasAtt) {
+        if (attStatus === 'In Progress') {
+          cellStyle.border = '2px solid #10b981';
+          cellStyle.background = 'linear-gradient(135deg, #fef2f2 35%, #ecfdf5 100%)';
+        } else if (attStatus === 'Present' || attStatus === 'Late' || attStatus === 'Half Day') {
+          cellStyle.border = '1.5px solid #10b981';
+          cellStyle.background = 'linear-gradient(135deg, #fef2f2 35%, #f0fdf4 100%)';
+        }
+      }
+    } else if (hasAtt) {
+      const tint = getAttendanceTint(attStatus);
       if (tint) {
         cellStyle.background = tint;
       }
     }
 
     if (isToday) {
-      cellStyle.border = '2px solid var(--primary)';
-      if (!holidayData) {
-        const tint = (!isFutureDay && attSummary?.status) ? getAttendanceTint(attSummary.status) : null;
-        cellStyle.background = tint || 'rgba(96, 165, 250, 0.05)';
+      if (attStatus === 'In Progress') {
+        cellStyle.border = '2px solid #10b981';
+        cellStyle.boxShadow = '0 0 0 1px #10b981';
+      } else {
+        cellStyle.border = '2px solid var(--primary)';
+        if (!holidayData) {
+          const tint = hasAtt ? getAttendanceTint(attStatus) : null;
+          cellStyle.background = tint || 'rgba(96, 165, 250, 0.05)';
+        }
       }
     }
 
@@ -232,8 +280,8 @@ export default function DashboardCalendar({
       if (holidayData) {
         label += `. ${holidayData.primary.name}`;
       }
-      if (!isFutureDay && attSummary && attSummary.status && attSummary.status !== 'Upcoming') {
-        const displayStatus = attSummary.status === 'Not Started' ? 'Pending' : attSummary.status;
+      if (hasAtt) {
+        const displayStatus = attStatus === 'In Progress' ? 'Clocked In (Active Session)' : (attStatus === 'Not Started' ? 'Pending' : attStatus);
         label += `. Attendance: ${displayStatus}`;
       }
       return label;
@@ -251,14 +299,29 @@ export default function DashboardCalendar({
         <span className="calendar-cell-day-num" style={{ fontSize: '0.74rem', fontWeight: '700', color: isToday ? 'var(--primary)' : 'var(--text-main)', lineHeight: 1 }}>
           {dayNum}
         </span>
-        {holidayData && (
-          <div className="calendar-cell-holiday-container" style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
-            <span className="calendar-cell-holiday-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', background: dotBg, border: `1px solid ${dotBorder}`, display: 'block' }}></span>
-            <span className={`calendar-cell-holiday-name holiday-text-${holidayData.type}`} style={{ fontSize: '0.62rem', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', display: 'none' }}>
-              {holidayData.primary.name}
-            </span>
-          </div>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
+          {holidayData && (
+            <div className="calendar-cell-holiday-container" style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%', overflow: 'hidden' }}>
+              <span className="calendar-cell-holiday-dot" style={{ width: '5px', height: '5px', borderRadius: '50%', background: dotBg, border: `1px solid ${dotBorder}`, display: 'block' }}></span>
+              <span className={`calendar-cell-holiday-name holiday-text-${holidayData.type}`} style={{ fontSize: '0.62rem', fontWeight: '600', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', display: 'none' }}>
+                {holidayData.primary.name}
+              </span>
+            </div>
+          )}
+          {hasAtt && attStatus === 'In Progress' && (
+            <span
+              title="Shift Active"
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                backgroundColor: '#10b981',
+                boxShadow: '0 0 0 2px #bbf7d0',
+                display: 'block'
+              }}
+            />
+          )}
+        </div>
       </div>
     );
   };

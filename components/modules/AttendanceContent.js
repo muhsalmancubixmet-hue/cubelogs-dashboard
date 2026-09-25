@@ -66,6 +66,7 @@ function AttendanceContent() {
 
   // Lock to prevent double-firing Clock-In API
   const clockingInProgress = useRef(false);
+  const clockingOutProgress = useRef(false);
 
   const fetchAttendanceData = async () => {
     if (!currentUser) return;
@@ -114,9 +115,11 @@ function AttendanceContent() {
     setVerifierError('');
 
     try {
+      const d = new Date();
+      const localToday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const responseLog = await apiFetch('/attendance/clock-in/', {
         method: 'POST',
-        body: JSON.stringify({ employeeId: parseInt(employeeId), verificationData }),
+        body: JSON.stringify({ employeeId: parseInt(employeeId), date: localToday, verificationData }),
       });
 
       setAttendanceLogs(prev => [
@@ -139,6 +142,8 @@ function AttendanceContent() {
   };
 
   const localClockOut = async (employeeId) => {
+    if (clockingOutProgress.current) return;
+    clockingOutProgress.current = true;
     setLoading(true);
     setErrorMsg('');
     try {
@@ -154,10 +159,15 @@ function AttendanceContent() {
       ));
       await fetchAttendanceData();
     } catch (err) {
-      console.warn('Clock-out error:', err.message);
-      setErrorMsg(err.message || 'Clock-out failed.');
+      if (err?.message && err.message.includes('No active clock-in session found')) {
+        await fetchAttendanceData();
+      } else {
+        console.warn('Clock-out error:', err.message);
+        setErrorMsg(err.message || 'Clock-out failed.');
+      }
     } finally {
       setLoading(false);
+      setTimeout(() => { clockingOutProgress.current = false; }, 1000);
     }
   };
 
@@ -362,9 +372,22 @@ function AttendanceContent() {
     if (!currentUser) return;
     const d = new Date();
     const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const log = attendanceLogs.find(
-      l => l.employeeId === currentUser.id && l.date === today && !l.clockOut
-    );
+    const log = attendanceLogs.find(l => {
+      const isMatch = (
+        String(l.employeeId || l.employee) === String(currentUser.id) ||
+        String(l.employeeId || l.employee) === String(currentUser.employeeId)
+      );
+      if (!isMatch || l.clockOut) return false;
+      if (l.date === today) return true;
+      if (l.clockIn) {
+        const inDate = new Date(l.clockIn);
+        const inDateLocal = `${inDate.getFullYear()}-${String(inDate.getMonth() + 1).padStart(2, '0')}-${String(inDate.getDate()).padStart(2, '0')}`;
+        if (inDateLocal === today) return true;
+        const diffHours = Math.abs(Date.now() - inDate.getTime()) / (1000 * 60 * 60);
+        if (diffHours < 24) return true;
+      }
+      return true;
+    });
     setActiveLog(log || null);
 
     if (timerRef.current) clearInterval(timerRef.current);
@@ -1356,17 +1379,17 @@ function AttendanceContent() {
                 </div>
               </>
             ) : (
-              <div className="panel admin-panel" style={{ width: '100%' }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="panel admin-panel monthly-grid-panel" style={{ width: '100%' }}>
+                <h3 className="monthly-grid-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <LeavesIcon size={20} style={{ color: 'var(--primary)' }} />
                   <span>Monthly Punch Directory Grid</span>
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '32px' }}>
+                <p className="monthly-grid-desc" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '32px' }}>
                   Track punch details of all employees grouped by month. Click an employee's name or any day cell to view customized logs.
                 </p>
 
                 {/* Filters */}
-                <div className="filters-row">
+                <div className="filters-row monthly-filters-row">
                   <div className="filter-group search-emp">
                     <label className="form-label" style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--primary-dark)' }}>Search Employee</label>
                     <div style={{ position: 'relative' }}>
@@ -1384,7 +1407,7 @@ function AttendanceContent() {
                     </div>
                   </div>
 
-                  <div className="filter-group">
+                  <div className="filter-group designation-sel">
                     <label className="form-label" style={{ fontWeight: '600', marginBottom: '8px', color: 'var(--primary-dark)' }}>Designation</label>
                     <select
                       className="form-input"
@@ -1430,14 +1453,14 @@ function AttendanceContent() {
                   <div className="filter-group action-btn">
                     <button
                       type="button"
-                      className="btn btn-secondary"
+                      className="btn btn-secondary reset-filters-btn"
                       onClick={() => {
                         setMonthSearch('');
                         setMonthDesignation('All');
                         setSelectedMonth(new Date().getMonth());
                         setSelectedYear(new Date().getFullYear());
                       }}
-                      style={{ height: '46px', width: '100%' }}
+                      style={{ width: '100%' }}
                     >
                       Reset Filters
                     </button>
@@ -1452,8 +1475,8 @@ function AttendanceContent() {
                         <th className="sticky-col">Employee</th>
                         {get30DayCalendar().map(day => (
                           <th key={day.dayNum} className="monthly-cell">
-                            <div style={{ fontSize: '0.8rem', fontWeight: '800' }}>Day {day.dayNum}</div>
-                            <div style={{ fontSize: '0.65rem', fontWeight: '500', opacity: 0.7, textTransform: 'none' }}>{day.weekday}</div>
+                            <div className="day-num-label" style={{ fontSize: '0.8rem', fontWeight: '800' }}>Day {day.dayNum}</div>
+                            <div className="day-weekday-label" style={{ fontSize: '0.65rem', fontWeight: '500', opacity: 0.7, textTransform: 'none' }}>{day.weekday}</div>
                           </th>
                         ))}
                       </tr>
@@ -1475,10 +1498,10 @@ function AttendanceContent() {
                                   type="button"
                                   className="link-btn-name"
                                   onClick={() => router.push(`/admin/employees/profile?id=${emp.id}`)}
-                                  style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0' }}
+                                  style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0', textAlign: 'left', width: '100%' }}
                                 >
-                                  <strong>{emp.name}</strong>
-                                  <span className="badge badge-info" style={{ fontSize: '0.65rem', width: 'fit-content' }}>
+                                  <strong className="emp-grid-name">{emp.name}</strong>
+                                  <span className="badge badge-info emp-grid-badge" style={{ fontSize: '0.65rem', width: 'fit-content' }}>
                                     {emp.designation}
                                   </span>
                                 </button>
@@ -2101,6 +2124,13 @@ function AttendanceContent() {
           padding: 16px 0;
         }
 
+        :root.dark td.sticky-col {
+          background: #1e293b !important;
+        }
+        :root.dark tr:hover td.sticky-col {
+          background: #334155 !important;
+        }
+
         @media (max-width: 768px) {
           .attendance-layout-grid {
             gap: 20px;
@@ -2120,6 +2150,7 @@ function AttendanceContent() {
             max-width: 100% !important;
             box-sizing: border-box !important;
             overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch;
           }
           .timers-display {
             flex-direction: column;
@@ -2187,6 +2218,122 @@ function AttendanceContent() {
             flex: 1 1 100% !important;
             min-width: 100% !important;
           }
+
+          /* Monthly Punch Directory Grid - Mobile Responsive */
+          .monthly-grid-panel {
+            padding: 14px 10px !important;
+          }
+          .monthly-grid-title {
+            font-size: 1.05rem !important;
+            margin-bottom: 12px !important;
+          }
+          .monthly-grid-desc {
+            display: none !important;
+          }
+          .monthly-filters-row {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            padding: 10px !important;
+            gap: 8px !important;
+            margin-bottom: 14px !important;
+          }
+          .monthly-filters-row .filter-group {
+            margin-bottom: 0 !important;
+          }
+          .monthly-filters-row .filter-group.search-emp,
+          .monthly-filters-row .filter-group.designation-sel {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+          }
+          .monthly-filters-row .filter-group.month-sel,
+          .monthly-filters-row .filter-group.year-sel {
+            flex: 1 1 calc(50% - 4px) !important;
+            min-width: 0 !important;
+          }
+          .monthly-filters-row .filter-group.action-btn {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            margin-top: 2px !important;
+          }
+          .monthly-filters-row .form-label {
+            font-size: 0.72rem !important;
+            margin-bottom: 4px !important;
+          }
+          .monthly-filters-row .form-input {
+            height: 34px !important;
+            padding: 6px 10px !important;
+            font-size: 0.8rem !important;
+          }
+          .monthly-filters-row .filter-group.search-emp input {
+            padding-left: 32px !important;
+          }
+          .monthly-filters-row .reset-filters-btn {
+            height: 34px !important;
+            padding: 6px 12px !important;
+            font-size: 0.78rem !important;
+          }
+
+          /* Table & Sticky Column & Cells Mobile Shrinking */
+          .monthly-grid-table .sticky-col {
+            width: 96px !important;
+            min-width: 96px !important;
+            max-width: 96px !important;
+            padding: 6px 4px !important;
+          }
+          .monthly-grid-table th.sticky-col {
+            font-size: 0.72rem !important;
+            padding: 6px 4px !important;
+          }
+          .emp-grid-name {
+            font-size: 0.68rem !important;
+            line-height: 1.15 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 88px !important;
+            display: block !important;
+          }
+          .emp-grid-badge {
+            font-size: 0.52rem !important;
+            padding: 1px 3px !important;
+            max-width: 88px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+            line-height: 1.1 !important;
+          }
+          .monthly-grid-table .monthly-cell {
+            min-width: 48px !important;
+            max-width: 58px !important;
+            padding: 4px 2px !important;
+          }
+          .day-num-label {
+            font-size: 0.64rem !important;
+            line-height: 1.1 !important;
+          }
+          .day-weekday-label {
+            font-size: 0.52rem !important;
+            line-height: 1.1 !important;
+          }
+          .monthly-grid-table .time-badge {
+            padding: 2px 2px !important;
+            gap: 1px !important;
+            border-radius: 3px !important;
+          }
+          .monthly-grid-table .time-in,
+          .monthly-grid-table .time-out {
+            font-size: 0.52rem !important;
+            line-height: 1.1 !important;
+            letter-spacing: -0.2px;
+          }
+          .monthly-grid-table .time-out-active {
+            font-size: 0.48rem !important;
+            padding: 0 2px !important;
+            line-height: 1.1 !important;
+          }
+          .monthly-grid-table .absent-cell {
+            font-size: 0.65rem !important;
+          }
         }
 
         @media (max-width: 350px) {
@@ -2208,6 +2355,40 @@ function AttendanceContent() {
           .shift-hours-details {
             padding: 10px 12px !important;
             gap: 8px !important;
+          }
+          .monthly-grid-panel {
+            padding: 8px 6px !important;
+          }
+          .monthly-grid-title {
+            font-size: 0.95rem !important;
+          }
+          .monthly-grid-table .sticky-col {
+            width: 82px !important;
+            min-width: 82px !important;
+            max-width: 82px !important;
+            padding: 4px 2px !important;
+          }
+          .emp-grid-name {
+            font-size: 0.62rem !important;
+            max-width: 76px !important;
+          }
+          .emp-grid-badge {
+            font-size: 0.48rem !important;
+            max-width: 76px !important;
+          }
+          .monthly-grid-table .monthly-cell {
+            min-width: 44px !important;
+            padding: 3px 1px !important;
+          }
+          .day-num-label {
+            font-size: 0.58rem !important;
+          }
+          .day-weekday-label {
+            font-size: 0.48rem !important;
+          }
+          .monthly-grid-table .time-in,
+          .monthly-grid-table .time-out {
+            font-size: 0.48rem !important;
           }
         }
       `}</style>

@@ -521,6 +521,17 @@ export const UnlockIcon = (props) => (
   </SvgBase>
 );
 
+export const BankIcon = (props) => (
+  <SvgBase {...props}>
+    <polygon points="12 2 2 7 22 7 12 2" />
+    <line x1="2" y1="21" x2="22" y2="21" />
+    <line x1="6" y1="7" x2="6" y2="18" />
+    <line x1="10" y1="7" x2="10" y2="18" />
+    <line x1="14" y1="7" x2="14" y2="18" />
+    <line x1="18" y1="7" x2="18" y2="18" />
+  </SvgBase>
+);
+
 
 
 
