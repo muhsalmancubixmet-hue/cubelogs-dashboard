@@ -123,74 +123,95 @@ export default function AttendanceCalendar({
       {/* Monthly Summary Metric Strip */}
       <div className="attendance-summary-cards">
         <div className="summary-card metric-present">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><CheckIcon size={14} /></span>
+            <span className="summary-label">Present</span>
+          </div>
           <span className="summary-value">{metrics.present}</span>
-          <span className="summary-label">Present</span>
         </div>
         <div className="summary-card metric-half">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><ClockIcon size={14} /></span>
+            <span className="summary-label">Half Days</span>
+          </div>
           <span className="summary-value">{metrics.halfDays}</span>
-          <span className="summary-label">Half Days</span>
         </div>
         <div className="summary-card metric-leave">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><LeavesIcon size={14} /></span>
+            <span className="summary-label">Approved Leave</span>
+          </div>
           <span className="summary-value">{metrics.leaves}</span>
-          <span className="summary-label">Approved Leave</span>
         </div>
         <div className="summary-card metric-late">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><ClockIcon size={14} /></span>
+            <span className="summary-label">Late Arrivals</span>
+          </div>
           <span className="summary-value">{metrics.late}</span>
-          <span className="summary-label">Late Arrivals</span>
         </div>
         <div className="summary-card metric-absent">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><DeclineIcon size={14} /></span>
+            <span className="summary-label">Absences</span>
+          </div>
           <span className="summary-value">{metrics.absent}</span>
-          <span className="summary-label">Absences</span>
         </div>
         {metrics.needsReview > 0 && (
           <div className="summary-card metric-review">
+            <div className="summary-card-header">
+              <span className="summary-icon-badge"><WarningIcon size={14} /></span>
+              <span className="summary-label">Needs Review</span>
+            </div>
             <span className="summary-value">{metrics.needsReview}</span>
-            <span className="summary-label">Needs Review</span>
           </div>
         )}
         <div className="summary-card metric-payable">
+          <div className="summary-card-header">
+            <span className="summary-icon-badge"><CalendarIcon size={14} /></span>
+            <span className="summary-label">Payable Units</span>
+          </div>
           <span className="summary-value">{metrics.payableUnits}</span>
-          <span className="summary-label">Payable Units</span>
         </div>
       </div>
 
-      {/* Enterprise Visual Status Legend */}
+      {/* Enterprise Visual Status Legend with Colorful Chips */}
       <div className="attendance-calendar-legend">
-        <div className="legend-item">
-          <CheckIcon size={14} style={{ color: '#16a34a' }} />
+        <div className="legend-item legend-present">
+          <CheckIcon size={13} style={{ color: '#16a34a' }} />
           <span className="legend-label">Present</span>
         </div>
-        <div className="legend-item">
-          <DeclineIcon size={14} style={{ color: '#dc2626' }} />
+        <div className="legend-item legend-absent">
+          <DeclineIcon size={13} style={{ color: '#dc2626' }} />
           <span className="legend-label">Absent</span>
         </div>
-        <div className="legend-item">
-          <ClockIcon size={14} style={{ color: '#d97706' }} />
+        <div className="legend-item legend-late">
+          <ClockIcon size={13} style={{ color: '#d97706' }} />
           <span className="legend-label">Late</span>
         </div>
-        <div className="legend-item">
-          <ClockIcon size={14} style={{ color: '#4f46e5' }} />
+        <div className="legend-item legend-half">
+          <ClockIcon size={13} style={{ color: '#4f46e5' }} />
           <span className="legend-label">Half Day</span>
         </div>
-        <div className="legend-item">
-          <LeavesIcon size={14} style={{ color: '#9333ea' }} />
+        <div className="legend-item legend-leave">
+          <LeavesIcon size={13} style={{ color: '#9333ea' }} />
           <span className="legend-label">Leave</span>
         </div>
-        <div className="legend-item">
-          <HolidaysIcon size={14} style={{ color: '#d97706' }} />
+        <div className="legend-item legend-holiday">
+          <HolidaysIcon size={13} style={{ color: '#d97706' }} />
           <span className="legend-label">Holiday</span>
         </div>
-        <div className="legend-item">
-          <CalendarIcon size={14} style={{ color: '#64748b' }} />
+        <div className="legend-item legend-off">
+          <CalendarIcon size={13} style={{ color: '#64748b' }} />
           <span className="legend-label">Weekly Off</span>
         </div>
-        <div className="legend-item">
-          <ClockIcon size={14} style={{ color: '#475569' }} />
+        <div className="legend-item legend-pending">
+          <ClockIcon size={13} style={{ color: '#475569' }} />
           <span className="legend-label">Pending</span>
         </div>
         {metrics.needsReview > 0 && (
-          <div className="legend-item">
-            <WarningIcon size={14} style={{ color: '#ea580c' }} />
+          <div className="legend-item legend-review">
+            <WarningIcon size={13} style={{ color: '#ea580c' }} />
             <span className="legend-label">Needs Review</span>
           </div>
         )}

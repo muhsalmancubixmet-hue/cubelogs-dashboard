@@ -26,7 +26,9 @@ import {
   CloseIcon,
   CameraIcon,
   CalendarIcon,
-  AuditIcon
+  AuditIcon,
+  DollarIcon,
+  BankIcon
 } from '@/components/Icons';
 
 function EmployeeProfileContent() {
@@ -59,6 +61,97 @@ function EmployeeProfileContent() {
 
   // Profile photo upload ref (in-place)
   const photoInputRef = useRef(null);
+
+  // Bank Details Edit Modal States
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [editBankName, setEditBankName] = useState('');
+  const [editAccountNumber, setEditAccountNumber] = useState('');
+  const [editIfscCode, setEditIfscCode] = useState('');
+  const [editAccountHolderName, setEditAccountHolderName] = useState('');
+  const [editBankBranch, setEditBankBranch] = useState('');
+  const [editUpiId, setEditUpiId] = useState('');
+  const [bankModalSubmitting, setBankModalSubmitting] = useState(false);
+  const [bankModalError, setBankModalError] = useState('');
+  const [bankModalSuccess, setBankModalSuccess] = useState('');
+
+  const handleOpenBankModal = () => {
+    if (!employee) return;
+    setEditBankName(employee.bank_name || '');
+    setEditAccountNumber(employee.account_number || '');
+    setEditIfscCode(employee.ifsc_code || '');
+    setEditAccountHolderName(employee.account_holder_name || employee.name || '');
+    setEditBankBranch(employee.bank_branch || '');
+    setEditUpiId(employee.upi_id || '');
+    setBankModalError('');
+    setBankModalSuccess('');
+    setShowBankModal(true);
+  };
+
+  const handleSaveBankDetails = async (e) => {
+    e.preventDefault();
+    if (!employee) return;
+    setBankModalSubmitting(true);
+    setBankModalError('');
+    setBankModalSuccess('');
+    try {
+      const cleanAcc = editAccountNumber.replace(/[\s-]/g, '').trim();
+      const cleanIfsc = editIfscCode.trim().toUpperCase();
+      const payload = {
+        bank_name: editBankName.trim(),
+        account_number: cleanAcc,
+        ifsc_code: cleanIfsc,
+        account_holder_name: editAccountHolderName.trim() || employee.name || '',
+        bank_branch: editBankBranch.trim(),
+        upi_id: editUpiId.trim(),
+      };
+      const updated = await apiFetch(`/employees/${employee.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      setEmployee(prev => ({ ...prev, ...updated, id: String(updated.id) }));
+      setBankModalSuccess('Bank account details updated successfully.');
+      setTimeout(() => {
+        setShowBankModal(false);
+        setBankModalSuccess('');
+      }, 1200);
+    } catch (err) {
+      console.error('Failed to update bank details:', err);
+      setBankModalError(err.message || 'Failed to update bank details.');
+    } finally {
+      setBankModalSubmitting(false);
+    }
+  };
+
+  // Shortcut Navigation State (Default to Salary & Compensation section)
+  const [activeSection, setActiveSection] = useState('section-salary');
+
+  const scrollToSection = (sectionId) => {
+    setActiveSection(sectionId);
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const sectionIds = ['section-tasks', 'section-salary', 'section-attendance'];
+      const scrollPos = window.scrollY + 140;
+      for (const id of sectionIds) {
+        const el = document.getElementById(id);
+        if (el) {
+          const top = el.offsetTop;
+          const height = el.offsetHeight;
+          if (scrollPos >= top && scrollPos < top + height) {
+            setActiveSection(id);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
@@ -108,7 +201,12 @@ function EmployeeProfileContent() {
         employeeId: String(log.employee)
       }));
       const mappedHolidays = unpack(holidaysData).map(h => ({ ...h, id: String(h.id) }));
-      const mappedSchedules = unpack(schedulesData).map(s => ({ ...s, id: String(s.id) }));
+      const mappedSchedules = unpack(schedulesData).map(s => ({
+        ...s,
+        id: String(s.id),
+        shiftStart: s.shiftStart || s.shift_start || '09:00',
+        shiftEnd: s.shiftEnd || s.shift_end || '17:00'
+      }));
 
       const photoMap = {};
       if (mappedEmployee.profilePhoto) {
@@ -401,25 +499,38 @@ function EmployeeProfileContent() {
 
   // Employee designation schedule configuration
   const rolesList = (employee?.designation || '').split(',').map(r => r.trim()).filter(Boolean);
-  const empSchedule = schedules?.find(s => rolesList.includes(s.designation)) || {
-    shiftStart: "09:00",
-    shiftEnd: "17:00"
+  const foundSchedule = schedules?.find(s => rolesList.includes(s.designation));
+  const empSchedule = {
+    shiftStart: foundSchedule?.shiftStart || foundSchedule?.shift_start || "09:00",
+    shiftEnd: foundSchedule?.shiftEnd || foundSchedule?.shift_end || "17:00"
   };
 
   const isLate = (clockInIso) => {
     if (!clockInIso) return false;
+    const shiftStart = empSchedule?.shiftStart || "09:00";
+    if (typeof shiftStart !== 'string' || !shiftStart.includes(':')) return false;
     const d = new Date(clockInIso);
+    if (isNaN(d.getTime())) return false;
     const inMin = d.getHours() * 60 + d.getMinutes();
-    const [startH, startM] = empSchedule.shiftStart.split(':').map(Number);
-    return inMin > (startH * 60 + startM);
+    const parts = shiftStart.split(':').map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return false;
+    return inMin > (parts[0] * 60 + parts[1]);
   };
 
   const formatDateTimeLocal = (isoString) => {
     if (!isoString) return '';
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
     const tzOffset = date.getTimezoneOffset() * 60000;
     const localISOTime = (new Date(date.getTime() - tzOffset)).toISOString().slice(0, 16);
     return localISOTime;
+  };
+
+  const handleStartOverride = (log) => {
+    if (!log) return;
+    setEditingLog(log);
+    setEditClockIn(formatDateTimeLocal(log.clockIn));
+    setEditClockOut(log.clockOut ? formatDateTimeLocal(log.clockOut) : '');
   };
 
   const handleSaveOverride = (e) => {
@@ -439,8 +550,10 @@ function EmployeeProfileContent() {
   };
 
   const formatTimeStr = (isoStr) => {
-    if (!isoStr) return '';
-    return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    if (!isoStr) return '--:--';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   const formatDurationStr = (logOrSecs, clockIn, clockOut) => {
@@ -484,6 +597,10 @@ function EmployeeProfileContent() {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     return `${hrs}h ${mins}m`;
+  };
+
+  const calculateDuration = (clockIn, clockOut) => {
+    return formatDurationStr(null, clockIn, clockOut);
   };
 
   // Full selected month logs (sorted newest first)
@@ -692,14 +809,109 @@ function EmployeeProfileContent() {
                   </span>
                 </div>
               </div>
+              <div className="detail-item">
+                <span className="icon" style={{ display: 'flex', color: 'var(--primary)' }}>
+                  <BankIcon size={18} />
+                </span>
+                <div className="text">
+                  <span className="label">Bank Account</span>
+                  {employee.account_number ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginTop: '2px' }}>
+                      <span className="val" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                        {employee.bank_name ? `${employee.bank_name} ` : ''}•••• {employee.account_number.slice(-4)}
+                      </span>
+                      {employee.ifsc_code && (
+                        <span className="badge badge-info" style={{ margin: 0, padding: '1px 6px', fontSize: '0.72rem', letterSpacing: '0.04em' }}>
+                          {employee.ifsc_code}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="badge badge-warning" style={{ margin: '2px 0 0', padding: '2px 8px', fontSize: '0.75rem', color: '#b45309', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
+                      Bank Details Missing
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Full-width Horizontal Navigation Strip (Blue buttons with white text) */}
+          <div className="profile-fullwidth-nav-bar">
+            <div className="fullwidth-nav-scroll">
+              {canViewSalary && (
+                <button
+                  type="button"
+                  className={`fullwidth-nav-btn ${activeSection === 'section-salary' ? 'active' : ''}`}
+                  onClick={() => scrollToSection('section-salary')}
+                >
+                  <DollarIcon size={16} />
+                  <span>Salary & Compensation Structure</span>
+                </button>
+              )}
+
+              {isAttendanceEnabled && (
+                <button
+                  type="button"
+                  className={`fullwidth-nav-btn ${activeSection === 'section-attendance' ? 'active' : ''}`}
+                  onClick={() => scrollToSection('section-attendance')}
+                >
+                  <ClockIcon size={16} />
+                  <span>Attendance History</span>
+                </button>
+              )}
+
+              {isProjectEnabled && (
+                <button
+                  type="button"
+                  className={`fullwidth-nav-btn ${activeSection === 'section-tasks' ? 'active' : ''}`}
+                  onClick={() => scrollToSection('section-tasks')}
+                >
+                  <TasksIcon size={16} />
+                  <span>Recent Project Tasks</span>
+                </button>
+              )}
+
+              {isAttendanceEnabled && (
+                <button
+                  type="button"
+                  className="fullwidth-nav-btn"
+                  onClick={() => setShowMonthlyModal(true)}
+                >
+                  <CalendarIcon size={16} />
+                  <span>Full Month Ledger</span>
+                </button>
+              )}
+
+              {/* Mobile-only metrics chips */}
+              <div className="mobile-only-metrics">
+                {isProjectEnabled && (
+                  <div className="mobile-metric-chip">
+                    <TasksIcon size={14} />
+                    <span>Tasks: <strong>{completedTasks}/{empTasks.length} ({taskCompletionRate}%)</strong></span>
+                  </div>
+                )}
+                {isAttendanceEnabled && (
+                  <>
+                    <div className="mobile-metric-chip">
+                      <LeavesIcon size={14} />
+                      <span>Leaves: <strong>{approvedLeavesCount} Approved</strong></span>
+                    </div>
+                    <div className="mobile-metric-chip">
+                      <ClockIcon size={14} />
+                      <span>Total Days Work: <strong>{totalClockIns} Days</strong></span>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Card Right: Analytics & Permissions list */}
           <div className="right-panels-wrapper">
             
-            {/* Stats Metrics row */}
-            <div className="metrics-grid">
+            {/* Stats Metrics row (Desktop) */}
+            <div className="metrics-grid desktop-metrics-grid">
               {isProjectEnabled && (
                 <div className="metric-card">
                   <span className="metric-icon" style={{ display: 'flex', alignItems: 'center' }}>
@@ -738,7 +950,7 @@ function EmployeeProfileContent() {
 
             {/* List of Recent Tasks assigned */}
             {isProjectEnabled && (
-              <div className="panel recent-tasks-panel">
+              <div id="section-tasks" className="panel recent-tasks-panel" style={{ scrollMarginTop: '80px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <TasksIcon size={20} style={{ color: 'var(--primary)' }} />
@@ -783,16 +995,88 @@ function EmployeeProfileContent() {
 
         {/* Salary & Compensation Management Section */}
         {canViewSalary && (
-          <SalaryCompensationTab 
-            employeeId={employee?.id} 
-            employeeName={displayName} 
-            canManage={canManageSalary} 
-          />
+          <div id="section-salary" style={{ scrollMarginTop: '80px' }}>
+            <SalaryCompensationTab 
+              employeeId={employee?.id} 
+              employeeName={displayName} 
+              canManage={canManageSalary} 
+            />
+
+            {/* Employee Bank Account Details Summary Card */}
+            <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
+                  <BankIcon size={20} style={{ color: 'var(--primary, #0284c7)' }} />
+                  <span>Bank Account &amp; Disbursement Details</span>
+                </h3>
+                {canManageSalary && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleOpenBankModal}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <EditIcon size={13} />
+                    <span>{employee.account_number ? 'Edit Bank Details' : 'Configure Bank Account'}</span>
+                  </button>
+                )}
+              </div>
+
+              {employee.account_number ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Bank Name</span>
+                    <strong style={{ fontSize: '0.95rem' }}>{employee.bank_name || '—'}</strong>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Account Number</span>
+                    <strong style={{ fontSize: '0.95rem', fontFamily: 'monospace' }}>
+                      {canManageSalary ? employee.account_number : `•••• •••• •••• ${employee.account_number.slice(-4)}`}
+                    </strong>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>IFSC Code</span>
+                    <strong style={{ fontSize: '0.95rem', fontFamily: 'monospace', letterSpacing: '0.05em' }}>{employee.ifsc_code || '—'}</strong>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Account Holder</span>
+                    <strong style={{ fontSize: '0.95rem' }}>{employee.account_holder_name || employee.name || '—'}</strong>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Bank Branch</span>
+                    <strong style={{ fontSize: '0.95rem' }}>{employee.bank_branch || '—'}</strong>
+                  </div>
+                  <div style={{ padding: '12px 16px', background: 'var(--bg-app)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>UPI ID / VPA</span>
+                    <strong style={{ fontSize: '0.95rem' }}>{employee.upi_id || '—'}</strong>
+                  </div>
+                </div>
+              ) : (
+                <div className="alert-box alert-box-warning" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', padding: '14px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <WarningIcon size={20} style={{ color: '#b45309' }} />
+                    <span style={{ fontSize: '0.85rem' }}>
+                      No bank details configured. This employee cannot be included in automated bank payout files until account and IFSC details are added.
+                    </span>
+                  </div>
+                  {canManageSalary && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handleOpenBankModal}
+                    >
+                      + Add Bank Account
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Attendance History Container with Segmented View Control */}
         {isAttendanceEnabled && (
-          <div className="panel daily-logs-container" style={{ marginTop: '24px' }}>
+          <div id="section-attendance" className="panel daily-logs-container" style={{ marginTop: '24px', scrollMarginTop: '80px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                 <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -937,14 +1221,14 @@ function EmployeeProfileContent() {
                     </tr>
                   </thead>
                   <tbody>
-                    {monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).length === 0 ? (
+                    {monthLogs.filter(log => log && (!recentLogsSearchQuery || (log.date && String(log.date).includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase())))).length === 0 ? (
                       <tr>
                         <td colSpan={hasPermission('attendance:admin') ? 6 : 5} className="no-tasks-text" style={{ padding: '30px 0', textAlign: 'center' }}>
                           No attendance logs recorded matching search.
                         </td>
                       </tr>
                     ) : (
-                      monthLogs.filter(log => !recentLogsSearchQuery || (log.date && log.date.includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase()))).map(log => {
+                      monthLogs.filter(log => log && (!recentLogsSearchQuery || (log.date && String(log.date).includes(recentLogsSearchQuery)) || (log.clockIn && formatTimeStr(log.clockIn).toLowerCase().includes(recentLogsSearchQuery.toLowerCase())))).map(log => {
                         const wasLate = isLate(log.clockIn);
                         return (
                           <tr key={log.id}>
@@ -1035,6 +1319,125 @@ function EmployeeProfileContent() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* FULL MONTH ATTENDANCE & LEAVE LEDGER MODAL OVERLAY */}
+        {/* EDIT BANK DETAILS MODAL */}
+        {showBankModal && (
+          <div className="modal-overlay" onClick={() => setShowBankModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%', padding: '24px' }}>
+              <button className="modal-close-btn" onClick={() => setShowBankModal(false)}>
+                <CloseIcon size={20} />
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                <BankIcon size={22} style={{ color: 'var(--primary)' }} />
+                <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Edit Bank Account Details</h3>
+              </div>
+
+              {bankModalSuccess && (
+                <div className="alert-box alert-box-success" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px' }}>
+                  <CheckIcon size={16} />
+                  <span>{bankModalSuccess}</span>
+                </div>
+              )}
+
+              {bankModalError && (
+                <div className="alert-box alert-box-danger" style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px' }}>
+                  <WarningIcon size={16} />
+                  <span>{bankModalError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveBankDetails}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>Bank Name</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. HDFC Bank, ICICI Bank, SBI"
+                      value={editBankName}
+                      onChange={(e) => setEditBankName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>Account Holder Name</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Legal name as per bank records"
+                      value={editAccountHolderName}
+                      onChange={(e) => setEditAccountHolderName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>Account Number</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. 50100123456789"
+                      value={editAccountNumber}
+                      onChange={(e) => setEditAccountNumber(e.target.value.replace(/[\s-]/g, ''))}
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>IFSC Code</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. HDFC0001234"
+                      maxLength={11}
+                      value={editIfscCode}
+                      onChange={(e) => setEditIfscCode(e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 11))}
+                      style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                      required
+                    />
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                      11 characters: 4 letters, 0, 6 alphanumeric (e.g. HDFC0001234)
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>Bank Branch &amp; City</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Indiranagar, Bengaluru"
+                      value={editBankBranch}
+                      onChange={(e) => setEditBankBranch(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.8rem', fontWeight: '600', marginBottom: '4px', display: 'block' }}>UPI ID / VPA (Optional)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. employee@okhdfcbank"
+                      value={editUpiId}
+                      onChange={(e) => setEditUpiId(e.target.value.trim())}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowBankModal(false)} disabled={bankModalSubmitting}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={bankModalSubmitting}>
+                    {bankModalSubmitting ? 'Saving...' : 'Save Bank Details'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 
@@ -1305,17 +1708,18 @@ function EmployeeProfileContent() {
           width: 100%;
           max-width: 100%;
           min-width: 0;
+          align-items: stretch;
         }
 
         .left-card {
           flex: 1;
           min-width: 300px;
+          order: 1;
           display: flex;
           flex-direction: column;
           align-items: center;
           padding: 32px 24px;
           text-align: center;
-          height: fit-content;
         }
 
         /* Wrapper makes the avatar circle clickable for in-place photo upload */
@@ -1421,12 +1825,157 @@ function EmployeeProfileContent() {
           word-break: break-all;
         }
 
+        /* Settings-style pill navigation bar */
+        .profile-fullwidth-nav-bar {
+          width: 100%;
+          flex: 1 1 100%;
+          order: 3;
+          background: transparent;
+          border: none;
+          border-bottom: 1.5px solid var(--border, #d2e0f5);
+          padding: 4px 0 12px 0;
+          margin: 4px 0 16px 0;
+          box-sizing: border-box;
+        }
+
+        :root.dark .profile-fullwidth-nav-bar {
+          border-bottom-color: #334155;
+        }
+
+        .fullwidth-nav-scroll {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+          padding: 2px 2px 4px 2px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        .fullwidth-nav-scroll::-webkit-scrollbar {
+          height: 3px;
+        }
+
+        .fullwidth-nav-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .fullwidth-nav-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
+        }
+
+        :root.dark .fullwidth-nav-scroll::-webkit-scrollbar-thumb {
+          background: #475569;
+        }
+
+        .fullwidth-nav-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 18px;
+          border-radius: 9999px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          font-family: inherit;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.15s ease;
+          outline: none;
+          flex-shrink: 0;
+          background-color: #ffffff;
+          color: #1e293b;
+          border: 1px solid #bfdbfe;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+
+        .fullwidth-nav-btn :global(svg) {
+          color: #2563eb;
+          stroke: #2563eb;
+          flex-shrink: 0;
+          transition: all 0.15s ease;
+        }
+
+        .fullwidth-nav-btn:hover {
+          background-color: #eff6ff;
+          border-color: #93c5fd;
+          color: #1d4ed8;
+          transform: translateY(-1px);
+        }
+
+        .fullwidth-nav-btn:hover :global(svg) {
+          color: #1d4ed8;
+          stroke: #1d4ed8;
+        }
+
+        .fullwidth-nav-btn.active {
+          background-color: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+        }
+
+        .fullwidth-nav-btn.active :global(svg) {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        :root.dark .fullwidth-nav-btn {
+          background-color: #1e293b;
+          color: #f1f5f9;
+          border-color: #334155;
+          box-shadow: none;
+        }
+
+        :root.dark .fullwidth-nav-btn :global(svg) {
+          color: #60a5fa;
+          stroke: #60a5fa;
+        }
+
+        :root.dark .fullwidth-nav-btn:hover {
+          background-color: rgba(37, 99, 235, 0.2);
+          border-color: #3b82f6;
+          color: #93c5fd;
+        }
+
+        :root.dark .fullwidth-nav-btn:hover :global(svg) {
+          color: #93c5fd;
+          stroke: #93c5fd;
+        }
+
+        :root.dark .fullwidth-nav-btn.active {
+          background-color: #2563eb !important;
+          border-color: #2563eb !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
+        }
+
+        :root.dark .fullwidth-nav-btn.active :global(svg) {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+
+        .mobile-only-metrics {
+          display: none;
+        }
+
         .right-panels-wrapper {
           flex: 2;
           min-width: 400px;
+          order: 2;
           display: flex;
           flex-direction: column;
           gap: 20px;
+        }
+
+        .recent-tasks-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 280px;
         }
 
         .metrics-grid {
@@ -1498,7 +2047,9 @@ function EmployeeProfileContent() {
           display: flex;
           flex-direction: column;
           gap: 10px;
-          max-height: 250px;
+          flex: 1;
+          min-height: 200px;
+          max-height: 420px;
           overflow-y: auto;
         }
 
@@ -1527,10 +2078,11 @@ function EmployeeProfileContent() {
         }
 
         .no-tasks-text {
-          font-size: 0.85rem;
+          font-size: 0.9rem;
           color: var(--text-light);
           text-align: center;
-          padding: 20px 0;
+          padding: 50px 0;
+          margin: auto 0;
         }
 
         /* Monthly ledger modal overrides & style additions */
@@ -1645,12 +2197,62 @@ function EmployeeProfileContent() {
         @media (max-width: 768px) {
           .profile-layout-grid {
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
           }
-          .left-card, .right-panels-wrapper {
+          .left-card {
+            order: 1 !important;
             min-width: 0 !important;
             width: 100% !important;
             flex: 1 1 100% !important;
+          }
+          .profile-fullwidth-nav-bar {
+            order: 2 !important;
+            padding: 4px 0 10px 0 !important;
+            margin: 0 0 10px 0 !important;
+            border-bottom: 1.5px solid var(--border, #d2e0f5) !important;
+          }
+          :root.dark .profile-fullwidth-nav-bar {
+            border-bottom-color: #334155 !important;
+          }
+          .fullwidth-nav-btn {
+            font-size: 0.8rem !important;
+            padding: 7px 14px !important;
+            gap: 6px !important;
+            border-radius: 9999px !important;
+          }
+          .right-panels-wrapper {
+            order: 3 !important;
+            min-width: 0 !important;
+            width: 100% !important;
+            flex: 1 1 100% !important;
+          }
+          .desktop-metrics-grid {
+            display: none !important;
+          }
+          .mobile-only-metrics {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 8px;
+            margin-left: 4px;
+            flex-shrink: 0;
+          }
+          .mobile-metric-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            background: #eff6ff;
+            color: #1e40af;
+            border: 1px solid #bfdbfe;
+            border-radius: 9999px;
+            font-size: 0.76rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+          }
+          :root.dark .mobile-metric-chip {
+            background: #0f172a;
+            color: #93c5fd;
+            border-color: #334155;
           }
           .modal-filters-row {
             flex-direction: column;

@@ -120,8 +120,8 @@ export default function OnboardingDashboard() {
       return;
     }
 
-    const lat = coordinates ? coordinates.lat : 11.1143;
-    const lon = coordinates ? coordinates.lon : 76.2274;
+    const lat = coordinates ? coordinates.lat : null;
+    const lon = coordinates ? coordinates.lon : null;
 
     setIsSubmitting(true);
     try {

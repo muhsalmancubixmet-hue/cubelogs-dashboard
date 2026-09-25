@@ -7,7 +7,8 @@ import PageWrapper from '@/components/PageWrapper';
 import { useApp } from '@/context/AppContext';
 import { apiFetch } from '@/lib/api/apiClient';
 import { formatCurrency } from '@/lib/currency';
-import { SearchIcon } from '@/components/Icons';
+import { SearchIcon, BankIcon } from '@/components/Icons';
+import BankExportModal from '@/components/BankExportModal';
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -90,6 +91,7 @@ function PayrollPaymentsContent() {
   const [showBulkPayModal, setShowBulkPayModal] = useState(false);
   const [showViewPaymentModal, setShowViewPaymentModal] = useState(false);
   const [viewPaymentTarget, setViewPaymentTarget] = useState(null);
+  const [showBankExportModal, setShowBankExportModal] = useState(false);
 
   // Form Fields
   const [payDate, setPayDate] = useState(new Date().toISOString().split('T')[0]);
@@ -533,6 +535,18 @@ function PayrollPaymentsContent() {
               <span className={`period-status-badge ${isPayrollFinalized ? 'status-finalized' : 'status-draft'}`}>
                 {pPeriod ? `Status: ${pPeriod.status}` : 'Status: Draft / Uncalculated'}
               </span>
+
+              {isPayrollFinalized && (
+                <button
+                  type="button"
+                  className="btn btn-secondary period-export-btn"
+                  onClick={() => setShowBankExportModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  <BankIcon size={16} />
+                  Export Bank File
+                </button>
+              )}
 
               {canProcess && isPayrollFinalized && paymentSummary.unpaid_employee_count > 0 && (
                 <button
@@ -1213,6 +1227,16 @@ function PayrollPaymentsContent() {
             </div>
           </div>
         )}
+
+        {/* Modal 4: Bank Export Modal */}
+        <BankExportModal
+          isOpen={showBankExportModal}
+          onClose={() => setShowBankExportModal(false)}
+          year={selectedYear}
+          month={selectedMonth}
+          defaultDebitAccount={orgSettings?.corporate_account_number || ''}
+          defaultBankTemplate={orgSettings?.corporate_bank_name?.toUpperCase()?.includes('HDFC') ? 'HDFC' : (orgSettings?.corporate_bank_name?.toUpperCase()?.includes('ICICI') ? 'ICICI' : (orgSettings?.corporate_bank_name?.toUpperCase()?.includes('SBI') ? 'SBI' : 'GENERIC_NEFT'))}
+        />
 
         {/* ========================================================================= */}
         {/* RESPONSIVE CSS STYLES (DOWN TO 320PX)                                     */}

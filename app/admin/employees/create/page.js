@@ -10,7 +10,8 @@ import {
   EmployeesIcon, 
   BackIcon, 
   EditIcon,
-  CameraIcon
+  CameraIcon,
+  BankIcon
 } from '@/components/Icons';
 
 function EmployeeCreateContent() {
@@ -32,6 +33,14 @@ function EmployeeCreateContent() {
   const [phone, setPhone] = useState('');
   const [designation, setDesignation] = useState('');
   const [profilePhoto, setProfilePhoto] = useState(null); // base64 data URI
+
+  // Bank & Disbursement fields
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [bankBranch, setBankBranch] = useState('');
+  const [upiId, setUpiId] = useState('');
 
   // Photo upload ref (profile)
   const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -142,6 +151,12 @@ function EmployeeCreateContent() {
           setUseDefault(emp.useDefaultPermissions);
           setCustomPermissions(emp.permissions || []);
           setProfilePhoto(photoMap[editId] || null);
+          setBankName(emp.bank_name || '');
+          setAccountNumber(emp.account_number || '');
+          setIfscCode(emp.ifsc_code || '');
+          setAccountHolderName(emp.account_holder_name || emp.name || '');
+          setBankBranch(emp.bank_branch || '');
+          setUpiId(emp.upi_id || '');
           setIsEditing(true);
         }
       }
@@ -280,6 +295,12 @@ function EmployeeCreateContent() {
     setProfilePhoto(null);
     setUseDefault(true);
     setCustomPermissions([]);
+    setBankName('');
+    setAccountNumber('');
+    setIfscCode('');
+    setAccountHolderName('');
+    setBankBranch('');
+    setUpiId('');
     setStatusModalOpen(false);
     setSavedWorker(null);
   };
@@ -355,6 +376,12 @@ function EmployeeCreateContent() {
       useDefaultPermissions: useDefault,
       permissions: customPermissions,
       profilePhoto: profilePhoto || null,
+      bank_name: bankName.trim(),
+      account_number: accountNumber.replace(/[\s-]/g, '').trim(),
+      ifsc_code: ifscCode.trim().toUpperCase(),
+      account_holder_name: accountHolderName.trim() || name.trim(),
+      bank_branch: bankBranch.trim(),
+      upi_id: upiId.trim(),
     };
 
     localSaveEmployee(employeeData);
@@ -589,6 +616,99 @@ function EmployeeCreateContent() {
                       })}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* STEP: Bank Account & Payment Details */}
+            <div className="step-section">
+              <span className="step-badge" style={{ backgroundColor: '#0284c7' }}>Payment</span>
+              <span className="step-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <BankIcon size={18} style={{ color: 'var(--primary, #0284c7)' }} />
+                <span>Bank Account &amp; Disbursement Details</span>
+              </span>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '16px', marginTop: '2px' }}>
+                Used for automated NEFT/RTGS salary payment export files and bank transfer reconciliation.
+              </p>
+
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-bank-name">Bank Name</label>
+                  <input
+                    id="emp-bank-name"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. HDFC Bank, ICICI Bank, State Bank of India"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-acc-holder">Account Holder Name</label>
+                  <input
+                    id="emp-acc-holder"
+                    type="text"
+                    className="form-input"
+                    placeholder="Full name as per bank records"
+                    value={accountHolderName}
+                    onChange={(e) => setAccountHolderName(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-acc-num">Account Number</label>
+                  <input
+                    id="emp-acc-num"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 50100123456789"
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value.replace(/[\s-]/g, ''))}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-ifsc">
+                    IFSC Code
+                  </label>
+                  <input
+                    id="emp-ifsc"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. HDFC0001234"
+                    maxLength={11}
+                    value={ifscCode}
+                    onChange={(e) => setIfscCode(e.target.value.toUpperCase().replace(/\s/g, '').slice(0, 11))}
+                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  />
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                    11 characters: 4 letters, 0, 6 alphanumeric (e.g., HDFC0001234)
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-branch">Bank Branch &amp; City</label>
+                  <input
+                    id="emp-branch"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Indiranagar Branch, Bengaluru"
+                    value={bankBranch}
+                    onChange={(e) => setBankBranch(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="emp-upi">UPI ID / VPA (Optional)</label>
+                  <input
+                    id="emp-upi"
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. employee@okhdfcbank"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value.trim())}
+                  />
                 </div>
               </div>
             </div>

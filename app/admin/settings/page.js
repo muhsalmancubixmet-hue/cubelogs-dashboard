@@ -12,6 +12,7 @@ import BillingTab from '@/components/admin/settings/BillingTab';
 import AttendanceRulesTab from '@/components/admin/settings/AttendanceRulesTab';
 import PayrollSettingsTab from '@/components/admin/settings/PayrollSettingsTab';
 import StorageMediaSection from '@/components/admin/settings/StorageMediaSection';
+import BankPaymentTab, { BankIcon } from '@/components/admin/settings/BankPaymentTab';
 
 
 const FEATURE_LABELS = {
@@ -257,6 +258,7 @@ function SettingsHubContent() {
   const hasStoragePerm = hasBillingPerm;
   const hasAttendanceConfigPerm = !isUnpaid && hasPermission('attendance:management_portal');
   const hasPayrollConfigPerm = !isUnpaid && (currentUser?.isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPermission('payroll:view'));
+  const hasBankConfigPerm = !isUnpaid && (currentUser?.isSuperAdmin || hasPermission('payroll:manage') || hasPermission('payroll:process') || hasPayrollConfigPerm);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
@@ -269,7 +271,8 @@ function SettingsHubContent() {
     else if (hasStoragePerm) router.replace('/admin/settings?tab=storage');
     else if (hasAttendanceConfigPerm) router.replace('/admin/settings?tab=attendance-config');
     else if (hasPayrollConfigPerm) router.replace('/admin/settings?tab=payroll-config');
-  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasStoragePerm, hasAttendanceConfigPerm, hasPayrollConfigPerm, router]);
+    else if (hasBankConfigPerm) router.replace('/admin/settings?tab=bank-config');
+  }, [hasTemplatesPerm, hasLocationsPerm, isAttendanceEnabled, hasBrandingPerm, hasBillingPerm, hasStoragePerm, hasAttendanceConfigPerm, hasPayrollConfigPerm, hasBankConfigPerm, router]);
 
   // Auto-redirect if trying to access unauthorized tab
   useEffect(() => {
@@ -292,6 +295,8 @@ function SettingsHubContent() {
     } else if (currentTab === 'attendance-config' && !hasAttendanceConfigPerm) {
       redirectToFirstAuthorized();
     } else if (currentTab === 'payroll-config' && !hasPayrollConfigPerm) {
+      redirectToFirstAuthorized();
+    } else if (currentTab === 'bank-config' && !hasBankConfigPerm) {
       redirectToFirstAuthorized();
     } else if (currentTab === 'wallet') {
       router.replace('/admin/settings?tab=billing');
@@ -425,6 +430,67 @@ function SettingsHubContent() {
       setPayrollConfigError(e.message || 'Failed to save payroll settings.');
     } finally {
       setPayrollConfigLoading(false);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // BANK PAYMENT CONFIG STATE & HANDLERS
+  // -------------------------------------------------------------
+  const [bankConfig, setBankConfig] = useState({
+    corporate_bank_name: '',
+    corporate_account_number: '',
+    corporate_ifsc_code: '',
+    corporate_account_holder_name: '',
+    corporate_bank_branch: '',
+    corporate_client_code: '',
+  });
+  const [bankConfigLoading, setBankConfigLoading] = useState(false);
+  const [bankConfigSuccess, setBankConfigSuccess] = useState('');
+  const [bankConfigError, setBankConfigError] = useState('');
+
+  useEffect(() => {
+    const loadBankConfig = async () => {
+      try {
+        const data = await apiFetch('/settings/current/');
+        setBankConfig({
+          corporate_bank_name: data.corporate_bank_name || '',
+          corporate_account_number: data.corporate_account_number || '',
+          corporate_ifsc_code: data.corporate_ifsc_code || '',
+          corporate_account_holder_name: data.corporate_account_holder_name || '',
+          corporate_bank_branch: data.corporate_bank_branch || '',
+          corporate_client_code: data.corporate_client_code || '',
+        });
+      } catch (e) {
+        console.warn('Could not load bank config:', e);
+      }
+    };
+    if (hasBankConfigPerm) loadBankConfig();
+  }, [hasBankConfigPerm]);
+
+  const handleSaveBankConfig = async (payload) => {
+    setBankConfigLoading(true);
+    setBankConfigError('');
+    setBankConfigSuccess('');
+    try {
+      const dataToSave = payload || bankConfig;
+      const updated = await apiFetch('/settings/current/', {
+        method: 'PATCH',
+        body: JSON.stringify(dataToSave),
+      });
+      setBankConfig({
+        corporate_bank_name: updated.corporate_bank_name || '',
+        corporate_account_number: updated.corporate_account_number || '',
+        corporate_ifsc_code: updated.corporate_ifsc_code || '',
+        corporate_account_holder_name: updated.corporate_account_holder_name || '',
+        corporate_bank_branch: updated.corporate_bank_branch || '',
+        corporate_client_code: updated.corporate_client_code || '',
+      });
+      setBankConfigSuccess('Corporate bank configuration saved successfully.');
+      setTimeout(() => setBankConfigSuccess(''), 4000);
+    } catch (err) {
+      setBankConfigError(err.message || 'Failed to save corporate bank configuration.');
+    } finally {
+      setBankConfigLoading(false);
     }
   };
 
@@ -672,10 +738,10 @@ function SettingsHubContent() {
           navigator.geolocation.getCurrentPosition(
             resolve,
             reject,
-            { enableHighAccuracy: false, timeout: timeoutMs }
+            { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 60000 }
           );
         },
-        { enableHighAccuracy: true, timeout: timeoutMs }
+        { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 }
       );
     });
   };
@@ -1637,6 +1703,38 @@ function SettingsHubContent() {
               </span>
             </button>
           )}
+          {hasBankConfigPerm && (
+            <button
+              type="button"
+              data-active-blue={currentTab === 'bank-config' ? 'true' : undefined}
+              className={`tab-link ${currentTab === 'bank-config' ? 'active active-blue-btn' : 'inactive-blue-pill'}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '9px 18px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                backgroundColor: currentTab === 'bank-config' ? '#2563eb' : '#ffffff',
+                color: currentTab === 'bank-config' ? '#ffffff' : '#2563eb',
+                border: currentTab === 'bank-config' ? '1px solid #2563eb' : '1px solid #bfdbfe',
+                boxShadow: currentTab === 'bank-config' ? '0 4px 12px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0, 0, 0, 0.04)',
+              }}
+              onClick={() => handleTabChange('bank-config')}
+            >
+              <BankIcon size={16} style={{ color: currentTab === 'bank-config' ? '#ffffff' : '#2563eb', stroke: currentTab === 'bank-config' ? '#ffffff' : '#2563eb', flexShrink: 0 }} />
+              <span className={currentTab === 'bank-config' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: currentTab === 'bank-config' ? '#ffffff' : '#2563eb', fontWeight: '600' }}>
+                <span className="tab-label-full">Bank Configuration</span>
+                <span className="tab-label-short">Bank</span>
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Tab Contents */}
@@ -1664,6 +1762,23 @@ function SettingsHubContent() {
               payrollConfigSuccess={payrollConfigSuccess}
               payrollConfigError={payrollConfigError}
               handleSavePayrollConfig={handleSavePayrollConfig}
+            />
+          )}
+
+          {/* TAB: BANK PAYMENT CONFIG */}
+          {currentTab === 'bank-config' && hasBankConfigPerm && (
+            <BankPaymentTab
+              settings={bankConfig}
+              onSave={handleSaveBankConfig}
+              loading={bankConfigLoading}
+              success={bankConfigSuccess}
+              error={bankConfigError}
+              bankConfig={bankConfig}
+              setBankConfig={setBankConfig}
+              bankConfigLoading={bankConfigLoading}
+              bankConfigSuccess={bankConfigSuccess}
+              bankConfigError={bankConfigError}
+              handleSaveBankConfig={handleSaveBankConfig}
             />
           )}
 

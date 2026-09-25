@@ -346,23 +346,23 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
   return (
     <div className="panel salary-compensation-panel" style={{ marginTop: '24px' }}>
       {/* Header Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+      <div className="salary-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ display: 'flex', color: 'var(--primary, #3b82f6)', backgroundColor: 'var(--primary-light, #eff6ff)', padding: '8px', borderRadius: '8px' }}>
+          <span className="salary-header-icon" style={{ display: 'flex', color: 'var(--primary, #3b82f6)', backgroundColor: 'var(--primary-light, #eff6ff)', padding: '8px', borderRadius: '8px' }}>
             <DollarIcon size={22} />
           </span>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>Salary & Compensation Structure</h3>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+            <h3 className="salary-panel-title" style={{ margin: 0, fontSize: '1.2rem', fontWeight: '700' }}>Salary & Compensation Structure</h3>
+            <p className="salary-panel-desc" style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
               Contractual salary package, allowances, deductions, and revision timeline.
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <div className="salary-header-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <Link
             href="/payroll/salaries"
-            className="btn btn-secondary btn-sm"
+            className="btn btn-secondary btn-sm salary-action-btn"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <span>View Salary Directory →</span>
@@ -371,7 +371,7 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
             <>
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
+                className="btn btn-secondary btn-sm salary-action-btn"
                 onClick={() => setShowCatalogModal(true)}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
@@ -380,7 +380,7 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
               </button>
               <button
                 type="button"
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary btn-sm salary-action-btn"
                 onClick={handleOpenAssignModal}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
@@ -426,7 +426,7 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
       ) : (
         <>
           {/* Active Structure KPI Grid */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <div className="salary-pay-basis-badge-row" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#64748b' }}>Pay Basis:</span>
             {active.compensation_type === 'HOURLY' ? (
               <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#fef3c7', color: '#92400e', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>
@@ -446,94 +446,94 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
             )}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div className="salary-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
             {active.compensation_type === 'HOURLY' ? (
               <>
-                <div style={{ padding: '16px 20px', backgroundColor: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hourly Wage Rate</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#92400e', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: '#fffbeb', borderRadius: '10px', border: '1px solid #fde68a' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hourly Wage Rate</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#92400e', marginTop: '4px' }}>
                     {formatCurrency(active.hourly_rate || 0, currency)} <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>/ hour</span>
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Allowances</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Allowances</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
                     {formatCurrency(active.gross_salary || 0, currency)}
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Deductions</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Deductions</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
                     -{formatCurrency(active.base_deductions || 0, currency)}
                   </div>
                 </div>
               </>
             ) : active.compensation_type === 'DAILY' ? (
               <>
-                <div style={{ padding: '16px 20px', backgroundColor: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Wage Rate</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0369a1', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: '#f0f9ff', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Daily Wage Rate</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#0369a1', marginTop: '4px' }}>
                     {formatCurrency(active.daily_rate || 0, currency)} <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>/ day</span>
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Allowances</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Allowances</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
                     {formatCurrency(active.gross_salary || 0, currency)}
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Deductions</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Deductions</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
                     -{formatCurrency(active.base_deductions || 0, currency)}
                   </div>
                 </div>
               </>
             ) : (
               <>
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gross Salary</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gross Salary</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
                     {formatCurrency(active.gross_salary || 0, currency)}
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Deductions</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Deductions</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#b91c1c', marginTop: '4px' }}>
                     -{formatCurrency(active.base_deductions || 0, currency)}
                   </div>
                 </div>
 
-                <div style={{ padding: '16px 20px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Base Net Salary</span>
-                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#15803d', marginTop: '4px' }}>
+                <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                  <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '700', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Base Net Salary</span>
+                  <div className="salary-kpi-val" style={{ fontSize: '1.4rem', fontWeight: '800', color: '#15803d', marginTop: '4px' }}>
                     {formatCurrency(active.base_net_salary || 0, currency)}
                   </div>
                 </div>
               </>
             )}
 
-            <div style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Effective From</span>
-              <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', marginTop: '6px' }}>
+            <div className="salary-kpi-card" style={{ padding: '16px 20px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderRadius: '10px', border: '1px solid var(--border-color, #e2e8f0)' }}>
+              <span className="salary-kpi-label" style={{ fontSize: '0.75rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Effective From</span>
+              <div className="salary-kpi-val" style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', marginTop: '6px' }}>
                 {active.effective_from}
               </div>
             </div>
           </div>
 
           {/* Component Breakdown Columns */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '28px' }}>
+          <div className="salary-breakdown-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', marginBottom: '28px' }}>
             {/* Earnings Table */}
-            <div style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
+            <div className="salary-breakdown-card" style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div className="salary-breakdown-header" style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
                 {active.compensation_type === 'HOURLY' || active.compensation_type === 'DAILY' ? 'Fixed Monthly Allowances' : 'Earnings Breakdown'}
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+              <table className="salary-breakdown-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                     <th style={{ padding: '10px 16px' }}>Component</th>
@@ -564,11 +564,11 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
             </div>
 
             {/* Deductions Table */}
-            <div style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
+            <div className="salary-breakdown-card" style={{ border: '1px solid var(--border-color, #e2e8f0)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div className="salary-breakdown-header" style={{ padding: '12px 16px', backgroundColor: 'var(--bg-card-nested, #f8fafc)', borderBottom: '1px solid var(--border-color, #e2e8f0)', fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #1e293b)' }}>
                 {active.compensation_type === 'HOURLY' || active.compensation_type === 'DAILY' ? 'Fixed Monthly Deductions' : 'Deductions Breakdown'}
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
+              <table className="salary-breakdown-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
                     <th style={{ padding: '10px 16px' }}>Component</th>
@@ -1541,6 +1541,81 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
           }
         }
 
+        @media (max-width: 768px) {
+          .salary-compensation-panel {
+            padding: 14px 12px !important;
+            margin-top: 16px !important;
+          }
+          .salary-header-row {
+            gap: 10px !important;
+            margin-bottom: 12px !important;
+          }
+          .salary-header-icon {
+            padding: 6px !important;
+          }
+          .salary-panel-title {
+            font-size: 1.05rem !important;
+          }
+          .salary-panel-desc {
+            display: none !important;
+          }
+          .salary-header-actions {
+            width: 100% !important;
+            gap: 6px !important;
+          }
+          .salary-action-btn {
+            font-size: 0.74rem !important;
+            padding: 6px 10px !important;
+            flex: 1 1 auto !important;
+            justify-content: center !important;
+          }
+          .salary-pay-basis-badge-row {
+            margin-bottom: 12px !important;
+            gap: 6px !important;
+            font-size: 0.78rem !important;
+          }
+          .salary-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px !important;
+            margin-bottom: 16px !important;
+          }
+          .salary-kpi-card {
+            padding: 10px 12px !important;
+            border-radius: 8px !important;
+          }
+          .salary-kpi-label {
+            font-size: 0.65rem !important;
+            letter-spacing: 0.02em !important;
+          }
+          .salary-kpi-val {
+            font-size: 1.05rem !important;
+            margin-top: 2px !important;
+          }
+          .salary-breakdown-grid {
+            grid-template-columns: 1fr !important;
+            gap: 14px !important;
+            margin-bottom: 20px !important;
+          }
+          .salary-breakdown-header {
+            padding: 8px 12px !important;
+            font-size: 0.82rem !important;
+          }
+          .salary-breakdown-table th,
+          .salary-breakdown-table td {
+            padding: 6px 8px !important;
+            font-size: 0.75rem !important;
+          }
+          .salary-compensation-panel .table-container {
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .salary-compensation-panel .data-table th,
+          .salary-compensation-panel .data-table td {
+            padding: 6px 8px !important;
+            font-size: 0.75rem !important;
+          }
+        }
+
         @media (max-width: 640px) {
           .salary-modal-overlay {
             padding: 8px !important;
@@ -1599,6 +1674,29 @@ export default function SalaryCompensationTab({ employeeId, employeeName, canMan
           }
           .salary-pay-basis-grid {
             grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 420px) {
+          .salary-compensation-panel {
+            padding: 12px 10px !important;
+          }
+          .salary-panel-title {
+            font-size: 0.98rem !important;
+          }
+          .salary-kpi-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 6px !important;
+          }
+          .salary-kpi-card {
+            padding: 8px 10px !important;
+          }
+          .salary-kpi-val {
+            font-size: 0.95rem !important;
+          }
+          .salary-action-btn {
+            font-size: 0.72rem !important;
+            padding: 5px 8px !important;
           }
         }
       `}</style>

@@ -18,11 +18,13 @@ export const ATTENDANCE_STATUS_CONFIG = {
     label: 'Present',
     shortLabel: 'Present',
     icon: CheckIcon,
-    accent: '#22c55e',
+    accent: '#16a34a',
     color: '#16a34a',
-    bg: '#fafffb',
+    bg: '#f0fdf4',
     iconBg: '#dcfce7',
-    border: '#e2e8f0',
+    badgeBg: '#dcfce7',
+    badgeText: '#15803d',
+    border: '#bbf7d0',
     semantic: 'success'
   },
   'Absent': {
@@ -31,9 +33,11 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: DeclineIcon,
     accent: '#ef4444',
     color: '#dc2626',
-    bg: '#fffafa',
-    iconBg: '#fef2f2',
-    border: '#e2e8f0',
+    bg: '#fef2f2',
+    iconBg: '#fee2e2',
+    badgeBg: '#fee2e2',
+    badgeText: '#b91c1c',
+    border: '#fecaca',
     semantic: 'danger'
   },
   'Late': {
@@ -42,20 +46,24 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: ClockIcon,
     accent: '#f59e0b',
     color: '#d97706',
-    bg: '#fffdf7',
+    bg: '#fffbeb',
     iconBg: '#fef3c7',
-    border: '#e2e8f0',
+    badgeBg: '#fef3c7',
+    badgeText: '#b45309',
+    border: '#fde68a',
     semantic: 'warning'
   },
   'Half Day': {
     label: 'Half Day',
-    shortLabel: 'Half',
+    shortLabel: 'Half Day',
     icon: ClockIcon,
     accent: '#6366f1',
     color: '#4f46e5',
-    bg: '#fafaff',
+    bg: '#eef2ff',
     iconBg: '#e0e7ff',
-    border: '#e2e8f0',
+    badgeBg: '#e0e7ff',
+    badgeText: '#4338ca',
+    border: '#c7d2fe',
     semantic: 'info'
   },
   'Leave': {
@@ -64,9 +72,11 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: LeavesIcon,
     accent: '#a855f7',
     color: '#9333ea',
-    bg: '#fdfaff',
+    bg: '#faf5ff',
     iconBg: '#f3e8ff',
-    border: '#e2e8f0',
+    badgeBg: '#f3e8ff',
+    badgeText: '#7e22ce',
+    border: '#e9d5ff',
     semantic: 'leave'
   },
   'Holiday': {
@@ -75,9 +85,11 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: HolidaysIcon,
     accent: '#f59e0b',
     color: '#d97706',
-    bg: '#fffdf7',
-    iconBg: '#fffbeb',
-    border: '#e2e8f0',
+    bg: '#fff7ed',
+    iconBg: '#ffedd5',
+    badgeBg: '#ffedd5',
+    badgeText: '#c2410c',
+    border: '#fed7aa',
     semantic: 'holiday'
   },
   'Weekly Off': {
@@ -88,6 +100,8 @@ export const ATTENDANCE_STATUS_CONFIG = {
     color: '#64748b',
     bg: '#f8fafc',
     iconBg: '#f1f5f9',
+    badgeBg: '#f1f5f9',
+    badgeText: '#475569',
     border: '#e2e8f0',
     semantic: 'muted'
   },
@@ -97,9 +111,11 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: ClockIcon,
     accent: '#0284c7',
     color: '#0369a1',
-    bg: '#f8fcff',
+    bg: '#f0f9ff',
     iconBg: '#e0f2fe',
-    border: '#e2e8f0',
+    badgeBg: '#e0f2fe',
+    badgeText: '#0369a1',
+    border: '#bae6fd',
     semantic: 'info'
   },
   'Incomplete': {
@@ -108,9 +124,11 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: WarningIcon,
     accent: '#f97316',
     color: '#ea580c',
-    bg: '#fffaf7',
+    bg: '#fff7ed',
     iconBg: '#ffedd5',
-    border: '#e2e8f0',
+    badgeBg: '#ffedd5',
+    badgeText: '#ea580c',
+    border: '#fed7aa',
     semantic: 'warning'
   },
   'Upcoming': {
@@ -121,6 +139,8 @@ export const ATTENDANCE_STATUS_CONFIG = {
     color: '#64748b',
     bg: '#ffffff',
     iconBg: 'transparent',
+    badgeBg: 'transparent',
+    badgeText: '#94a3b8',
     border: '#e2e8f0',
     semantic: 'muted'
   },
@@ -130,8 +150,10 @@ export const ATTENDANCE_STATUS_CONFIG = {
     icon: ClockIcon,
     accent: '#64748b',
     color: '#475569',
-    bg: '#fafbfc',
+    bg: '#f8fafc',
     iconBg: '#f1f5f9',
+    badgeBg: '#f1f5f9',
+    badgeText: '#475569',
     border: '#e2e8f0',
     semantic: 'muted'
   },
@@ -143,6 +165,8 @@ export const ATTENDANCE_STATUS_CONFIG = {
     color: '#94a3b8',
     bg: '#f8fafc',
     iconBg: '#f1f5f9',
+    badgeBg: '#f1f5f9',
+    badgeText: '#94a3b8',
     border: '#e2e8f0',
     semantic: 'muted'
   }

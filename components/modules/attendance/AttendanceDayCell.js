@@ -89,9 +89,9 @@ function AttendanceDayCell({
   let borderTopStyle = (!isUpcoming && statusCfg.accent && statusCfg.accent !== 'transparent')
     ? `2px solid ${statusCfg.accent}`
     : '1px solid #e2e8f0';
-  let borderRightStyle = '1px solid #e2e8f0';
-  let borderBottomStyle = '1px solid #e2e8f0';
-  let borderLeftStyle = '1px solid #e2e8f0';
+  let borderRightStyle = !isUpcoming && statusCfg.border ? `1px solid ${statusCfg.border}` : '1px solid #e2e8f0';
+  let borderBottomStyle = !isUpcoming && statusCfg.border ? `1px solid ${statusCfg.border}` : '1px solid #e2e8f0';
+  let borderLeftStyle = !isUpcoming && statusCfg.border ? `1px solid ${statusCfg.border}` : '1px solid #e2e8f0';
   let bgStyle = !isUpcoming && statusCfg.bg ? statusCfg.bg : '#ffffff';
   let boxShadowStyle = 'none';
 
@@ -122,8 +122,8 @@ function AttendanceDayCell({
       title={tooltipText}
       style={{
         minHeight: '88px',
-        padding: '9px 10px',
-        borderRadius: '6px',
+        padding: '8px 9px',
+        borderRadius: '7px',
         borderTop: borderTopStyle,
         borderRight: borderRightStyle,
         borderBottom: borderBottomStyle,
@@ -132,16 +132,16 @@ function AttendanceDayCell({
         boxShadow: boxShadowStyle,
         display: 'flex',
         flexDirection: 'column',
-        justify: 'space-between',
+        justifyContent: 'space-between',
         cursor: 'pointer',
-        transition: 'background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
+        transition: 'all 0.18s ease',
         boxSizing: 'border-box',
         position: 'relative',
         overflow: 'hidden'
       }}
     >
-      {/* 1st Row: Left-Aligned Day Number / Today Circular Badge */}
-      <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', width: '100%' }}>
+      {/* 1st Row: Left-Aligned Day Number / Today Circular Badge + Status Dot */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
         {isToday ? (
           <span
             className="day-num today-badge"
@@ -157,7 +157,8 @@ function AttendanceDayCell({
               justifyContent: 'center',
               fontSize: '12px',
               fontWeight: '700',
-              lineHeight: '1'
+              lineHeight: '1',
+              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)'
             }}
           >
             {dayNum}
@@ -169,15 +170,28 @@ function AttendanceDayCell({
               fontSize: '13px',
               fontWeight: '700',
               lineHeight: '1.2',
-              color: '#0f172a'
+              color: isUpcoming ? '#94a3b8' : '#0f172a'
             }}
           >
             {dayNum}
           </span>
         )}
+        {!isUpcoming && statusCfg.accent && statusCfg.accent !== 'transparent' && (
+          <span
+            className="status-corner-dot"
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: statusCfg.accent,
+              display: 'inline-block',
+              flexShrink: 0
+            }}
+          />
+        )}
       </div>
 
-      {/* 2nd Row: Inline Icon + Status Label (Rendered for ALL active statuses EXCEPT Upcoming/Not Employed) */}
+      {/* 2nd Row: Inline Icon + Status Label Badge (Refined harmonious pill) */}
       {!isUpcoming && (
         <div
           className="status-inline-row"
@@ -186,18 +200,23 @@ function AttendanceDayCell({
             alignItems: 'center',
             gap: '5px',
             fontWeight: '600',
-            fontSize: '11.5px',
-            color: '#334155',
-            margin: '2px 0',
+            fontSize: '11px',
+            color: statusCfg.badgeText || statusCfg.color,
+            background: statusCfg.badgeBg || statusCfg.iconBg,
+            border: `1px solid ${statusCfg.border || '#e2e8f0'}`,
+            padding: '2.5px 6px',
+            borderRadius: '4px',
+            margin: '3px 0 2px 0',
             width: '100%',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            boxSizing: 'border-box'
           }}
           title={statusCfg.label}
         >
-          <StatusIcon size={14} style={{ color: statusCfg.color, flexShrink: 0 }} />
-          <span className="status-label-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <StatusIcon size={13} style={{ color: statusCfg.color, flexShrink: 0 }} />
+          <span className="status-label-text" style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: '700' }}>
             {statusCfg.label}
           </span>
         </div>
@@ -209,9 +228,9 @@ function AttendanceDayCell({
           className="cell-duration-row"
           style={{
             fontSize: isLongText ? '10px' : '10.5px',
-            color: '#64748b',
+            color: '#475569',
             fontWeight: '500',
-            paddingLeft: '19px',
+            paddingLeft: '2px',
             minHeight: '16px',
             lineHeight: '1.25',
             ...(isLongText ? {
