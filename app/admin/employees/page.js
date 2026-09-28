@@ -271,6 +271,10 @@ export default function Employees() {
     router.push(`/admin/employees/profile?id=${empId}`);
   };
 
+  const handleEdit = (empId) => {
+    router.push(`/admin/employees/create?id=${empId}`);
+  };
+
   if (loading && !currentUser) {
     return (
       <PageWrapper title="Employee Directory Manager" requiredPermission="admin:employees">
@@ -423,7 +427,10 @@ export default function Employees() {
                           <button 
                             type="button"
                             className="btn btn-secondary btn-sm" 
-                            onClick={() => handleEdit(emp.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(emp.id);
+                            }}
                             style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}
                           >
                             <EditIcon size={13} />
