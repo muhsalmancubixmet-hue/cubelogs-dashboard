@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import PageWrapper from '@/components/PageWrapper';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -64,6 +64,28 @@ export default function Employees() {
 
   // Server-Side Search Filter (State updates trigger refetch)
   const [searchQuery, setSearchQuery] = useState('');
+  // Client-Side Status Filter
+  const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const filteredEmployees = useMemo(() => {
+    if (statusFilter === 'ALL') return employees;
+    const todayStr = new Date().toISOString().split('T')[0];
+    return employees.filter(emp => {
+      const status = emp.employment_status || (emp.is_active === false ? 'Deactivated' : 'Active');
+      const isNotice = (status === 'Resigned' || status === 'Terminated') && Boolean(emp.last_working_date && emp.last_working_date > todayStr);
+
+      if (statusFilter === 'Active') {
+        return status === 'Active';
+      }
+      if (statusFilter === 'Notice') {
+        return isNotice;
+      }
+      if (statusFilter === 'Inactive') {
+        return status === 'Deactivated' || ((status === 'Resigned' || status === 'Terminated') && !isNotice);
+      }
+      return true;
+    });
+  }, [employees, statusFilter]);
 
   const [confirmModal, setConfirmModal] = useState({ open: false, id: null });
   const [openActionMenuId, setOpenActionMenuId] = useState(null);
@@ -332,8 +354,8 @@ export default function Employees() {
             List of all registered employees and their template override statuses.
           </p>
 
-          {/* Interactive Search Bar */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', background: 'var(--primary-light)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)', flexWrap: 'wrap' }}>
+          {/* Interactive Search & Filter Bar */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', background: 'var(--primary-light)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--primary-border)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: 1, minWidth: '200px' }}>
               <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block', fontWeight: '600' }}>Search Registry</label>
               <input
@@ -344,6 +366,20 @@ export default function Employees() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+            </div>
+            <div style={{ minWidth: '190px' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block', fontWeight: '600' }}>Filter by Status</label>
+              <select
+                className="form-input"
+                style={{ padding: '6px 10px', fontSize: '0.82rem', height: '36px', backgroundColor: 'var(--bg-card, #ffffff)' }}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="ALL">All Statuses ({employees.length})</option>
+                <option value="Active">🟢 Active</option>
+                <option value="Inactive">🟡 Inactive / Resigned</option>
+                <option value="Notice">🟣 Notice Period</option>
+              </select>
             </div>
           </div>
 
@@ -360,8 +396,17 @@ export default function Employees() {
                 </tr>
               </thead>
               <tbody>
-                {employees.map(emp => {
-                  const status = emp.employment_status || (emp.is_active === false ? 'Deactivated' : 'Active');
+                {filteredEmployees.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No employees match the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredEmployees.map(emp => {
+                    const status = emp.employment_status || (emp.is_active === false ? 'Deactivated' : 'Active');
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const isNotice = (status === 'Resigned' || status === 'Terminated') && Boolean(emp.last_working_date && emp.last_working_date > todayStr);
                   return (
                     <tr key={emp.id} onClick={(e) => handleRowClick(e, emp.id)}>
                       <td>
@@ -408,10 +453,16 @@ export default function Employees() {
                         </div>
                       </td>
                       <td>
-                        {status === 'Active' && <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟢 Active</span>}
-                        {status === 'Deactivated' && <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟡 Deactivated</span>}
-                        {status === 'Terminated' && <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🔴 Terminated</span>}
-                        {status === 'Resigned' && <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed', border: '1px solid rgba(139, 92, 246, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟣 Resigned</span>}
+                        {isNotice ? (
+                          <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed', border: '1px solid rgba(139, 92, 246, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟣 Notice Period</span>
+                        ) : (
+                          <>
+                            {status === 'Active' && <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟢 Active</span>}
+                            {status === 'Deactivated' && <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#d97706', border: '1px solid rgba(245, 158, 11, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟡 Deactivated</span>}
+                            {status === 'Terminated' && <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🔴 Terminated</span>}
+                            {status === 'Resigned' && <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#7c3aed', border: '1px solid rgba(139, 92, 246, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>🟣 Resigned</span>}
+                          </>
+                        )}
                       </td>
                       <td>
                         {emp.isSuperAdmin ? (
@@ -676,7 +727,7 @@ export default function Employees() {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>

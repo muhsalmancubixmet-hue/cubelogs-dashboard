@@ -18,7 +18,11 @@ jest.mock('../../context/AppContext', () => ({
     },
     showAlert: jest.fn()
   }),
-  PERMISSION_FLAGS: []
+  PERMISSION_FLAGS: [
+    { id: 'dashboard:view', label: 'Dashboard Analytics' },
+    { id: 'employees:view', label: 'Manage Employee Page' },
+    { id: 'payroll:view', label: 'View Monthly Payroll' }
+  ]
 }));
 
 jest.mock('../../components/PageWrapper', () => {
@@ -113,5 +117,31 @@ describe('Personal Profile & API Endpoint Alignment Tests', () => {
     });
 
     expect(apiFetch).toHaveBeenCalledWith('/payroll/my-payslips/');
+  });
+
+  test('10. Configure Page Access Flags renders compact card, opens modal, filters by search, and closes', async () => {
+    const { fireEvent } = require('@testing-library/react');
+    render(<PersonalProfile />);
+
+    const configBtn = screen.getByRole('button', { name: /Configure Page Access Flags/i });
+    expect(configBtn).toBeTruthy();
+
+    expect(screen.queryByPlaceholderText('Search permissions by name...')).toBeNull();
+
+    fireEvent.click(configBtn);
+    expect(screen.getByPlaceholderText('Search permissions by name...')).toBeTruthy();
+    expect(screen.getByText('Dashboard Analytics')).toBeTruthy();
+    expect(screen.getByText('Manage Employee Page')).toBeTruthy();
+    expect(screen.getByText('View Monthly Payroll')).toBeTruthy();
+
+    const searchInput = screen.getByPlaceholderText('Search permissions by name...');
+    fireEvent.change(searchInput, { target: { value: 'Payroll' } });
+
+    expect(screen.getByText('View Monthly Payroll')).toBeTruthy();
+    expect(screen.queryByText('Dashboard Analytics')).toBeNull();
+
+    const closeBtn = screen.getByRole('button', { name: 'Close' });
+    fireEvent.click(closeBtn);
+    expect(screen.queryByPlaceholderText('Search permissions by name...')).toBeNull();
   });
 });

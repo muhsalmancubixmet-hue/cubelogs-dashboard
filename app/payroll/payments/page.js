@@ -66,6 +66,19 @@ function PayrollPaymentsContent() {
   const [selectedYear, setSelectedYear] = useState(defaultYear);
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
 
+  // Sync URL search params if changed dynamically
+  useEffect(() => {
+    if (!searchParams) return;
+    const y = parseInt(searchParams.get('year'), 10);
+    const m = parseInt(searchParams.get('month'), 10);
+    if (!isNaN(y) && y >= 2020 && y <= 2035) {
+      setSelectedYear(y);
+    }
+    if (!isNaN(m) && m >= 1 && m <= 12) {
+      setSelectedMonth(m);
+    }
+  }, [searchParams]);
+
   const [periodSummary, setPeriodSummary] = useState(null);
   const [employeeSnapshots, setEmployeeSnapshots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -376,8 +389,11 @@ function PayrollPaymentsContent() {
             </p>
           </div>
 
-          <div className="payments-header-actions">
-            <Link href="/payroll" className="btn btn-secondary back-to-payroll-btn">
+          <div className="payments-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Link href="/payroll/periods" className="btn btn-secondary back-to-payroll-btn" style={{ textDecoration: 'none' }}>
+              View All Months
+            </Link>
+            <Link href="/payroll" className="btn btn-secondary back-to-payroll-btn" style={{ textDecoration: 'none' }}>
               ← Back to Monthly Payroll
             </Link>
           </div>
@@ -527,6 +543,23 @@ function PayrollPaymentsContent() {
                     <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
+
+                <Link
+                  href="/payroll/periods"
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    padding: '5px 10px',
+                    fontSize: '0.8rem',
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="View All Months & Statements"
+                >
+                  View All
+                </Link>
               </div>
             </div>
 
@@ -712,6 +745,16 @@ function PayrollPaymentsContent() {
                           <td style={{ padding: '14px' }}>
                             <div style={{ fontWeight: '700', color: '#0f172a' }}>{snap.employee_name}</div>
                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{snap.designation || 'Staff'}</div>
+                            {snap.account_number ? (
+                              <div style={{ fontSize: '0.73rem', color: '#0369a1', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <BankIcon size={12} style={{ color: '#0284c7' }} />
+                                <span>{snap.bank_name || 'Bank'}: •••• {snap.account_number.slice(-4)} | {snap.ifsc_code}</span>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.72rem', color: '#dc2626', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span>⚠️ Incomplete Bank Details</span>
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '14px', fontWeight: '800', color: '#15803d', fontSize: '0.95rem' }}>
                             {formatCurrency(snap.net_payable, snap.currency || currency)}
@@ -778,6 +821,16 @@ function PayrollPaymentsContent() {
                         <div className="mp-emp-info">
                           <div className="mp-emp-name">{snap.employee_name}</div>
                           <div className="mp-emp-desig">{snap.designation || 'Staff'}</div>
+                          {snap.account_number ? (
+                            <div style={{ fontSize: '0.73rem', color: '#0369a1', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <BankIcon size={11} />
+                              <span>{snap.bank_name || 'Bank'}: •••• {snap.account_number.slice(-4)}</span>
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '3px' }}>
+                              <span>⚠️ Missing Bank Account</span>
+                            </div>
+                          )}
                         </div>
                         <div className="mp-badge-wrap">
                           {isPaid ? (

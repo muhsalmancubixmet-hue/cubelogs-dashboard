@@ -88,6 +88,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(() => !cachedData);
   const [hasInitialData, setHasInitialData] = useState(() => !!cachedData);
   const [error, setError] = useState('');
+  const [attendanceAlerts, setAttendanceAlerts] = useState({ pendingCount: 0, lateCount: 0 });
 
   // Dashboard corporate calendar logged-in user attendance state
   const [userAttendanceSummaries, setUserAttendanceSummaries] = useState(() => cachedData?.userAttendanceSummaries || []);
@@ -213,6 +214,35 @@ export default function Dashboard() {
       });
       setCiStream(stream); // useEffect above will attach it to the video element
     } catch {
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 640;
+          canvas.height = 480;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const grad = ctx.createLinearGradient(0, 0, 640, 480);
+            grad.addColorStop(0, '#1e293b');
+            grad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 640, 480);
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 22px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('CAMERA VERIFICATION ACTIVE', 320, 210);
+            ctx.font = '15px sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('Localhost Camera Snapshot', 320, 245);
+            ctx.fillText(`User: ${currentUser?.email || 'Employee'}`, 320, 275);
+            const mockPhoto = canvas.toDataURL('image/jpeg', 0.85);
+            setCiPhoto(mockPhoto);
+            setCiError('');
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
       setCiError('Camera access denied. Please allow camera permissions and try again.');
     } finally {
       setCiSubmitting(false);
@@ -241,14 +271,30 @@ export default function Dashboard() {
         method: 'POST',
         body: JSON.stringify({ employeeId: parseInt(currentUser.id), date: localToday, verificationData }),
       });
-      setAttendanceLogs(prev => [
-        { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) },
-        ...prev
-      ]);
+      const formattedLog = { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) };
+      setActiveLog(formattedLog);
+      setAttendanceLogs(prev => [formattedLog, ...prev]);
+      try {
+        if (currentUser?.id) {
+          sessionStorage.removeItem(`cubelogs_dashboard_cache_${currentUser.id}`);
+          _dashboardMemoryCache = null;
+        }
+      } catch (e) {}
       await fetchDashboardData(true);
       await fetchUserAttendance();
       return { success: true };
     } catch (err) {
+      if (err.message && err.message.toLowerCase().includes('already clocked in')) {
+        try {
+          if (currentUser?.id) {
+            sessionStorage.removeItem(`cubelogs_dashboard_cache_${currentUser.id}`);
+            _dashboardMemoryCache = null;
+          }
+        } catch (e) {}
+        await fetchDashboardData(true);
+        await fetchUserAttendance();
+        return { success: true, alreadyClockedIn: true };
+      }
       return { success: false, error: err.message || 'Clock-in failed.' };
     } finally {
       setTimeout(() => { ciLockRef.current = false; }, 1500);
@@ -265,7 +311,7 @@ export default function Dashboard() {
         photo,
         coords: ciLocation
           ? { lat: ciLocation.lat, lon: ciLocation.lon, distance: ciDistance, locationName: ciClosest?.name || 'Office' }
-          : { lat: 0, lon: 0, distance: 9999, locationName: 'Unknown' }
+          : { lat: 0, lon: 0, distance: 9999, locationName: 'Camera Fallback' }
       });
       if (result.success) { ciStopCamera(); setCiStep('success'); }
       else setCiError(result.error || 'Clock-in failed.');
@@ -286,8 +332,9 @@ export default function Dashboard() {
     setCiPhoto(null);
 
     if (!navigator.geolocation) {
-      setCiError('Geolocation is not supported by your browser.');
-      setCiStep('failed');
+      setCiError('Geolocation not supported. Please verify with a live camera photo.');
+      setCiStep('camera');
+      ciStartCamera('user');
       return;
     }
 
@@ -318,18 +365,14 @@ export default function Dashboard() {
         if (result.success) setCiStep('success');
         else { setCiError(result.error || 'Clock-in failed.'); setCiStep('failed'); }
       } else {
-        setCiError(`Outside geofence. Nearest office: ${closest?.name || 'Office'} (${minDist.toFixed(0)}m away, limit ${closest?.radius || 100}m).`);
-        setCiStep('failed');
+        setCiError(`Outside office geofence (${closest?.name || 'Office'}). Please verify with a live camera photo.`);
+        setCiStep('camera');
+        ciStartCamera('user');
       }
     } catch (err) {
-      const code = err.code;
-      setCiError(
-        code === 1 ? 'Location access denied. Please enable it in browser settings.' :
-          code === 2 ? 'Location unavailable. Check your GPS/network.' :
-            code === 3 ? 'Location timed out. Check your connection and try again.' :
-              `Location error: ${err.message}`
-      );
-      setCiStep('failed');
+      setCiError('Location unavailable. Please verify with a live camera photo.');
+      setCiStep('camera');
+      ciStartCamera('user');
     }
   };
 
@@ -395,8 +438,21 @@ export default function Dashboard() {
         : Promise.resolve([]);
 
       const hasAttendancePerm = checkPerm('attendance:admin') || checkPerm('attendance:staff');
-      const fetchAttendance = (isAttendanceEnabled && hasAttendancePerm)
-        ? apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError)
+      const fetchAttendance = isAttendanceEnabled
+        ? (hasAttendancePerm
+            ? Promise.all([
+                apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError),
+                userObj?.id ? apiFetch(`/attendance/?employee_id=${userObj.id}`).catch(() => []) : Promise.resolve([])
+              ]).then(([orgData, myData]) => {
+                const orgList = getArrayData(orgData);
+                const myList = getArrayData(myData);
+                const map = new Map();
+                orgList.forEach(item => { if (item?.id) map.set(String(item.id), item); });
+                myList.forEach(item => { if (item?.id) map.set(String(item.id), item); });
+                return Array.from(map.values());
+              })
+            : (userObj?.id ? apiFetch(`/attendance/?employee_id=${userObj.id}`).catch(() => []).then(getArrayData) : Promise.resolve([]))
+          )
         : Promise.resolve([]);
 
       const fetchProjects = (isProjEnabled && (checkPerm('projects:view') || checkPerm('projects:create') || userObj.isSuperAdmin))
@@ -406,14 +462,20 @@ export default function Dashboard() {
         ? projectService.getProjectStatuses().catch(() => [])
         : Promise.resolve([]);
 
-      const [tasksData, leavesData, holidaysData, employeesData, attendanceData, projectsData, statusesData] = await Promise.all([
+      const hasHrDashboardPerm = isAttendanceEnabled && (userObj.isSuperAdmin || checkPerm('attendance:admin') || checkPerm('attendance:management_portal'));
+      const fetchHrDashboard = hasHrDashboardPerm
+        ? apiFetch('/attendance/hr-dashboard/').catch(() => null)
+        : Promise.resolve(null);
+
+      const [tasksData, leavesData, holidaysData, employeesData, attendanceData, projectsData, statusesData, hrDashData] = await Promise.all([
         fetchTasks,
         fetchLeaves,
         fetchHolidays,
         fetchEmployees,
         fetchAttendance,
         fetchProjects,
-        fetchStatuses
+        fetchStatuses,
+        fetchHrDashboard
       ]);
 
       const mappedEmployees = getArrayData(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
@@ -443,6 +505,14 @@ export default function Dashboard() {
       setHolidays(mappedHolidays);
       setProjects(Array.isArray(projectsData) ? projectsData : []);
       setStatuses(Array.isArray(statusesData) ? statusesData : []);
+      if (hrDashData?.summary) {
+        setAttendanceAlerts({
+          pendingCount: hrDashData.summary.pendingCount || 0,
+          lateCount: hrDashData.summary.lateCount || 0
+        });
+      } else {
+        setAttendanceAlerts({ pendingCount: 0, lateCount: 0 });
+      }
       setHasInitialData(true);
 
       if (uid && typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
@@ -570,21 +640,55 @@ export default function Dashboard() {
       return true;
     });
 
-    setActiveLog(log || null);
+    // 1. Direct match from attendanceLogs
+    let resolved = log;
+
+    // 2. Fallback to userAttendanceSummaries open session if attendanceLogs is still syncing
+    if (!resolved && Array.isArray(userAttendanceSummaries)) {
+      const openSummary = userAttendanceSummaries.find(s => s.is_open_session && (s.date === today || !s.last_clock_out));
+      if (openSummary && openSummary.first_clock_in) {
+        resolved = {
+          id: 'active-session',
+          employee: currentUser.id,
+          employeeId: String(currentUser.id),
+          clockIn: openSummary.first_clock_in,
+          clockOut: null,
+          date: openSummary.date || today,
+          minimum_session_minutes: openSummary.minimum_session_minutes || 5
+        };
+        // Background fetch to hydrate full log record
+        if (currentUser?.id) {
+          apiFetch(`/attendance/?employee_id=${currentUser.id}`).then(data => {
+            const list = Array.isArray(data) ? data : (data?.results || []);
+            const match = list.find(l => !l.clockOut && (String(l.employee) === String(currentUser.id) || String(l.employeeId) === String(currentUser.id)));
+            if (match) {
+              const fullLog = { ...match, id: String(match.id), employeeId: String(match.employee) };
+              setAttendanceLogs(prev => {
+                if (prev.some(p => String(p.id) === String(fullLog.id))) return prev;
+                return [fullLog, ...prev];
+              });
+            }
+          }).catch(() => {});
+        }
+      }
+    }
+
+    setActiveLog(resolved || null);
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
 
-    if (log) {
+    if (resolved && resolved.clockIn) {
+      const now = new Date();
+      const inTime = new Date(resolved.clockIn);
+      setWorkSeconds(Math.max(0, Math.floor((now - inTime) / 1000)));
+
       // Setup live ticking timer
       timerRef.current = setInterval(() => {
-        const now = new Date();
-        const inTime = new Date(log.clockIn);
-
-        // Calculate total net work seconds
-        let totalElapsedMs = now - inTime;
-        const netWorkSecs = Math.max(0, Math.floor(totalElapsedMs / 1000));
+        const currentNow = new Date();
+        const clockInTime = new Date(resolved.clockIn);
+        const netWorkSecs = Math.max(0, Math.floor((currentNow - clockInTime) / 1000));
         setWorkSeconds(netWorkSecs);
       }, 1000);
     } else {
@@ -594,7 +698,7 @@ export default function Dashboard() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [attendanceLogs, currentUser]);
+  }, [attendanceLogs, userAttendanceSummaries, currentUser]);
 
   // Format seconds to hh:mm:ss
   const formatTime = (totalSecs) => {
@@ -619,7 +723,8 @@ export default function Dashboard() {
   const canOnboard = hasPermission('admin:employees');
   const canManageTemplates = hasPermission('admin:templates');
   const canAssignTasks = isProjectEnabled && (hasPermission('projects:create') || hasPermission('project_tasks:create'));
-  const canApproveLeaves = hasPermission('leaves:approve');
+  const canApproveLeaves = hasPermission('leaves:approve') || hasPermission('leaves:manage');
+  const canViewAttendanceAlerts = isAttendanceEnabled && (currentUser?.isSuperAdmin || hasPermission('attendance:admin') || hasPermission('attendance:management_portal'));
   const showQuickNavigation = canOnboard || canManageTemplates || canAssignTasks || canApproveLeaves;
 
   // Filter staff objects
@@ -721,6 +826,111 @@ export default function Dashboard() {
           <WarningIcon size={16} style={{ color: 'var(--danger)' }} />
           <span style={{ fontSize: '0.88rem' }}>{error}</span>
         </div>
+      )}
+
+      {/* Actionable HR & Management Alerts */}
+      {hasInitialData && (
+        (() => {
+          const hasAttAlerts = canViewAttendanceAlerts && (attendanceAlerts.pendingCount > 0 || attendanceAlerts.lateCount > 0);
+          const hasLeaveAlerts = canApproveLeaves && pendingLeaves > 0;
+          if (!hasAttAlerts && !hasLeaveAlerts) return null;
+
+          return (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '24px'
+            }}>
+              {canViewAttendanceAlerts && attendanceAlerts.pendingCount > 0 && (
+                <div style={{
+                  flex: '1 1 280px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  backgroundColor: '#fffbeb',
+                  border: '1px solid #fde68a',
+                  color: '#92400e'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706' }}>
+                      <ClockIcon size={16} />
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Pending Attendance</div>
+                      <div style={{ fontSize: '0.78rem', color: '#b45309' }}>
+                        {attendanceAlerts.pendingCount} attendance {attendanceAlerts.pendingCount === 1 ? 'record needs' : 'records need'} approval
+                      </div>
+                    </div>
+                  </div>
+                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#d97706', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                    Review
+                  </Link>
+                </div>
+              )}
+
+              {canViewAttendanceAlerts && attendanceAlerts.lateCount > 0 && (
+                <div style={{
+                  flex: '1 1 280px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626' }}>
+                      <WarningIcon size={16} />
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Late Attendance Today</div>
+                      <div style={{ fontSize: '0.78rem', color: '#b91c1c' }}>
+                        {attendanceAlerts.lateCount} {attendanceAlerts.lateCount === 1 ? 'employee arrived' : 'employees arrived'} late
+                      </div>
+                    </div>
+                  </div>
+                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#dc2626', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                    View List
+                  </Link>
+                </div>
+              )}
+
+              {canApproveLeaves && pendingLeaves > 0 && (
+                <div style={{
+                  flex: '1 1 280px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#1e40af'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#dbeafe', color: '#2563eb' }}>
+                      <LeavesIcon size={16} />
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Pending Leave Approvals</div>
+                      <div style={{ fontSize: '0.78rem', color: '#2563eb' }}>
+                        {pendingLeaves} leave {pendingLeaves === 1 ? 'request awaits' : 'requests await'} decision
+                      </div>
+                    </div>
+                  </div>
+                  <Link href="/attendance?tab=leaves-approve" className="btn btn-sm" style={{ backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                    Approve
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        })()
       )}
 
       {/* Consolidated Metrics Grid at the top below navbar */}

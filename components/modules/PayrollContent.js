@@ -316,7 +316,7 @@ export default function PayrollContent() {
       });
       setShowReopenModal(false);
       setReopenReason('');
-      setSuccessMsg(`Payroll period ${currentMonthName} reopened. Attendance modifications and recalculations are now unlocked.`);
+      setSuccessMsg(`Payroll period ${currentMonthName} reopened into Draft mode. If attendance adjustments are needed, Attendance must be reopened separately in the Attendance Management Portal.`);
       await fetchPayrollData();
       setTimeout(() => setSuccessMsg(''), 5000);
     } catch (err) {
@@ -775,6 +775,25 @@ export default function PayrollContent() {
           >
             <ChevronRightIcon size={14} />
           </button>
+
+          <Link
+            href="/payroll/periods"
+            className="btn btn-secondary btn-sm"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              textDecoration: 'none',
+              marginLeft: '4px'
+            }}
+            title="View All Months & Historical Statements"
+          >
+            <CalendarIcon size={14} />
+            <span>View All</span>
+          </Link>
         </div>
       </div>
 
@@ -1629,6 +1648,17 @@ export default function PayrollContent() {
                               ) : null}
                             </div>
                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{snap.designation || 'Staff'}</div>
+                            {snap.account_number ? (
+                              <div style={{ fontSize: '0.72rem', color: '#0369a1', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <BankIcon size={11} style={{ color: '#0284c7' }} />
+                                <span>{snap.bank_name || 'Bank'}: •••• {snap.account_number.slice(-4)} | {snap.ifsc_code}</span>
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.72rem', color: '#b45309', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <WarningIcon size={11} style={{ color: '#d97706' }} />
+                                <span>No Bank Details</span>
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '14px' }}>
                             {isHourly ? (
@@ -1841,6 +1871,17 @@ export default function PayrollContent() {
                         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '1px' }}>
                           {snap.designation || 'Staff'}
                         </div>
+                        {snap.account_number ? (
+                          <div style={{ fontSize: '0.7rem', color: '#0369a1', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <BankIcon size={10} style={{ color: '#0284c7' }} />
+                            <span>•••• {snap.account_number.slice(-4)}</span>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            <WarningIcon size={10} style={{ color: '#d97706' }} />
+                            <span>No Bank Details</span>
+                          </div>
+                        )}
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
@@ -2239,6 +2280,41 @@ export default function PayrollContent() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            {/* Bank & Disbursement Details Section */}
+            <div style={{ marginBottom: '24px' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '700', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <BankIcon size={14} style={{ color: '#0284c7' }} />
+                <span>Bank & Disbursement Account</span>
+              </h4>
+              <div style={{ padding: '14px 16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.84rem' }}>
+                {selectedEmployeeSnapshot.account_number ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Bank Name</span>
+                      <strong style={{ color: '#0f172a' }}>{selectedEmployeeSnapshot.bank_name || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>Account Number</span>
+                      <strong style={{ color: '#0f172a', letterSpacing: '0.05em' }}>•••• {selectedEmployeeSnapshot.account_number.slice(-4)}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>IFSC Code</span>
+                      <strong style={{ color: '#0369a1' }}>{selectedEmployeeSnapshot.ifsc_code || '—'}</strong>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'uppercase', display: 'block' }}>UPI ID</span>
+                      <span style={{ color: '#475569' }}>{selectedEmployeeSnapshot.upi_id || '—'}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <WarningIcon size={14} />
+                    <span>No bank account configured for this employee.</span>
+                  </div>
+                )}
               </div>
             </div>
 
