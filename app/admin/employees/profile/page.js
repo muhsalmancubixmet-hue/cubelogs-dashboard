@@ -135,7 +135,7 @@ function EmployeeProfileContent() {
 
   useEffect(() => {
     const handleScroll = () => {
-      const sectionIds = ['section-tasks', 'section-salary', 'section-attendance'];
+      const sectionIds = ['section-salary', 'section-bank', 'section-attendance', 'section-tasks'];
       const scrollPos = window.scrollY + 140;
       for (const id of sectionIds) {
         const el = document.getElementById(id);
@@ -842,33 +842,80 @@ function EmployeeProfileContent() {
               {canViewSalary && (
                 <button
                   type="button"
-                  className={`fullwidth-nav-btn ${activeSection === 'section-salary' ? 'active' : ''}`}
+                  className={`fullwidth-nav-btn ${activeSection === 'section-salary' ? 'active btn-white-text btn-blue-active' : ''}`}
                   onClick={() => scrollToSection('section-salary')}
+                  data-white-text={activeSection === 'section-salary' ? 'true' : undefined}
+                  data-active-blue={activeSection === 'section-salary' ? 'true' : undefined}
+                  style={activeSection === 'section-salary' ? { color: '#ffffff', backgroundColor: '#2563eb', borderColor: '#2563eb' } : {}}
                 >
-                  <DollarIcon size={16} />
-                  <span>Salary & Compensation Structure</span>
+                  <DollarIcon size={16} style={activeSection === 'section-salary' ? { color: '#ffffff', stroke: '#ffffff' } : {}} />
+                  <span
+                    className={activeSection === 'section-salary' ? 'btn-white-text' : ''}
+                    data-white-text={activeSection === 'section-salary' ? 'true' : undefined}
+                    style={{ color: activeSection === 'section-salary' ? '#ffffff' : 'inherit' }}
+                  >
+                    Salary & Compensation Structure
+                  </span>
+                </button>
+              )}
+
+              {canViewSalary && (
+                <button
+                  type="button"
+                  className={`fullwidth-nav-btn ${activeSection === 'section-bank' ? 'active btn-white-text btn-blue-active' : ''}`}
+                  onClick={() => scrollToSection('section-bank')}
+                  data-white-text={activeSection === 'section-bank' ? 'true' : undefined}
+                  data-active-blue={activeSection === 'section-bank' ? 'true' : undefined}
+                  style={activeSection === 'section-bank' ? { color: '#ffffff', backgroundColor: '#2563eb', borderColor: '#2563eb' } : {}}
+                >
+                  <BankIcon size={16} style={activeSection === 'section-bank' ? { color: '#ffffff', stroke: '#ffffff' } : {}} />
+                  <span
+                    className={activeSection === 'section-bank' ? 'btn-white-text' : ''}
+                    data-white-text={activeSection === 'section-bank' ? 'true' : undefined}
+                    style={{ color: activeSection === 'section-bank' ? '#ffffff' : 'inherit' }}
+                  >
+                    Bank Account & Disbursement Details
+                  </span>
                 </button>
               )}
 
               {isAttendanceEnabled && (
                 <button
                   type="button"
-                  className={`fullwidth-nav-btn ${activeSection === 'section-attendance' ? 'active' : ''}`}
+                  className={`fullwidth-nav-btn ${activeSection === 'section-attendance' ? 'active btn-white-text btn-blue-active' : ''}`}
                   onClick={() => scrollToSection('section-attendance')}
+                  data-white-text={activeSection === 'section-attendance' ? 'true' : undefined}
+                  data-active-blue={activeSection === 'section-attendance' ? 'true' : undefined}
+                  style={activeSection === 'section-attendance' ? { color: '#ffffff', backgroundColor: '#2563eb', borderColor: '#2563eb' } : {}}
                 >
-                  <ClockIcon size={16} />
-                  <span>Attendance History</span>
+                  <ClockIcon size={16} style={activeSection === 'section-attendance' ? { color: '#ffffff', stroke: '#ffffff' } : {}} />
+                  <span
+                    className={activeSection === 'section-attendance' ? 'btn-white-text' : ''}
+                    data-white-text={activeSection === 'section-attendance' ? 'true' : undefined}
+                    style={{ color: activeSection === 'section-attendance' ? '#ffffff' : 'inherit' }}
+                  >
+                    Attendance History
+                  </span>
                 </button>
               )}
 
               {isProjectEnabled && (
                 <button
                   type="button"
-                  className={`fullwidth-nav-btn ${activeSection === 'section-tasks' ? 'active' : ''}`}
+                  className={`fullwidth-nav-btn ${activeSection === 'section-tasks' ? 'active btn-white-text btn-blue-active' : ''}`}
                   onClick={() => scrollToSection('section-tasks')}
+                  data-white-text={activeSection === 'section-tasks' ? 'true' : undefined}
+                  data-active-blue={activeSection === 'section-tasks' ? 'true' : undefined}
+                  style={activeSection === 'section-tasks' ? { color: '#ffffff', backgroundColor: '#2563eb', borderColor: '#2563eb' } : {}}
                 >
-                  <TasksIcon size={16} />
-                  <span>Recent Project Tasks</span>
+                  <TasksIcon size={16} style={activeSection === 'section-tasks' ? { color: '#ffffff', stroke: '#ffffff' } : {}} />
+                  <span
+                    className={activeSection === 'section-tasks' ? 'btn-white-text' : ''}
+                    data-white-text={activeSection === 'section-tasks' ? 'true' : undefined}
+                    style={{ color: activeSection === 'section-tasks' ? '#ffffff' : 'inherit' }}
+                  >
+                    Recent Project Tasks
+                  </span>
                 </button>
               )}
 
@@ -1003,7 +1050,7 @@ function EmployeeProfileContent() {
             />
 
             {/* Employee Bank Account Details Summary Card */}
-            <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
+            <div id="section-bank" className="panel" style={{ marginTop: '20px', padding: '24px', scrollMarginTop: '80px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
                 <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
                   <BankIcon size={20} style={{ color: 'var(--primary, #0284c7)' }} />
@@ -1911,14 +1958,24 @@ function EmployeeProfileContent() {
           stroke: #1d4ed8;
         }
 
-        .fullwidth-nav-btn.active {
+        .fullwidth-nav-btn span,
+        .fullwidth-nav-btn :global(span) {
+          color: inherit;
+        }
+
+        .fullwidth-nav-btn.active,
+        .fullwidth-nav-btn.active span,
+        .fullwidth-nav-btn.active :global(span),
+        .fullwidth-nav-btn.active * {
           background-color: #2563eb !important;
           border-color: #2563eb !important;
           color: #ffffff !important;
+          fill: #ffffff !important;
           box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
         }
 
-        .fullwidth-nav-btn.active :global(svg) {
+        .fullwidth-nav-btn.active :global(svg),
+        .fullwidth-nav-btn.active :global(svg *) {
           color: #ffffff !important;
           stroke: #ffffff !important;
         }
@@ -1946,14 +2003,19 @@ function EmployeeProfileContent() {
           stroke: #93c5fd;
         }
 
-        :root.dark .fullwidth-nav-btn.active {
+        :root.dark .fullwidth-nav-btn.active,
+        :root.dark .fullwidth-nav-btn.active span,
+        :root.dark .fullwidth-nav-btn.active :global(span),
+        :root.dark .fullwidth-nav-btn.active * {
           background-color: #2563eb !important;
           border-color: #2563eb !important;
           color: #ffffff !important;
+          fill: #ffffff !important;
           box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35) !important;
         }
 
-        :root.dark .fullwidth-nav-btn.active :global(svg) {
+        :root.dark .fullwidth-nav-btn.active :global(svg),
+        :root.dark .fullwidth-nav-btn.active :global(svg *) {
           color: #ffffff !important;
           stroke: #ffffff !important;
         }

@@ -19,6 +19,30 @@ import {
   EmployeesIcon,
 } from '@/components/Icons';
 
+const CalendarIcon = ({ size = 16, style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const SearchIcon = ({ size = 16, style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+const DownloadIcon = ({ size = 15, style = {} }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
 const STATUS_CONFIG = {
   'Pending Approval': { bg: '#e0f2fe', border: '#bae6fd', text: '#0369a1', dot: '#0284c7' },
   'Approved':         { bg: '#dbeafe', border: '#93c5fd', text: '#1e40af', dot: '#1d4ed8' },
@@ -165,12 +189,19 @@ const EmptyState = ({ IconComponent = CheckIcon, msg }) => (
 );
 
 export default function HRAttendancePortalPage() {
+  const [viewMode, setViewMode] = useState('daily'); // 'daily' | 'monthly' | 'yearly'
   const [activeTab, setActiveTab] = useState('pending');
   const [dashData, setDashData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [approvingId, setApprovingId] = useState(null);
   const [approvedIds, setApprovedIds] = useState(new Set());
+
+  // Daily View Date State
+  const [dailyDate, setDailyDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().split('T')[0];
+  });
 
   // Period Finalization State
   const now = new Date();
@@ -183,6 +214,13 @@ export default function HRAttendancePortalPage() {
   const [periodLoading, setPeriodLoading] = useState(false);
   const [periodError, setPeriodError] = useState('');
   const [periodSuccess, setPeriodSuccess] = useState('');
+  const [monthlySearch, setMonthlySearch] = useState('');
+
+  // Yearly View State
+  const [yearlyYear, setYearlyYear] = useState(() => now.getFullYear());
+  const [yearlyData, setYearlyData] = useState([]);
+  const [yearlyLoading, setYearlyLoading] = useState(false);
+  const [yearlySearch, setYearlySearch] = useState('');
 
   // Reopen Modal State
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -197,17 +235,17 @@ export default function HRAttendancePortalPage() {
   const [snapshots, setSnapshots] = useState([]);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchDashboard = useCallback(async (targetDate = dailyDate) => {
     try {
       setError('');
-      const data = await apiFetch('/attendance/hr-dashboard/');
+      const data = await apiFetch(`/attendance/hr-dashboard/?date=${targetDate}`);
       setDashData(data);
     } catch (e) {
       setError(e.message || 'Failed to load dashboard.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dailyDate]);
 
   const fetchPeriodSummary = useCallback(async (year, month) => {
     setPeriodLoading(true);
@@ -222,15 +260,65 @@ export default function HRAttendancePortalPage() {
     }
   }, []);
 
+  const fetchSnapshots = useCallback(async (year, month) => {
+    setSnapshotsLoading(true);
+    try {
+      const data = await apiFetch(`/attendance/periods/snapshots/?year=${year}&month=${month}`);
+      setSnapshots(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Failed to load snapshots:', e);
+    } finally {
+      setSnapshotsLoading(false);
+    }
+  }, []);
+
+  const fetchYearlyData = useCallback(async (year) => {
+    setYearlyLoading(true);
+    try {
+      const data = await apiFetch(`/attendance/periods/yearly-summary/?year=${year}`);
+      setYearlyData(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error('Failed to load yearly data:', e);
+    } finally {
+      setYearlyLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    fetchDashboard();
-    const t = setInterval(fetchDashboard, 30000);
+    fetchDashboard(dailyDate);
+    const t = setInterval(() => fetchDashboard(dailyDate), 30000);
     return () => clearInterval(t);
-  }, [fetchDashboard]);
+  }, [dailyDate, fetchDashboard]);
 
   useEffect(() => {
     fetchPeriodSummary(periodYear, periodMonth);
-  }, [periodYear, periodMonth, fetchPeriodSummary]);
+    fetchSnapshots(periodYear, periodMonth);
+  }, [periodYear, periodMonth, fetchPeriodSummary, fetchSnapshots]);
+
+  useEffect(() => {
+    if (viewMode === 'yearly') {
+      fetchYearlyData(yearlyYear);
+    }
+  }, [viewMode, yearlyYear, fetchYearlyData]);
+
+  const handlePrevDay = () => {
+    const d = new Date(dailyDate + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    const iso = d.toISOString().split('T')[0];
+    setDailyDate(iso);
+  };
+
+  const handleNextDay = () => {
+    const d = new Date(dailyDate + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    const iso = d.toISOString().split('T')[0];
+    setDailyDate(iso);
+  };
+
+  const handleToday = () => {
+    const iso = new Date().toISOString().split('T')[0];
+    setDailyDate(iso);
+  };
 
   const handleApprove = async (logId) => {
     setApprovingId(logId);
@@ -310,6 +398,41 @@ export default function HRAttendancePortalPage() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (!filteredSnapshots || filteredSnapshots.length === 0) return;
+    const headers = [
+      'Employee Name', 'Designation', 'Working Days', 'Present Days',
+      'Half Days', 'Leave Days', 'Absent Days', 'Late Count',
+      'Late Minutes', 'Payable Units', 'Attendance Rate'
+    ];
+    const rows = filteredSnapshots.map(s => {
+      const wDays = s.working_days || 0;
+      const pDays = s.present_days || 0;
+      const rate = wDays > 0 ? `${Math.round((pDays / wDays) * 100)}%` : '0%';
+      return [
+        `"${(s.employee_name || '').replace(/"/g, '""')}"`,
+        `"${(s.designation || 'Staff').replace(/"/g, '""')}"`,
+        wDays,
+        pDays,
+        s.half_days || 0,
+        s.leave_days || 0,
+        s.absent_days || 0,
+        s.late_count || 0,
+        s.total_late_minutes || 0,
+        s.payable_attendance_units ?? pDays,
+        rate
+      ].join(',');
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Attendance_${MONTH_NAMES[periodMonth - 1]}_${periodYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const summary = dashData?.summary || {};
   const pending = dashData?.pending || [];
   const late    = dashData?.late    || [];
@@ -335,6 +458,20 @@ export default function HRAttendancePortalPage() {
   const isPastMonth = periodValidation?.is_past_month;
   const isClean = periodValidation?.is_clean;
 
+  const filteredSnapshots = snapshots.filter(s => {
+    if (!monthlySearch) return true;
+    const q = monthlySearch.toLowerCase();
+    return (s.employee_name && s.employee_name.toLowerCase().includes(q)) ||
+           (s.designation && s.designation.toLowerCase().includes(q));
+  });
+
+  const filteredYearly = yearlyData.filter(s => {
+    if (!yearlySearch) return true;
+    const q = yearlySearch.toLowerCase();
+    return (s.employee_name && s.employee_name.toLowerCase().includes(q)) ||
+           (s.designation && s.designation.toLowerCase().includes(q));
+  });
+
   return (
     <PageWrapper title="Attendance Management Portal" requiredPermission="attendance:management_portal">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -343,26 +480,103 @@ export default function HRAttendancePortalPage() {
         <div className="panel settings-panel-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '20px 24px' }}>
           <div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--text-main)', margin: 0, marginBottom: '4px' }}>
-              Attendance Monitor Center
+              Attendance Management Center
             </h2>
             <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Review, approve and track workforce attendance in real-time
-              {dashData?.date && (
-                <span style={{ fontWeight: '600', color: 'var(--primary)', marginLeft: '8px' }}>
-                  &bull; {new Date(dashData.date + 'T12:00:00').toLocaleDateString('en-US', {
-                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-                  })}
-                </span>
-              )}
+              Real-time daily monitoring, monthly attendance register & lock, and yearly workforce matrix
             </p>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                if (viewMode === 'daily') { setLoading(true); fetchDashboard(dailyDate); }
+                else if (viewMode === 'monthly') { fetchPeriodSummary(periodYear, periodMonth); fetchSnapshots(periodYear, periodMonth); }
+                else if (viewMode === 'yearly') { fetchYearlyData(yearlyYear); }
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '8px 16px' }}
+            >
+              <ChangeIcon size={14} /> Refresh Data
+            </button>
+          </div>
+        </div>
+
+        {/* View Mode Switcher: Daily Monitor | Monthly Register | Yearly Matrix */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: '2px solid var(--border, #e2e8f0)', paddingBottom: '12px' }}>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => { setLoading(true); fetchDashboard(); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '8px 16px' }}
+            className={`btn btn-sm ${viewMode === 'daily' ? 'btn-white-text btn-blue-active' : ''}`}
+            data-active-blue={viewMode === 'daily' ? 'true' : undefined}
+            data-white-text={viewMode === 'daily' ? 'true' : undefined}
+            onClick={() => setViewMode('daily')}
+            style={{
+              padding: '9px 20px',
+              fontSize: '0.88rem',
+              fontWeight: viewMode === 'daily' ? '700' : '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              background: viewMode === 'daily' ? 'var(--primary, #2563eb)' : 'var(--bg-card, #ffffff)',
+              color: viewMode === 'daily' ? '#ffffff' : 'var(--text-main, #0f172a)',
+              border: viewMode === 'daily' ? '1px solid var(--primary, #2563eb)' : '1px solid var(--border, #cbd5e1)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: viewMode === 'daily' ? '0 2px 4px rgba(37,99,235,0.25)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
           >
-            <ChangeIcon size={14} /> Refresh Data
+            <ClockIcon size={16} /> <span className={viewMode === 'daily' ? 'active-tab-text' : ''} style={{ color: viewMode === 'daily' ? '#ffffff' : 'inherit' }}>Daily Monitor</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${viewMode === 'monthly' ? 'btn-white-text btn-blue-active' : ''}`}
+            data-active-blue={viewMode === 'monthly' ? 'true' : undefined}
+            data-white-text={viewMode === 'monthly' ? 'true' : undefined}
+            onClick={() => setViewMode('monthly')}
+            style={{
+              padding: '9px 20px',
+              fontSize: '0.88rem',
+              fontWeight: viewMode === 'monthly' ? '700' : '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              background: viewMode === 'monthly' ? 'var(--primary, #2563eb)' : 'var(--bg-card, #ffffff)',
+              color: viewMode === 'monthly' ? '#ffffff' : 'var(--text-main, #0f172a)',
+              border: viewMode === 'monthly' ? '1px solid var(--primary, #2563eb)' : '1px solid var(--border, #cbd5e1)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: viewMode === 'monthly' ? '0 2px 4px rgba(37,99,235,0.25)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <CalendarIcon size={16} /> <span className={viewMode === 'monthly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'monthly' ? '#ffffff' : 'inherit' }}>Monthly Register & Lock</span>
+          </button>
+
+          <button
+            type="button"
+            className={`btn btn-sm ${viewMode === 'yearly' ? 'btn-white-text btn-blue-active' : ''}`}
+            data-active-blue={viewMode === 'yearly' ? 'true' : undefined}
+            data-white-text={viewMode === 'yearly' ? 'true' : undefined}
+            onClick={() => setViewMode('yearly')}
+            style={{
+              padding: '9px 20px',
+              fontSize: '0.88rem',
+              fontWeight: viewMode === 'yearly' ? '700' : '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              background: viewMode === 'yearly' ? 'var(--primary, #2563eb)' : 'var(--bg-card, #ffffff)',
+              color: viewMode === 'yearly' ? '#ffffff' : 'var(--text-main, #0f172a)',
+              border: viewMode === 'yearly' ? '1px solid var(--primary, #2563eb)' : '1px solid var(--border, #cbd5e1)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: viewMode === 'yearly' ? '0 2px 4px rgba(37,99,235,0.25)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <AuditIcon size={16} /> <span className={viewMode === 'yearly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'yearly' ? '#ffffff' : 'inherit' }}>Yearly Matrix</span>
           </button>
         </div>
 
@@ -380,8 +594,56 @@ export default function HRAttendancePortalPage() {
           </div>
         )}
 
-        {dashData && (
-          <>
+        {viewMode === 'daily' && dashData && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Daily Date Navigator */}
+            <div className="panel settings-panel-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', padding: '14px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <CalendarIcon size={18} style={{ color: 'var(--primary, #2563eb)' }} />
+                <span style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main, #0f172a)' }}>
+                  Selected Date:
+                </span>
+                <span style={{ fontWeight: '600', color: 'var(--primary, #2563eb)', fontSize: '0.86rem' }}>
+                  {new Date(dailyDate + 'T12:00:00').toLocaleDateString('en-US', {
+                    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+                  })}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handlePrevDay}
+                  style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: '600' }}
+                >
+                  &larr; Prev Day
+                </button>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={dailyDate}
+                  onChange={(e) => setDailyDate(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: '0.84rem', fontWeight: '600', borderRadius: 'var(--radius-sm, 6px)' }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleNextDay}
+                  style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: '600' }}
+                >
+                  Next Day &rarr;
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={handleToday}
+                  style={{ padding: '6px 14px', fontSize: '0.82rem', fontWeight: '700', background: 'var(--primary-light, #eff6ff)', color: 'var(--primary, #2563eb)', border: '1px solid var(--primary-border, #bfdbfe)' }}
+                >
+                  Today
+                </button>
+              </div>
+            </div>
+
             {/* Stat Cards Row */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
               <div className="panel settings-panel-card" style={{ padding: '18px 20px', borderLeft: '4px solid #0284c7' }}>
@@ -422,28 +684,36 @@ export default function HRAttendancePortalPage() {
               
               {/* Tab Navigation */}
               <div className="module-tabs" style={{ display: 'flex', gap: '8px', overflowX: 'auto', marginBottom: '20px', borderBottom: '1px solid var(--border, #e2e8f0)', paddingBottom: '12px' }}>
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    className="btn btn-sm"
-                    style={{
-                      whiteSpace: 'nowrap',
-                      padding: '8px 16px',
-                      fontSize: '0.82rem',
-                      fontWeight: '600',
-                      background: activeTab === tab.id ? 'var(--primary, #2563eb)' : 'var(--bg-app, #f8fafc)',
-                      color: activeTab === tab.id ? '#ffffff' : 'var(--text-main, #0f172a)',
-                      border: '1px solid var(--border, #e2e8f0)',
-                      borderRadius: 'var(--radius-sm, 6px)',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+                {tabs.map(tab => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`btn btn-sm ${isActive ? 'btn-white-text btn-blue-active' : ''}`}
+                      data-active-blue={isActive ? 'true' : undefined}
+                      data-white-text={isActive ? 'true' : undefined}
+                      style={{
+                        whiteSpace: 'nowrap',
+                        padding: '8px 16px',
+                        fontSize: '0.82rem',
+                        fontWeight: isActive ? '700' : '600',
+                        background: isActive ? 'var(--primary, #2563eb)' : 'var(--bg-app, #f8fafc)',
+                        color: isActive ? '#ffffff' : 'var(--text-main, #0f172a)',
+                        border: isActive ? '1px solid var(--primary, #2563eb)' : '1px solid var(--border, #e2e8f0)',
+                        borderRadius: 'var(--radius-sm, 6px)',
+                        cursor: 'pointer',
+                        boxShadow: isActive ? '0 2px 4px rgba(37, 99, 235, 0.25)' : 'none',
+                        transition: 'all 0.15s ease',
+                      }}
+                      onClick={() => setActiveTab(tab.id)}
+                    >
+                      <span className={isActive ? 'active-tab-text' : ''} style={{ color: isActive ? '#ffffff' : 'inherit' }}>
+                        {tab.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Status Legend Indicator Bar */}
@@ -563,10 +833,14 @@ export default function HRAttendancePortalPage() {
               )}
 
             </div>
+          </div>
+        )}
 
-            {/* ========================================================================= */}
-            {/* MONTHLY ATTENDANCE FINALIZATION & LOCK PANEL                             */}
-            {/* ========================================================================= */}
+        {/* ========================================================================= */}
+        {/* MONTHLY ATTENDANCE FINALIZATION & REGISTER                                */}
+        {/* ========================================================================= */}
+        {viewMode === 'monthly' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="panel settings-panel-card" style={{ padding: '24px', borderTop: '4px solid var(--primary, #2563eb)' }}>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
@@ -874,6 +1148,296 @@ export default function HRAttendancePortalPage() {
 
             </div>
 
+            {/* Full Monthly Employee Attendance Register Table */}
+            <div className="panel settings-panel-card" style={{ padding: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <EmployeesIcon size={18} /> Monthly Employee Attendance Register &bull; {MONTH_NAMES[periodMonth - 1]} {periodYear}
+                  </h3>
+                  <p style={{ margin: '4px 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.82rem' }}>
+                    Itemized working days, present, leaves, absents, and payable units for each employee
+                  </p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ position: 'relative', width: '220px' }}>
+                    <SearchIcon size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Search employee..."
+                      value={monthlySearch}
+                      onChange={(e) => setMonthlySearch(e.target.value)}
+                      style={{ paddingLeft: '32px', fontSize: '0.82rem' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', background: 'var(--bg-app, #f8fafc)', padding: '6px 12px', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #e2e8f0)' }}>
+                    Total: {filteredSnapshots.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleExportCSV}
+                    disabled={filteredSnapshots.length === 0}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: 'var(--radius-sm, 6px)',
+                      color: 'var(--text-main, #0f172a)',
+                      cursor: filteredSnapshots.length === 0 ? 'not-allowed' : 'pointer'
+                    }}
+                    title="Download monthly attendance records as CSV"
+                  >
+                    <DownloadIcon size={14} /> Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {snapshotsLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted, #64748b)' }}>
+                  Loading monthly employee records...
+                </div>
+              ) : filteredSnapshots.length === 0 ? (
+                <EmptyState IconComponent={EmployeesIcon} msg="No employee attendance records found for this month." />
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-app, #f8fafc)', borderBottom: '2px solid var(--border, #e2e8f0)' }}>
+                        <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700' }}>Employee</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Working</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Present</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Half Day</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Leave</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Absent</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Late</th>
+                        <th style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700' }}>Payable Units</th>
+                        <th style={{ padding: '12px 12px', textAlign: 'center', fontWeight: '700' }}>Attendance Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSnapshots.map((emp) => {
+                        const wDays = emp.working_days || 0;
+                        const pDays = emp.present_days || 0;
+                        const rate = wDays > 0 ? Math.round((pDays / wDays) * 100) : 0;
+                        const rateBg = rate >= 90 ? '#dcfce7' : rate >= 75 ? '#fef3c7' : '#fee2e2';
+                        const rateColor = rate >= 90 ? '#166534' : rate >= 75 ? '#b45309' : '#991b1b';
+                        const rateBorder = rate >= 90 ? '#86efac' : rate >= 75 ? '#fde68a' : '#fca5a5';
+
+                        return (
+                          <tr key={emp.id || emp.employee_id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>{emp.employee_name}</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>{emp.designation || 'Staff'}</div>
+                            </td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '600' }}>{wDays}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>{pDays}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center' }}>{emp.half_days || 0}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', color: (emp.leave_days || 0) > 0 ? '#6b21a8' : 'inherit' }}>{emp.leave_days || 0}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', color: (emp.absent_days || 0) > 0 ? '#dc2626' : 'inherit' }}>{emp.absent_days || 0}</td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', color: (emp.late_count || 0) > 0 ? '#b45309' : 'inherit' }}>
+                              {(emp.late_count || 0) > 0 ? `${emp.late_count} (${emp.total_late_minutes || 0}m)` : '0'}
+                            </td>
+                            <td style={{ padding: '12px 10px', textAlign: 'center', fontWeight: '800', color: '#166534' }}>
+                              {emp.payable_attendance_units ?? pDays}
+                            </td>
+                            <td style={{ padding: '12px 12px', textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '3px 10px',
+                                borderRadius: '12px',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                background: rateBg,
+                                color: rateColor,
+                                border: `1px solid ${rateBorder}`
+                              }}>
+                                {rate}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* YEARLY ATTENDANCE MATRIX                                                  */}
+        {/* ========================================================================= */}
+        {viewMode === 'yearly' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Yearly Header Bar */}
+            <div className="panel settings-panel-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '20px 24px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', margin: 0 }}>
+                  Annual Attendance Matrix &bull; {yearlyYear}
+                </h3>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.84rem' }}>
+                  12-month consolidated overview of attendance performance across all active employees
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ position: 'relative', width: '220px' }}>
+                  <SearchIcon size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search employee..."
+                    value={yearlySearch}
+                    onChange={(e) => setYearlySearch(e.target.value)}
+                    style={{ paddingLeft: '32px', fontSize: '0.82rem' }}
+                  />
+                </div>
+                <select
+                  className="form-control"
+                  value={yearlyYear}
+                  onChange={(e) => setYearlyYear(Number(e.target.value))}
+                  style={{ padding: '7px 14px', fontSize: '0.85rem', fontWeight: '700', borderRadius: 'var(--radius-sm, 6px)' }}
+                >
+                  {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Annual KPI Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div className="panel settings-panel-card" style={{ padding: '16px 20px', borderLeft: '4px solid #2563eb' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Active Workforce</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '4px' }}>
+                  {yearlyData.length}
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '16px 20px', borderLeft: '4px solid #16a34a' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Avg Attendance Rate</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>
+                  {yearlyData.length > 0
+                    ? Math.round(yearlyData.reduce((acc, curr) => acc + (curr.annual_attendance_rate || 0), 0) / yearlyData.length)
+                    : 0}%
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '16px 20px', borderLeft: '4px solid #8b5cf6' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Total Days Worked</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#6b21a8', marginTop: '4px' }}>
+                  {yearlyData.reduce((acc, curr) => acc + (curr.total_present_days || 0), 0)}
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '16px 20px', borderLeft: '4px solid #d97706' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Total Leaves Taken</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#b45309', marginTop: '4px' }}>
+                  {yearlyData.reduce((acc, curr) => acc + (curr.total_leave_days || 0), 0)}
+                </div>
+              </div>
+            </div>
+
+            {/* 12-Month Matrix Table */}
+            <div className="panel settings-panel-card" style={{ padding: '24px' }}>
+              {yearlyLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted, #64748b)' }}>
+                  Loading yearly attendance matrix...
+                </div>
+              ) : filteredYearly.length === 0 ? (
+                <EmptyState IconComponent={AuditIcon} msg="No yearly attendance data recorded for this year." />
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-app, #f8fafc)', borderBottom: '2px solid var(--border, #e2e8f0)' }}>
+                        <th style={{ padding: '12px 14px', textAlign: 'left', fontWeight: '700', minWidth: '160px' }}>Employee</th>
+                        {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m) => (
+                          <th key={m} style={{ padding: '10px 6px', textAlign: 'center', fontWeight: '700', minWidth: '45px' }}>
+                            {m}
+                          </th>
+                        ))}
+                        <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: '700' }}>Present</th>
+                        <th style={{ padding: '10px 10px', textAlign: 'center', fontWeight: '700' }}>Leaves</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '700' }}>Annual Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredYearly.map((emp) => {
+                        const annualRate = emp.annual_attendance_rate || 0;
+                        const scoreBg = annualRate >= 90 ? '#dcfce7' : annualRate >= 75 ? '#fef3c7' : '#fee2e2';
+                        const scoreColor = annualRate >= 90 ? '#166534' : annualRate >= 75 ? '#b45309' : '#991b1b';
+                        const scoreBorder = annualRate >= 90 ? '#86efac' : annualRate >= 75 ? '#fde68a' : '#fca5a5';
+
+                        return (
+                          <tr key={emp.employee_id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                            <td style={{ padding: '12px 14px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>{emp.employee_name}</div>
+                              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted, #64748b)' }}>{emp.designation || 'Staff'}</div>
+                            </td>
+
+                            {emp.months && emp.months.map((m) => {
+                              const r = m.attendance_rate;
+                              return (
+                                <td key={m.month} style={{ padding: '10px 4px', textAlign: 'center' }}>
+                                  {r !== null && r !== undefined ? (
+                                    <span style={{
+                                      display: 'inline-block',
+                                      padding: '2px 5px',
+                                      borderRadius: '4px',
+                                      fontSize: '0.72rem',
+                                      fontWeight: '700',
+                                      background: r >= 90 ? '#dcfce7' : r >= 75 ? '#fef3c7' : '#fee2e2',
+                                      color: r >= 90 ? '#166534' : r >= 75 ? '#b45309' : '#991b1b',
+                                    }}>
+                                      {r}%
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: 'var(--text-muted, #94a3b8)', fontSize: '0.75rem' }}>-</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+
+                            <td style={{ padding: '10px 10px', textAlign: 'center', fontWeight: '700', color: '#16a34a' }}>
+                              {emp.total_present_days}
+                            </td>
+                            <td style={{ padding: '10px 10px', textAlign: 'center', color: emp.total_leave_days > 0 ? '#6b21a8' : 'inherit' }}>
+                              {emp.total_leave_days}
+                            </td>
+                            <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                padding: '3px 10px',
+                                borderRadius: '12px',
+                                fontSize: '0.78rem',
+                                fontWeight: '700',
+                                background: scoreBg,
+                                color: scoreColor,
+                                border: `1px solid ${scoreBorder}`
+                              }}>
+                                {annualRate}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
             {/* ========================================================================= */}
             {/* REOPEN PERIOD MODAL                                                      */}
             {/* ========================================================================= */}
@@ -1056,9 +1620,6 @@ export default function HRAttendancePortalPage() {
                 </div>
               </div>
             )}
-
-          </>
-        )}
 
       </div>
     </PageWrapper>

@@ -31,6 +31,7 @@ function LeavesContent() {
   // Local states
   const [cachedEmployees, setCachedEmployees] = useState([]);
   const [leaves, setLeaves] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -122,14 +123,17 @@ function LeavesContent() {
   useEffect(() => {
     const loadDependencies = async () => {
       try {
-        const [ltData, empData] = await Promise.all([
+        const [ltData, empData, holData] = await Promise.all([
           apiFetch('/leave-types/'),
-          apiFetch('/employees/')
+          apiFetch('/employees/'),
+          apiFetch('/holidays/').catch(() => [])
         ]);
         const leaveTypesList = normalizeListResponse(ltData);
         const employeesList = normalizeListResponse(empData);
+        const holidaysList = normalizeListResponse(holData);
         setLeaveTypes(leaveTypesList.map(lt => ({ ...lt, id: String(lt.id) })));
         setCachedEmployees(employeesList.map(emp => ({ ...emp, id: String(emp.id) })));
+        setHolidays(holidaysList.map(h => ({ ...h, id: String(h.id) })));
       } catch (err) {
         console.error('Failed to load leaves dependencies:', err);
       }
@@ -186,6 +190,14 @@ function LeavesContent() {
   };
 
   const blockedDate = getBlockedDateReason();
+
+  // Check if requested date is an official company holiday (Non-blocking advisory warning)
+  const getHolidayConflict = () => {
+    if (!startDate || !holidays || holidays.length === 0) return null;
+    return holidays.find(h => h.date === startDate) || null;
+  };
+
+  const holidayConflict = getHolidayConflict();
 
   // Get the dynamic policy message based on advance notice requirement
   const getPolicyMessage = (leaveRules) => {
@@ -879,6 +891,32 @@ function LeavesContent() {
                           required
                         ></textarea>
                       </div>
+
+                      {holidayConflict && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px 14px',
+                          marginBottom: '16px',
+                          borderRadius: '8px',
+                          backgroundColor: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          color: '#92400e',
+                          fontSize: '0.82rem',
+                          lineHeight: '1.4'
+                        }}>
+                          <WarningIcon size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                          <div>
+                            <div style={{ fontWeight: '700', color: '#b45309' }}>
+                              Company Holiday Notice: {holidayConflict.name} ({holidayConflict.date})
+                            </div>
+                            <div style={{ color: '#92400e', marginTop: '2px' }}>
+                              This date is already an official company holiday. You may not need to apply for leave.
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {blockedDate && (
                         <div className="alert-box alert-box-danger" style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '14px', marginBottom: '16px', borderLeftColor: '#ef4444', background: 'rgba(239, 68, 68, 0.05)' }}>

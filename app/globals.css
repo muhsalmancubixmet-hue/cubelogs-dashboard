@@ -1211,7 +1211,7 @@ body {
    GLOBAL DARK-BLUE TEXT — overrides inline style= props too
    Scoped to main-content so sidebar white-text is unaffected
    ===========================================================/* Force ALL elements inside main content to dark blue (except specific excluded components) */
-.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.table-emp-avatar):not(.table-emp-avatar *):not(.avatar-initials-text):not(.avatar-initials-text *):not(.tab-btn.active):not(.tab-btn.active *):not(.btn-primary):not(.btn-primary *):not([class*="btn-primary"]):not([class*="btn-primary"] *):not(.btn-white-text):not(.btn-white-text *):not(.pm-hero-btn):not(.pm-hero-btn *):not(.btn-submit):not(.btn-submit *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.active-tab-blue):not(.active-tab-blue *):not(.tab-link.active):not(.tab-link.active *):not(.module-tab-pill.active):not(.module-tab-pill.active *):not(.active-tab-text):not(.active-tab-text *):not(.btn-danger):not(.btn-danger *):not(.toggle-btn.active):not(.toggle-btn.active *):not(.month-page-pill.active):not(.month-page-pill.active *):not(.smn-pill.active):not(.smn-pill.active *):not([data-white-text="true"]):not([data-white-text="true"] *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
+.main-content *:not(.billing-theme):not(.billing-theme *):not(.cm-dialog-box):not(.cm-dialog-box *):not(.custom-alert-card):not(.custom-alert-card *):not(.avatar-circle):not(.avatar-circle *):not(.avatar):not(.avatar *):not(.avatar-large):not(.avatar-large *):not(.table-emp-avatar):not(.table-emp-avatar *):not(.avatar-initials-text):not(.avatar-initials-text *):not(.tab-btn.active):not(.tab-btn.active *):not(.fullwidth-nav-btn.active):not(.fullwidth-nav-btn.active *):not(.btn-primary):not(.btn-primary *):not([class*="btn-primary"]):not([class*="btn-primary"] *):not(.btn-white-text):not(.btn-white-text *):not(.pm-hero-btn):not(.pm-hero-btn *):not(.btn-submit):not(.btn-submit *):not(.btn-blue-active):not(.btn-blue-active *):not(.active-blue-btn):not(.active-blue-btn *):not([data-active-blue="true"]):not([data-active-blue="true"] *):not(.active-tab-blue):not(.active-tab-blue *):not(.tab-link.active):not(.tab-link.active *):not(.module-tab-pill.active):not(.module-tab-pill.active *):not(.active-tab-text):not(.active-tab-text *):not(.btn-danger):not(.btn-danger *):not(.toggle-btn.active):not(.toggle-btn.active *):not(.month-page-pill.active):not(.month-page-pill.active *):not(.smn-pill.active):not(.smn-pill.active *):not([data-white-text="true"]):not([data-white-text="true"] *):not([class*="holiday-text"]):not([class*="holiday-text"] *):not(.badge):not(.badge *):not(svg):not(path):not(circle):not(rect):not(line):not(polyline):not(polygon):not(defs):not(g) {
   color: var(--text-main) !important;
 }
 
@@ -1222,6 +1222,8 @@ body {
 .main-content [class*="btn-primary"] *,
 .main-content .btn-white-text,
 .main-content .btn-white-text *,
+.main-content .fullwidth-nav-btn.active,
+.main-content .fullwidth-nav-btn.active *,
 .main-content .tab-btn.active,
 .main-content .tab-btn.active *,
 .main-content .toggle-btn.active,

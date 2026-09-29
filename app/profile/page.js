@@ -17,6 +17,9 @@ import {
   CameraIcon,
   ReceiptIcon,
   DownloadIcon,
+  SearchIcon,
+  CloseIcon,
+  ChevronRightIcon,
 } from '@/components/Icons';
 import PayslipModal from '@/components/PayslipModal';
 import { apiFetch, getApiBaseUrl, normalizeListResponse } from '@/lib/api';
@@ -157,6 +160,19 @@ export default function PersonalProfile() {
       return false;
     }
     return true;
+  });
+
+  const [isAccessFlagsModalOpen, setIsAccessFlagsModalOpen] = useState(false);
+  const [permissionSearchQuery, setPermissionSearchQuery] = useState('');
+
+  const activePermissions = visiblePermissionFlags.filter(
+    flag => currentUser?.isSuperAdmin || (currentUser?.permissions && currentUser.permissions.includes(flag.id))
+  );
+
+  const filteredPermissionFlags = visiblePermissionFlags.filter(flag => {
+    if (!permissionSearchQuery.trim()) return true;
+    const q = permissionSearchQuery.toLowerCase();
+    return flag.label.toLowerCase().includes(q) || flag.id.toLowerCase().includes(q);
   });
 
   const photoInputRef = useRef(null);
@@ -375,7 +391,7 @@ export default function PersonalProfile() {
               </div>
             </div>
 
-            <div style={{ marginTop: '24px', width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ marginTop: '16px', width: '100%', display: 'flex', justifyContent: 'center' }}>
               <Link 
                 href="/profile/change-password" 
                 className="btn btn-secondary btn-sm" 
@@ -385,7 +401,7 @@ export default function PersonalProfile() {
                   justifyContent: 'center', 
                   width: '100%',
                   textDecoration: 'none',
-                  padding: '8px 16px',
+                  padding: '7px 16px',
                   fontWeight: '600'
                 }}
               >
@@ -428,41 +444,290 @@ export default function PersonalProfile() {
               </div>
             </div>
 
-            {/* Configure Page Access Flags Checklist */}
+            {/* Configure Page Access Flags Card */}
             <div className="panel permissions-summary-panel">
-              <h3 style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldIcon size={20} style={{ color: 'var(--primary)' }} />
-                <span>Configure Page Access Flags</span>
-              </h3>
-              <div className="permissions-checklist-matrix locked">
-                {visiblePermissionFlags.map(flag => {
-                  const isChecked = currentUser.isSuperAdmin || (currentUser.permissions && currentUser.permissions.includes(flag.id));
-                  return (
-                    <div 
-                      className={`matrix-item ${isChecked ? 'active' : 'disabled'}`}
-                      key={flag.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}
-                    >
-                      <input
-                        type="checkbox"
-                        className="form-checkbox"
-                        checked={isChecked}
-                        readOnly
-                        disabled
-                      />
-                      <span style={{ fontSize: '0.85rem', color: isChecked ? 'var(--text-main)' : '#94a3b8' }}>{flag.label}</span>
-                    </div>
-                  );
-                })}
+              <div className="permissions-summary-content">
+                <div className="permissions-summary-header">
+                  <div className="permissions-icon-badge">
+                    <ShieldIcon size={20} />
+                  </div>
+                  <div className="permissions-summary-text">
+                    <h3>Configure Page Access Flags</h3>
+                    <p className="permissions-summary-desc">
+                      Review security clearance, assigned roles, and module access permissions configured for your account.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Preview Chips of Active Permissions that fit in the card */}
+                {!isAccessFlagsModalOpen && (
+                  <div className="permissions-preview-chips">
+                    {activePermissions.slice(0, 7).map(flag => (
+                      <span key={flag.id} className="permission-chip">
+                        <span className="chip-check">✓</span>
+                        <span>{flag.label}</span>
+                      </span>
+                    ))}
+                    {activePermissions.length > 7 && (
+                      <button
+                        type="button"
+                        className="permission-chip more-chip"
+                        onClick={() => {
+                          setPermissionSearchQuery('');
+                          setIsAccessFlagsModalOpen(true);
+                        }}
+                        title="Click to view all permissions"
+                      >
+                        +{activePermissions.length - 7} more...
+                      </button>
+                    )}
+                    {activePermissions.length === 0 && (
+                      <span className="no-permissions-text">No active page access permissions assigned.</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="permissions-summary-footer">
+                  <div className="permissions-status-pill">
+                    <span className="status-dot" />
+                    <span>
+                      {currentUser?.isSuperAdmin 
+                        ? 'All permissions active (Super Admin)' 
+                        : `${activePermissions.length} of ${visiblePermissionFlags.length} permissions active`}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary permissions-configure-btn"
+                    onClick={() => {
+                      setPermissionSearchQuery('');
+                      setIsAccessFlagsModalOpen(true);
+                    }}
+                  >
+                    <ShieldIcon size={15} />
+                    <span>Configure Page Access Flags</span>
+                    <ChevronRightIcon size={14} />
+                  </button>
+                </div>
               </div>
             </div>
+
+            {/* Modal: Configure Page Access Flags */}
+            {isAccessFlagsModalOpen && (
+              <div 
+                className="modal-overlay" 
+                onClick={() => setIsAccessFlagsModalOpen(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  backdropFilter: 'blur(4px)',
+                  WebkitBackdropFilter: 'blur(4px)',
+                  zIndex: 1000,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '16px'
+                }}
+              >
+                <div 
+                  className="modal-content"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'var(--surface, #ffffff)',
+                    borderRadius: 'var(--radius-lg, 12px)',
+                    width: '100%',
+                    maxWidth: '680px',
+                    maxHeight: '85vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                    border: '1px solid var(--border, #e2e8f0)',
+                    overflow: 'hidden'
+                  }}
+                >
+                  {/* Modal Header */}
+                  <div 
+                    style={{
+                      padding: '16px 20px',
+                      borderBottom: '1px solid var(--border, #e2e8f0)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--bg-app, #f8fafc)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <ShieldIcon size={20} style={{ color: 'var(--primary, #2563eb)' }} />
+                      <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>
+                        Configure Page Access Flags
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAccessFlagsModalOpen(false)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-muted, #64748b)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '4px'
+                      }}
+                      aria-label="Close modal"
+                    >
+                      <CloseIcon size={18} />
+                    </button>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border, #e2e8f0)', background: 'var(--surface, #ffffff)' }}>
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <SearchIcon 
+                        size={16} 
+                        style={{ 
+                          position: 'absolute', 
+                          left: '12px', 
+                          top: '50%', 
+                          transform: 'translateY(-50%)', 
+                          color: 'var(--text-muted, #94a3b8)',
+                          pointerEvents: 'none'
+                        }} 
+                      />
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Search permissions by name..."
+                        value={permissionSearchQuery}
+                        onChange={(e) => setPermissionSearchQuery(e.target.value)}
+                        autoFocus
+                        style={{
+                          width: '100%',
+                          paddingLeft: '36px',
+                          paddingRight: permissionSearchQuery ? '32px' : '12px',
+                          paddingTop: '8px',
+                          paddingBottom: '8px',
+                          fontSize: '0.86rem',
+                          borderRadius: 'var(--radius-sm, 6px)',
+                          border: '1px solid var(--border, #cbd5e1)',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      {permissionSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setPermissionSearchQuery('')}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--text-muted, #94a3b8)',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          aria-label="Clear search"
+                        >
+                          <CloseIcon size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Scrollable Permission List */}
+                  <div 
+                    style={{ 
+                      padding: '18px 20px', 
+                      overflowY: 'auto', 
+                      flex: 1,
+                      maxHeight: 'calc(85vh - 170px)'
+                    }}
+                  >
+                    {filteredPermissionFlags.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '36px 12px', color: 'var(--text-muted, #64748b)' }}>
+                        <SearchIcon size={26} style={{ opacity: 0.35, margin: '0 auto 8px', display: 'block' }} />
+                        <p style={{ margin: 0, fontSize: '0.88rem', fontWeight: '500' }}>
+                          No permissions found matching &ldquo;{permissionSearchQuery}&rdquo;
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="permissions-checklist-matrix locked">
+                        {filteredPermissionFlags.map(flag => {
+                          const isChecked = currentUser?.isSuperAdmin || (currentUser?.permissions && currentUser.permissions.includes(flag.id));
+                          return (
+                            <div 
+                              className={`matrix-item ${isChecked ? 'active' : 'disabled'}`}
+                              key={flag.id}
+                              style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '10px', 
+                                padding: '10px 14px', 
+                                borderRadius: 'var(--radius-sm, 6px)', 
+                                border: '1px solid var(--border, #e2e8f0)',
+                                transition: 'all 0.15s ease'
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                className="form-checkbox"
+                                checked={isChecked}
+                                readOnly
+                                disabled
+                              />
+                              <span style={{ fontSize: '0.85rem', color: isChecked ? 'var(--text-main, #0f172a)' : '#94a3b8' }}>
+                                {flag.label}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Modal Footer */}
+                  <div 
+                    style={{
+                      padding: '12px 20px',
+                      borderTop: '1px solid var(--border, #e2e8f0)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--bg-app, #f8fafc)',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-muted, #64748b)'
+                    }}
+                  >
+                    <span>
+                      Showing {filteredPermissionFlags.length} of {visiblePermissionFlags.length} permissions
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setIsAccessFlagsModalOpen(false)}
+                      style={{ padding: '6px 16px', fontWeight: '600' }}
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
           </div>
 
         </div>
 
         {/* Daily Clock-In and Clock-Out Details Container */}
-        <div className="panel daily-logs-container" style={{ marginTop: '24px' }}>
+        <div className="panel daily-logs-container">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
             <h3 style={{ margin: '0', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
@@ -680,34 +945,38 @@ export default function PersonalProfile() {
         .profile-page-wrapper {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 20px;
         }
 
         .profile-layout-grid {
           display: flex;
-          gap: 24px;
-          flex-wrap: wrap;
+          gap: 20px;
+          align-items: stretch;
           width: 100%;
         }
 
         .left-card {
-          flex: 1;
-          min-width: 300px;
+          flex: 0 0 310px;
+          min-width: 280px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          padding: 32px 24px;
+          padding: 22px 20px;
           text-align: center;
-          height: fit-content;
+          box-sizing: border-box;
+          background: white;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-sm);
         }
 
         .avatar-large-wrapper {
           position: relative;
-          width: 100px;
-          height: 100px;
+          width: 82px;
+          height: 82px;
           border-radius: 50%;
           cursor: pointer;
-          margin-bottom: 18px;
+          margin-bottom: 12px;
         }
 
         .avatar-large-wrapper:hover .avatar-camera-overlay {
@@ -715,8 +984,8 @@ export default function PersonalProfile() {
         }
 
         .avatar-large {
-          width: 100px;
-          height: 100px;
+          width: 82px;
+          height: 82px;
           border-radius: 50%;
           background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
           color: white;
@@ -724,9 +993,9 @@ export default function PersonalProfile() {
           align-items: center;
           justify-content: center;
           font-weight: 800;
-          font-size: 2.2rem;
+          font-size: 1.85rem;
           font-family: var(--font-heading);
-          box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+          box-shadow: 0 6px 16px rgba(37, 99, 235, 0.22);
           border: 3px solid white;
           overflow: hidden;
         }
@@ -749,28 +1018,29 @@ export default function PersonalProfile() {
         }
 
         .left-card h2 {
-          font-size: 1.45rem;
-          margin-bottom: 6px;
+          font-size: 1.28rem;
+          margin-bottom: 4px;
         }
 
         .designation-badge {
-          margin-bottom: 24px;
-          font-size: 0.82rem;
-          padding: 4px 12px;
+          margin-bottom: 16px;
+          font-size: 0.8rem;
+          padding: 3px 12px;
         }
 
         .contact-details-list {
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 12px;
           text-align: left;
+          flex: 1;
         }
 
         .detail-item {
           display: flex;
           align-items: flex-start;
-          gap: 12px;
+          gap: 10px;
         }
 
         .detail-item .text {
@@ -780,36 +1050,36 @@ export default function PersonalProfile() {
         }
 
         .detail-item .label {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--text-light);
           font-weight: 500;
         }
 
         .detail-item .val {
-          font-size: 0.88rem;
+          font-size: 0.85rem;
           font-weight: 600;
           word-break: break-all;
         }
 
         .right-panels-wrapper {
-          flex: 2;
-          min-width: 350px;
+          flex: 1;
+          min-width: 0;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 14px;
         }
 
         .metrics-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-          gap: 16px;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 14px;
         }
 
         .metric-card {
           background: white;
           border-radius: var(--radius-md);
           border: 1px solid var(--border);
-          padding: 16px;
+          padding: 14px 16px;
           display: flex;
           align-items: center;
           gap: 12px;
@@ -817,8 +1087,9 @@ export default function PersonalProfile() {
         }
 
         .metric-icon {
-          width: 42px;
-          height: 42px;
+          width: 38px;
+          height: 38px;
+          min-width: 38px;
           border-radius: var(--radius-md);
           background-color: var(--primary-light);
           color: var(--primary);
@@ -828,14 +1099,14 @@ export default function PersonalProfile() {
         }
 
         .metric-details h4 {
-          font-size: 0.75rem;
+          font-size: 0.72rem;
           color: var(--text-light);
           text-transform: uppercase;
           margin-bottom: 2px;
         }
 
         .metric-details p {
-          font-size: 1.25rem;
+          font-size: 1.15rem;
           font-weight: 700;
           margin: 0;
         }
@@ -844,6 +1115,149 @@ export default function PersonalProfile() {
           font-size: 0.78rem;
           font-weight: 500;
           color: var(--text-light);
+        }
+
+        .permissions-summary-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 20px 22px;
+          background: white;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .permissions-summary-content {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          height: 100%;
+          gap: 14px;
+        }
+
+        .permissions-summary-header {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+        }
+
+        .permissions-icon-badge {
+          width: 40px;
+          height: 40px;
+          min-width: 40px;
+          border-radius: 8px;
+          background: var(--primary-light, #eff6ff);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--primary, #2563eb);
+          border: 1px solid rgba(37, 99, 235, 0.15);
+        }
+
+        .permissions-summary-text h3 {
+          margin: 0;
+          font-size: 1.02rem;
+          font-weight: 700;
+          color: var(--text-main, #0f172a);
+        }
+
+        .permissions-summary-desc {
+          margin: 4px 0 0;
+          font-size: 0.82rem;
+          color: var(--text-light, #64748b);
+          line-height: 1.45;
+        }
+
+        .permissions-preview-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+          padding: 2px 0;
+        }
+
+        .permission-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          font-size: 0.77rem;
+          font-weight: 600;
+          color: var(--text-main, #1e293b);
+          line-height: 1.2;
+          white-space: nowrap;
+        }
+
+        .permission-chip .chip-check {
+          color: #10b981;
+          font-weight: 800;
+          font-size: 0.76rem;
+        }
+
+        .permission-chip.more-chip {
+          background: var(--primary-light, #eff6ff);
+          border: 1px dashed var(--primary, #3b82f6);
+          color: var(--primary, #2563eb);
+          cursor: pointer;
+          font-weight: 700;
+          transition: all 0.15s ease;
+        }
+
+        .permission-chip.more-chip:hover {
+          background: #dbeafe;
+          border-color: #2563eb;
+        }
+
+        .no-permissions-text {
+          font-size: 0.8rem;
+          color: var(--text-muted, #94a3b8);
+          font-style: italic;
+        }
+
+        .permissions-summary-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border-light, #f1f5f9);
+        }
+
+        .permissions-status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          padding: 5px 12px;
+          border-radius: 20px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--text-main, #334155);
+        }
+
+        .status-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #10b981;
+        }
+
+        .permissions-configure-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 16px;
+          font-size: 0.84rem;
+          font-weight: 600;
+          border-radius: var(--radius-sm, 6px);
+          cursor: pointer;
         }
 
         .permissions-checklist-matrix {
@@ -871,6 +1285,19 @@ export default function PersonalProfile() {
           border-color: var(--primary-border);
         }
 
+        @media (max-width: 992px) {
+          .profile-layout-grid {
+            flex-direction: column;
+          }
+          .left-card {
+            flex: none;
+            width: 100%;
+          }
+          .metrics-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
+        }
+
         @media (max-width: 768px) {
           .permissions-checklist-matrix {
             display: grid;
@@ -880,6 +1307,19 @@ export default function PersonalProfile() {
           .matrix-item {
             white-space: normal;
             width: 100%;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .metrics-grid {
+            grid-template-columns: 1fr;
+          }
+          .permissions-summary-footer {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .permissions-configure-btn {
+            justify-content: center;
           }
         }
 

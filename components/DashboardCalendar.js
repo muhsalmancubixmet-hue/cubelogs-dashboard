@@ -59,9 +59,9 @@ export default function DashboardCalendar({
     const dateStr = formatDateISO(year, month, d);
     const attSummary = (attendanceSummaries || []).find(s => s.date === dateStr);
     
-    // Check if activeLog falls on this day
-    let isActiveSession = false;
-    if (activeLog && !activeLog.clockOut) {
+    // Check if activeLog falls on this day or summary indicates open session
+    let isActiveSession = Boolean(attSummary?.is_open_session);
+    if (!isActiveSession && activeLog && !activeLog.clockOut) {
       if (activeLog.date === dateStr) {
         isActiveSession = true;
       } else if (activeLog.clockIn) {
@@ -244,10 +244,10 @@ export default function DashboardCalendar({
 
       // If user worked or has active session on a holiday / weekly off
       if (hasAtt) {
-        if (attStatus === 'In Progress') {
+        if (attStatus === 'In Progress' || isActiveSession || attSummary?.is_open_session) {
           cellStyle.border = '2px solid #10b981';
           cellStyle.background = 'linear-gradient(135deg, #fef2f2 35%, #ecfdf5 100%)';
-        } else if (attStatus === 'Present' || attStatus === 'Late' || attStatus === 'Half Day') {
+        } else if (attStatus === 'Present' || attStatus === 'Late' || attStatus === 'Half Day' || attStatus === 'Incomplete') {
           cellStyle.border = '1.5px solid #10b981';
           cellStyle.background = 'linear-gradient(135deg, #fef2f2 35%, #f0fdf4 100%)';
         }
