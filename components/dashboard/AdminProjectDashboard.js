@@ -19,7 +19,7 @@ function generateKeyPreview(name) {
   return `${prefix.toUpperCase()}-0001`;
 }
 
-export default function AdminProjectDashboard({
+function AdminProjectDashboard({
   projects = [],
   tasks = [],
   stories = [],
@@ -690,3 +690,5 @@ export default function AdminProjectDashboard({
     </div>
   );
 }
+
+export default React.memo(AdminProjectDashboard);

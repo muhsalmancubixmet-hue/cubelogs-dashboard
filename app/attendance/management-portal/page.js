@@ -90,6 +90,25 @@ const StatusPill = ({ status }) => {
 
 const LogRow = ({ log, onApprove, approving, approved }) => {
   const isApproved = approved || log.status === 'Approved';
+  const isShiftActive = !log.clockOut && (() => {
+    if (!log.clockIn) return false;
+    const logDate = log.clockIn.split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    if (logDate !== today) return false;
+    if (log.shiftEnd) {
+      try {
+        const [shH, shM] = log.shiftEnd.split(':').map(Number);
+        const now = new Date();
+        const endDt = new Date();
+        endDt.setHours(shH, shM, 0, 0);
+        return now < endDt;
+      } catch {
+        return true;
+      }
+    }
+    return true; // Still open session today
+  })();
+
   return (
     <div className="log-item-row" style={{
       display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
@@ -108,6 +127,12 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
           <span>{log.employeeDesignation || 'Staff'}</span>
           <span>&bull;</span>
           <span>Clock-in: <strong style={{ color: 'var(--text-main, #0f172a)' }}>{fmt12h(log.clockIn)}</strong></span>
+          {log.clockOut && (
+            <>
+              <span>&bull;</span>
+              <span>Clock-out: <strong style={{ color: 'var(--text-main, #0f172a)' }}>{fmt12h(log.clockOut)}</strong></span>
+            </>
+          )}
           {log.minutesLate !== undefined && (
             <span style={{ color: '#d97706', fontWeight: 600 }}>+{log.minutesLate} min late</span>
           )}
@@ -117,31 +142,51 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <StatusPill status={isApproved ? 'Approved' : log.status} />
         {!isApproved && onApprove && (
-          <button 
-            type="button"
-            className="btn btn-sm btn-primary"
-            onClick={() => onApprove(log.id)} 
-            disabled={approving} 
-            style={{
-              padding: '6px 14px',
-              fontSize: '0.8rem',
-              fontWeight: '600',
-              backgroundColor: '#16a34a',
-              borderColor: '#16a34a',
-              color: '#ffffff',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            {approving ? (
-              'Approving...'
-            ) : (
-              <>
-                <CheckIcon size={14} /> Approve
-              </>
-            )}
-          </button>
+          isShiftActive ? (
+            <span
+              style={{
+                padding: '6px 12px',
+                fontSize: '0.76rem',
+                fontWeight: 600,
+                color: '#b45309',
+                backgroundColor: '#fef3c7',
+                border: '1px solid #fde68a',
+                borderRadius: '16px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+              title="Attendance cannot be approved while shift is still active. Please approve after clock-out or shift end."
+            >
+              ⏳ Shift Active (Awaiting Clock-out)
+            </span>
+          ) : (
+            <button 
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={() => onApprove(log.id)} 
+              disabled={approving} 
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                backgroundColor: '#16a34a',
+                borderColor: '#16a34a',
+                color: '#ffffff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {approving ? (
+                'Approving...'
+              ) : (
+                <>
+                  <CheckIcon size={14} /> Approve
+                </>
+              )}
+            </button>
+          )
         )}
       </div>
     </div>
@@ -221,6 +266,60 @@ export default function HRAttendancePortalPage() {
   const [yearlyData, setYearlyData] = useState([]);
   const [yearlyLoading, setYearlyLoading] = useState(false);
   const [yearlySearch, setYearlySearch] = useState('');
+
+  // Custom Date Range State
+  const defaultThirtyDaysAgo = new Date();
+  defaultThirtyDaysAgo.setDate(defaultThirtyDaysAgo.getDate() - 30);
+  const [rangeStart, setRangeStart] = useState(() => defaultThirtyDaysAgo.toISOString().split('T')[0]);
+  const [rangeEnd, setRangeEnd] = useState(() => new Date().toISOString().split('T')[0]);
+  const [rangeData, setRangeData] = useState([]);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState('');
+  const [rangeSearch, setRangeSearch] = useState('');
+
+  const fetchRangeData = useCallback(async (start = rangeStart, end = rangeEnd) => {
+    setRangeLoading(true);
+    setRangeError('');
+    try {
+      const res = await apiFetch(`/attendance/?start_date=${start}&end_date=${end}`);
+      const list = Array.isArray(res) ? res : (res?.results || []);
+      setRangeData(list);
+    } catch (e) {
+      setRangeError(e.message || 'Failed to load custom date range attendance.');
+    } finally {
+      setRangeLoading(false);
+    }
+  }, [rangeStart, rangeEnd]);
+
+  useEffect(() => {
+    if (viewMode === 'range') {
+      fetchRangeData(rangeStart, rangeEnd);
+    }
+  }, [viewMode, rangeStart, rangeEnd, fetchRangeData]);
+
+  const handleExportRangeCSV = () => {
+    if (!rangeData || rangeData.length === 0) {
+      alert('No attendance data available to export for this range.');
+      return;
+    }
+    const headers = ['Employee Name', 'Date', 'Clock In', 'Clock Out', 'Duration (Hours)', 'Status'];
+    const rows = rangeData.map(r => [
+      `"${(r.employeeName || '').replace(/"/g, '""')}"`,
+      r.date || '',
+      r.clockIn ? new Date(r.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--',
+      r.clockOut ? new Date(r.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--',
+      r.totalDuration || '0',
+      r.status || 'Pending'
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Reopen Modal State
   const [showReopenModal, setShowReopenModal] = useState(false);
@@ -531,6 +630,31 @@ export default function HRAttendancePortalPage() {
 
           <button
             type="button"
+            className={`btn btn-sm ${viewMode === 'range' ? 'btn-white-text btn-blue-active' : ''}`}
+            data-active-blue={viewMode === 'range' ? 'true' : undefined}
+            data-white-text={viewMode === 'range' ? 'true' : undefined}
+            onClick={() => setViewMode('range')}
+            style={{
+              padding: '9px 20px',
+              fontSize: '0.88rem',
+              fontWeight: viewMode === 'range' ? '700' : '600',
+              borderRadius: 'var(--radius-sm, 6px)',
+              background: viewMode === 'range' ? 'var(--primary, #2563eb)' : 'var(--bg-card, #ffffff)',
+              color: viewMode === 'range' ? '#ffffff' : 'var(--text-main, #0f172a)',
+              border: viewMode === 'range' ? '1px solid var(--primary, #2563eb)' : '1px solid var(--border, #cbd5e1)',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: viewMode === 'range' ? '0 2px 4px rgba(37,99,235,0.25)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <CalendarIcon size={16} /> <span className={viewMode === 'range' ? 'active-tab-text' : ''} style={{ color: viewMode === 'range' ? '#ffffff' : 'inherit' }}>Custom Date Range</span>
+          </button>
+
+          <button
+            type="button"
             className={`btn btn-sm ${viewMode === 'monthly' ? 'btn-white-text btn-blue-active' : ''}`}
             data-active-blue={viewMode === 'monthly' ? 'true' : undefined}
             data-white-text={viewMode === 'monthly' ? 'true' : undefined}
@@ -832,6 +956,195 @@ export default function HRAttendancePortalPage() {
                 </div>
               )}
 
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* CUSTOM DATE RANGE ATTENDANCE QUERY                                        */}
+        {/* ========================================================================= */}
+        {viewMode === 'range' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Filter & Date Selection Bar */}
+            <div className="panel settings-panel-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', margin: 0 }}>
+                    Custom Attendance Date Range Query
+                  </h3>
+                  <p style={{ margin: '4px 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.84rem' }}>
+                    Select specific start and end dates (e.g. 20/07/2026 to 16/08/2026) to manually pull and inspect detailed employee records.
+                  </p>
+                </div>
+                
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleExportRangeCSV}
+                  disabled={rangeData.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '8px 16px' }}
+                >
+                  <DownloadIcon size={14} /> Export Range CSV
+                </button>
+              </div>
+
+              {/* Range Date Inputs & Filters */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-app, #f8fafc)', padding: '14px 18px', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--border, #e2e8f0)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>From Date:</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={rangeStart}
+                    onChange={(e) => setRangeStart(e.target.value)}
+                    style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>To Date:</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={rangeEnd}
+                    onChange={(e) => setRangeEnd(e.target.value)}
+                    style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)' }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => fetchRangeData(rangeStart, rangeEnd)}
+                  disabled={rangeLoading}
+                  style={{ padding: '8px 18px', fontSize: '0.84rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {rangeLoading ? 'Loading...' : 'Pull Attendance Data'}
+                </button>
+
+                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                  <SearchIcon size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by employee name or status..."
+                    value={rangeSearch}
+                    onChange={(e) => setRangeSearch(e.target.value)}
+                    style={{ width: '100%', paddingLeft: '32px', paddingRight: '12px', fontSize: '0.84rem' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Range KPI Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+              <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #2563eb' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Records Found</div>
+                <div style={{ fontSize: '1.45rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '2px' }}>
+                  {rangeData.length}
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #16a34a' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Unique Staff</div>
+                <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>
+                  {new Set(rangeData.map(r => r.employee || r.employeeId)).size}
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #8b5cf6' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Approved Logs</div>
+                <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#6b21a8', marginTop: '2px' }}>
+                  {rangeData.filter(r => r.status === 'Approved').length}
+                </div>
+              </div>
+
+              <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #d97706' }}>
+                <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Pending Approvals</div>
+                <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#b45309', marginTop: '2px' }}>
+                  {rangeData.filter(r => r.status === 'Pending Approval').length}
+                </div>
+              </div>
+            </div>
+
+            {/* Records Data Table */}
+            <div className="panel settings-panel-card" style={{ padding: '20px' }}>
+              {rangeLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted, #64748b)' }}>
+                  <div style={{ width: 28, height: 28, border: '3px solid var(--primary-border, #bfdbfe)', borderTopColor: 'var(--primary, #2563eb)', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
+                  Loading records between {rangeStart} and {rangeEnd}...
+                </div>
+              ) : rangeError ? (
+                <div className="alert-box alert-box-danger" style={{ padding: '14px 18px', borderRadius: 'var(--radius-md, 8px)' }}>
+                  {rangeError}
+                </div>
+              ) : rangeData.length === 0 ? (
+                <EmptyState IconComponent={CalendarIcon} msg={`No attendance logs found between ${rangeStart} and ${rangeEnd}.`} />
+              ) : (
+                <div className="table-container" style={{ overflowX: 'auto' }}>
+                  <table className="data-table" style={{ width: '100%', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Clock-In</th>
+                        <th>Clock-Out</th>
+                        <th>Total Hours</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rangeData
+                        .filter(item => {
+                          if (!rangeSearch) return true;
+                          const q = rangeSearch.toLowerCase();
+                          return (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
+                                 (item.status && item.status.toLowerCase().includes(q)) ||
+                                 (item.date && item.date.includes(q));
+                        })
+                        .map(log => {
+                          const isApproved = approvedIds.has(log.id) || log.status === 'Approved';
+                          return (
+                            <tr key={log.id}>
+                              <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <AvatarPill name={log.employeeName} size={30} />
+                                  <strong>{log.employeeName || 'Staff Member'}</strong>
+                                </div>
+                              </td>
+                              <td>{log.date}</td>
+                              <td>{log.clockIn ? fmt12h(log.clockIn) : '—'}</td>
+                              <td>{log.clockOut ? fmt12h(log.clockOut) : '—'}</td>
+                              <td>{log.totalDuration ? `${log.totalDuration} hrs` : (log.clockIn && !log.clockOut ? 'In Progress' : '0 hrs')}</td>
+                              <td><StatusPill status={isApproved ? 'Approved' : log.status} /></td>
+                              <td style={{ textAlign: 'right' }}>
+                                {!isApproved && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-primary"
+                                    onClick={() => handleApprove(log.id)}
+                                    disabled={approvingId === log.id}
+                                    style={{
+                                      padding: '4px 10px',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '600',
+                                      backgroundColor: '#16a34a',
+                                      borderColor: '#16a34a',
+                                      color: '#ffffff',
+                                    }}
+                                  >
+                                    {approvingId === log.id ? 'Approving...' : 'Approve'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}

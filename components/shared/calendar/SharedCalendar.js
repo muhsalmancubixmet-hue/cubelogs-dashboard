@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import CalendarHeader from './CalendarHeader';
 import CalendarGrid from './CalendarGrid';
 
-export default function SharedCalendar({
+function SharedCalendar({
   year: controlledYear,
   month: controlledMonth,
   onMonthChange,
@@ -85,3 +85,5 @@ export default function SharedCalendar({
     </div>
   );
 }
+
+export default React.memo(SharedCalendar);

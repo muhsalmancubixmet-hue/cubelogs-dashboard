@@ -46,9 +46,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
     }
   }, [currentUser, authStatus, isUnpaid, router]);
 
-  const isLoading =
-    authStatus === 'loading' ||
-    (authStatus === 'authenticated' && (orgProfileStatus === 'idle' || orgProfileStatus === 'loading'));
+  const isLoading = authStatus === 'loading' && !currentUser;
 
   if (isLoading) {
     return (

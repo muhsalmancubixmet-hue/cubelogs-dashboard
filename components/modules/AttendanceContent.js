@@ -331,6 +331,21 @@ function AttendanceContent() {
   const [cameraStream, setCameraStream] = useState(null);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [closestLocation, setClosestLocation] = useState(null);
+  const [isMirrored, setIsMirrored] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cubelogs_camera_mirrored');
+      if (saved !== null) return saved === 'true';
+    }
+    return false;
+  });
+
+  const toggleMirror = () => {
+    setIsMirrored(prev => {
+      const next = !prev;
+      try { localStorage.setItem('cubelogs_camera_mirrored', String(next)); } catch {}
+      return next;
+    });
+  };
 
   const videoRef = useRef(null);
   // Guard flag: prevents React Strict Mode's double-invocation from triggering the modal twice
@@ -601,6 +616,11 @@ function AttendanceContent() {
     canvas.width = 400;
     canvas.height = 300;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    if (isMirrored) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
     const photoData = canvas.toDataURL('image/jpeg');
     setVerifierPhoto(photoData);
@@ -1598,6 +1618,8 @@ function AttendanceContent() {
         facingMode={facingMode}
         closestLocation={closestLocation}
         videoRef={videoRef}
+        isMirrored={isMirrored}
+        toggleMirror={toggleMirror}
         handleCloseVerifier={handleCloseVerifier}
         toggleFacingMode={toggleFacingMode}
         startWebcam={startWebcam}

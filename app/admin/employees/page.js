@@ -29,10 +29,19 @@ function getCachedEmployees(orgId) {
   if (typeof window !== 'undefined') {
     try {
       const storageKey = orgId ? `cubelogs_employees_${orgId}` : 'cubelogs_employees';
-      const stored = localStorage.getItem(storageKey);
+      let stored = localStorage.getItem(storageKey);
+      if (!stored) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('cubelogs_employees')) {
+            stored = localStorage.getItem(key);
+            if (stored) break;
+          }
+        }
+      }
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           _employeesMemoryCache = { orgId, list: parsed };
           return parsed;
         }
@@ -150,8 +159,8 @@ export default function Employees() {
   };
 
   const fetchEmployeesData = async (isSilent = false) => {
-    if (authStatus !== 'authenticated') return;
-    const hasCache = Boolean(_employeesMemoryCache?.list?.length);
+    if (authStatus !== 'authenticated' && !currentUser) return;
+    const hasCache = Boolean(employees.length > 0 || _employeesMemoryCache?.list?.length);
     if (!isSilent && !hasCache && !searchQuery) {
       setLoading(true);
     }
@@ -297,7 +306,7 @@ export default function Employees() {
     router.push(`/admin/employees/create?id=${empId}`);
   };
 
-  if (loading && !currentUser) {
+  if (loading && employees.length === 0 && !currentUser) {
     return (
       <PageWrapper title="Employee Directory Manager" requiredPermission="admin:employees">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '32px', color: 'var(--primary)', fontWeight: '600', fontSize: '1.1rem', justifyContent: 'center' }}>
@@ -396,7 +405,18 @@ export default function Employees() {
                 </tr>
               </thead>
               <tbody>
-                {filteredEmployees.length === 0 ? (
+                {loading && filteredEmployees.length === 0 ? (
+                  [1, 2, 3].map((n) => (
+                    <tr key={`emp-skeleton-${n}`}>
+                      <td colSpan="6" style={{ padding: '24px', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                          <div style={{ width: '18px', height: '18px', border: '2px solid var(--primary-border)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                          <span>Loading employee directory...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : filteredEmployees.length === 0 ? (
                   <tr>
                     <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                       No employees match the current filter.

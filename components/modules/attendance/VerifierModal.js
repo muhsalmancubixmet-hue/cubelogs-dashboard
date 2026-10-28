@@ -13,6 +13,8 @@ export default function VerifierModal({
   facingMode,
   closestLocation,
   videoRef,
+  isMirrored,
+  toggleMirror,
   handleCloseVerifier,
   toggleFacingMode,
   startWebcam,
@@ -208,7 +210,17 @@ export default function VerifierModal({
                 <img src={verifierPhoto} alt="Uploaded verification preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : cameraStream ? (
                 <>
-                  <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} autoPlay playsInline muted />
+                  <video
+                    ref={videoRef}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      transform: isMirrored ? 'scaleX(-1)' : 'scaleX(1)',
+                      transition: 'transform 0.2s ease'
+                    }}
+                    autoPlay playsInline muted
+                  />
                   
                   {/* Rotate Camera Button (Front/Back) */}
                   <button 
@@ -241,6 +253,41 @@ export default function VerifierModal({
                       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                     </svg>
                   </button>
+
+                  {/* Flip / Mirror Button (Icon Only) */}
+                  {toggleMirror && (
+                    <button
+                      type="button"
+                      onClick={() => toggleMirror()}
+                      title={isMirrored ? "Currently Mirrored — Click to Flip to Direct View" : "Currently Direct — Click to Flip to Mirrored View"}
+                      className="camera-mirror-btn"
+                      style={{
+                        position: 'absolute',
+                        bottom: '12px',
+                        left: '54px',
+                        background: isMirrored ? 'rgba(37, 99, 235, 0.9)' : 'rgba(15, 23, 42, 0.7)',
+                        border: isMirrored ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: '50%',
+                        width: '36px',
+                        height: '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        cursor: 'pointer',
+                        backdropFilter: 'blur(4px)',
+                        transition: 'all 0.2s',
+                        zIndex: 10
+                      }}
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
+                        <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                        <path d="m12 7-3 3 3 3" />
+                        <path d="m12 17 3-3-3-3" />
+                      </svg>
+                    </button>
+                  )}
 
                   <button 
                     type="button" 
