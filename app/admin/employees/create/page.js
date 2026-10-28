@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp, PERMISSION_FLAGS, MODULES_MAP } from '@/context/AppContext';
 import PageWrapper from '@/components/PageWrapper';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -77,12 +78,28 @@ function EmployeeCreateContent() {
   const [activeModuleTab, setActiveModuleTab] = useState('all');
   
   // Status modal state
+  const [mounted, setMounted] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [statusModalState, setStatusModalState] = useState('loading'); // 'loading' | 'success' | 'error'
   const [statusModalMessage, setStatusModalMessage] = useState('');
   const [savedWorker, setSavedWorker] = useState(null);
 
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (statusModalOpen || cropModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [statusModalOpen, cropModalOpen]);
 
   const isProjectEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_project_enabled;
   const isAttendanceEnabled = currentUser?.isSuperAdmin || currentUser?.subscription?.is_attendance_enabled;
@@ -306,6 +323,9 @@ function EmployeeCreateContent() {
   };
 
   const localSaveEmployee = async (employee) => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
     setStatusModalOpen(true);
     setStatusModalState('loading');
     setStatusModalMessage(employee.id ? 'Updating employee credentials...' : 'Registering and onboarding staff member...');
@@ -436,7 +456,9 @@ function EmployeeCreateContent() {
             
             {/* STEP 1: Identification & Designation */}
             <div className="step-section">
-              <span className="step-badge">Step 1</span>
+              <span className="step-badge" style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', backgroundColor: '#0284c7' }}>
+                <span style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}>Step 1</span>
+              </span>
               <span className="step-title">Core Personal Data & Designation</span>
 
               {/* Profile Photo Upload */}
@@ -622,7 +644,9 @@ function EmployeeCreateContent() {
 
             {/* STEP: Bank Account & Payment Details */}
             <div className="step-section">
-              <span className="step-badge" style={{ backgroundColor: '#0284c7' }}>Payment</span>
+              <span className="step-badge" style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', backgroundColor: '#0284c7' }}>
+                <span style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}>Payment</span>
+              </span>
               <span className="step-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <BankIcon size={18} style={{ color: 'var(--primary, #0284c7)' }} />
                 <span>Bank Account &amp; Disbursement Details</span>
@@ -715,7 +739,9 @@ function EmployeeCreateContent() {
 
             {/* STEP 2: Permissions Matrix & Custom Override Checkbox */}
             <div className="step-section">
-              <span className="step-badge">Step 2</span>
+              <span className="step-badge" style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff', backgroundColor: '#0284c7' }}>
+                <span style={{ color: '#ffffff', WebkitTextFillColor: '#ffffff' }}>Step 2</span>
+              </span>
               <span className="step-title">Default Template or Live Custom Override</span>
               
               <div className="override-toggle-box">
@@ -737,48 +763,71 @@ function EmployeeCreateContent() {
               </div>
 
               {/* Module Tabs Selector */}
-              <div className="form-group" style={{ marginTop: '16px', marginBottom: '14px' }}>
-                <label className="form-label" style={{ fontSize: '0.82rem', fontWeight: '600', marginBottom: '8px', display: 'block' }}>Select Module to Configure</label>
-                <div className="module-tabs flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+              <div className="form-group" style={{ marginTop: '16px', marginBottom: '16px' }}>
+                <label className="form-label" style={{ fontSize: '0.84rem', fontWeight: '700', marginBottom: '10px', display: 'block' }}>Select Module to Configure</label>
+                <div 
+                  className="module-tabs"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: '8px',
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    paddingBottom: '8px',
+                    flexWrap: 'nowrap',
+                    whiteSpace: 'nowrap',
+                    WebkitOverflowScrolling: 'touch',
+                    width: '100%',
+                    maxWidth: '100%'
+                  }}
+                >
                   <button
                     type="button"
-                    data-active-blue={activeModuleTab === 'all' ? 'true' : undefined}
                     onClick={() => setActiveModuleTab('all')}
-                    className={`module-tab-pill px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap border transition-all duration-150 cursor-pointer select-none ${
-                      activeModuleTab === 'all'
-                        ? 'active-tab-blue active-blue-btn !bg-blue-600 !text-white !border-blue-600 shadow-sm shadow-blue-500/20'
-                        : 'inactive-tab-white inactive-blue-pill !bg-white !text-blue-600 hover:!text-blue-800 hover:!bg-blue-50 !border-blue-200 hover:!border-blue-300'
-                    }`}
+                    className={`module-tab-pill ${activeModuleTab === 'all' ? 'active' : ''}`}
+                    data-active-blue={activeModuleTab === 'all' ? 'true' : undefined}
                     style={{
-                      backgroundColor: activeModuleTab === 'all' ? '#2563eb' : '#ffffff',
-                      color: activeModuleTab === 'all' ? '#ffffff' : '#2563eb',
-                      borderColor: activeModuleTab === 'all' ? '#2563eb' : '#bfdbfe',
+                      flexShrink: 0,
+                      padding: '8px 18px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: '9999px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease',
+                      outline: 'none'
                     }}
                   >
-                    <span className={activeModuleTab === 'all' ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: activeModuleTab === 'all' ? '#ffffff' : '#2563eb' }}>All Modules</span>
+                    All Modules
                   </button>
                   {Object.entries(MODULES_MAP)
                     .filter(([key, mod]) => visiblePermissionFlags.some(flag => mod.ids.includes(flag.id)))
-                    .map(([key, mod]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        data-active-blue={activeModuleTab === key ? 'true' : undefined}
-                        onClick={() => setActiveModuleTab(key)}
-                        className={`module-tab-pill px-3 py-1.5 text-xs font-semibold rounded-md whitespace-nowrap border transition-all duration-150 cursor-pointer select-none ${
-                          activeModuleTab === key
-                            ? 'active-tab-blue active-blue-btn !bg-blue-600 !text-white !border-blue-600 shadow-sm'
-                            : 'inactive-tab-white inactive-blue-pill !bg-white !text-blue-600 hover:!text-blue-800 hover:!bg-blue-50 !border-blue-200 hover:!border-blue-300'
-                        }`}
-                        style={{
-                          backgroundColor: activeModuleTab === key ? '#2563eb' : '#ffffff',
-                          color: activeModuleTab === key ? '#ffffff' : '#2563eb',
-                          borderColor: activeModuleTab === key ? '#2563eb' : '#bfdbfe',
-                        }}
-                      >
-                        <span className={activeModuleTab === key ? 'active-tab-text' : 'inactive-tab-text'} style={{ color: activeModuleTab === key ? '#ffffff' : '#2563eb' }}>{mod.label}</span>
-                      </button>
-                    ))
+                    .map(([key, mod]) => {
+                      const isActive = activeModuleTab === key;
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setActiveModuleTab(key)}
+                          className={`module-tab-pill ${isActive ? 'active' : ''}`}
+                          data-active-blue={isActive ? 'true' : undefined}
+                          style={{
+                            flexShrink: 0,
+                            padding: '8px 18px',
+                            fontSize: '0.82rem',
+                            fontWeight: '700',
+                            borderRadius: '9999px',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease',
+                            outline: 'none'
+                          }}
+                        >
+                          {mod.label}
+                        </button>
+                      );
+                    })
                   }
                 </div>
               </div>
@@ -820,11 +869,12 @@ function EmployeeCreateContent() {
            </form>
 
       {/* Crop Modals */}
-      {cropModalOpen && (
+      {mounted && typeof document !== 'undefined' && cropModalOpen && createPortal(
         <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000,
-          padding: '16px'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 99999,
+          padding: '16px', boxSizing: 'border-box'
         }}>
           <div className="modal-content" style={{
             background: '#fff', padding: '20px', borderRadius: '8px', maxWidth: '400px', width: '100%',
@@ -845,16 +895,17 @@ function EmployeeCreateContent() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Onboarding Status Modal */}
-      {statusModalOpen && (
+      {mounted && typeof document !== 'undefined' && statusModalOpen && createPortal(
         <div className="modal-overlay" style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100,
-          padding: '16px'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 99999,
+          padding: '16px', boxSizing: 'border-box'
         }}>
           <div className="modal-content" style={{
             background: 'var(--bg-card)', padding: '28px 24px', borderRadius: 'var(--radius-lg)', maxWidth: '440px', width: '100%',
@@ -946,7 +997,8 @@ function EmployeeCreateContent() {
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
         </div>
@@ -981,15 +1033,23 @@ function EmployeeCreateContent() {
         }
 
         .step-badge {
-          background-color: var(--primary);
-          color: white;
-          font-weight: 700;
-          font-size: 0.72rem;
-          padding: 3px 8px;
+          display: inline-block;
+          background-color: #0284c7 !important;
+          color: #ffffff !important;
+          -webkit-text-fill-color: #ffffff !important;
+          font-weight: 800 !important;
+          font-size: 0.72rem !important;
+          letter-spacing: 0.05em;
+          padding: 4px 10px !important;
           border-radius: var(--radius-full);
           text-transform: uppercase;
           margin-right: 10px;
           vertical-align: middle;
+        }
+
+        .step-badge * {
+          color: #ffffff !important;
+          -webkit-text-fill-color: #ffffff !important;
         }
 
         .step-title {

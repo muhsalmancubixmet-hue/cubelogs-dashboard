@@ -12,7 +12,7 @@ const DEFAULT_WEEKDAYS = [
   { long: 'Sat', short: 'S' }
 ];
 
-export default function CalendarGrid({
+function CalendarGrid({
   year,
   month,
   gridCells,
@@ -34,9 +34,9 @@ export default function CalendarGrid({
   return (
     <div className={`shared-calendar-grid-wrapper ${className}`}>
       {/* Weekday Titles Header */}
-      <div className="shared-calendar-grid-header calendar-grid-header" role="row">
+      <div className="shared-calendar-grid-header calendar-grid-header">
         {weekdays.map((w, idx) => (
-          <div key={idx} role="columnheader" aria-label={w.long}>
+          <div key={idx} aria-label={w.long}>
             <span className="day-long">{w.long}</span>
             <span className="day-short">{w.short}</span>
           </div>
@@ -44,7 +44,7 @@ export default function CalendarGrid({
       </div>
 
       {/* Grid Cells */}
-      <div className="shared-calendar-grid calendar-grid" role="grid">
+      <div className="shared-calendar-grid calendar-grid">
         {gridCells.map((dayNum, idx) => {
           const isBlank = !dayNum;
           const dateISO = isBlank ? '' : formatDateISO(year, month, dayNum);
@@ -77,3 +77,5 @@ export default function CalendarGrid({
     </div>
   );
 }
+
+export default React.memo(CalendarGrid);

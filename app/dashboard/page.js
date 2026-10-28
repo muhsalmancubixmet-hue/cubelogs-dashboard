@@ -38,6 +38,18 @@ const formatLocalTime = (value) => {
   });
 };
 
+const LiveSystemClock = React.memo(function LiveSystemClock() {
+  const [time, setTime] = useState(() => new Date());
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return <>{formatLocalTime(time) || 'Loading...'}</>;
+});
+
 // Module-level client-side cache to provide instant rendering without navigation flickering
 let _dashboardMemoryCache = null;
 
@@ -94,16 +106,6 @@ export default function Dashboard() {
   const [userAttendanceSummaries, setUserAttendanceSummaries] = useState(() => cachedData?.userAttendanceSummaries || []);
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
-
-  // Live local system clock state
-  const [currentTime, setCurrentTime] = useState(() => new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchUserAttendance = useCallback(async () => {
     const loggedInEmpId = currentUser?.employeeId || currentUser?.id;
@@ -162,6 +164,13 @@ export default function Dashboard() {
   const [ciPhoto, setCiPhoto] = useState(null);
   const [ciStream, setCiStream] = useState(null);
   const [ciFacing, setCiFacing] = useState('user');
+  const [ciMirrored, setCiMirrored] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('cubelogs_camera_mirrored');
+      if (saved !== null) return saved === 'true';
+    }
+    return false;
+  });
   const [ciSubmitting, setCiSubmitting] = useState(false);
   const [officeLocations, setOfficeLocations] = useState(() => cachedData?.officeLocations || []);
   const ciVideoRef = useRef(null);
@@ -192,7 +201,7 @@ export default function Dashboard() {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const ciGetCoords = (ms = 8000) => new Promise((res, rej) =>
+  const ciGetCoords = (ms = 3000) => new Promise((res, rej) =>
     navigator.geolocation.getCurrentPosition(res,
       () => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: ms }),
       { enableHighAccuracy: true, timeout: ms }
@@ -255,7 +264,13 @@ export default function Dashboard() {
     const canvas = document.createElement('canvas');
     canvas.width = vid.videoWidth || 640;
     canvas.height = vid.videoHeight || 480;
-    canvas.getContext('2d').drawImage(vid, 0, 0);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    if (ciMirrored) {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(vid, 0, 0);
     const photo = canvas.toDataURL('image/jpeg', 0.85);
     setCiPhoto(photo);
     return photo;
@@ -438,11 +453,14 @@ export default function Dashboard() {
         : Promise.resolve([]);
 
       const hasAttendancePerm = checkPerm('attendance:admin') || checkPerm('attendance:staff');
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      const orgAttUrl = orgId ? `/attendance/?organization=${orgId}&date=${todayDateStr}` : `/attendance/?date=${todayDateStr}`;
+      const myAttUrl = userObj?.id ? `/attendance/?employee_id=${userObj.id}&date=${todayDateStr}` : null;
       const fetchAttendance = isAttendanceEnabled
         ? (hasAttendancePerm
             ? Promise.all([
-                apiFetch(`/attendance/${orgQuery}`).catch(catchUnlessAuthError),
-                userObj?.id ? apiFetch(`/attendance/?employee_id=${userObj.id}`).catch(() => []) : Promise.resolve([])
+                apiFetch(orgAttUrl).catch(catchUnlessAuthError),
+                myAttUrl ? apiFetch(myAttUrl).catch(() => []) : Promise.resolve([])
               ]).then(([orgData, myData]) => {
                 const orgList = getArrayData(orgData);
                 const myList = getArrayData(myData);
@@ -451,7 +469,7 @@ export default function Dashboard() {
                 myList.forEach(item => { if (item?.id) map.set(String(item.id), item); });
                 return Array.from(map.values());
               })
-            : (userObj?.id ? apiFetch(`/attendance/?employee_id=${userObj.id}`).catch(() => []).then(getArrayData) : Promise.resolve([]))
+            : (myAttUrl ? apiFetch(myAttUrl).catch(() => []).then(getArrayData) : Promise.resolve([]))
           )
         : Promise.resolve([]);
 
@@ -1226,7 +1244,7 @@ export default function Dashboard() {
                               <ClockIcon size={16} />
                               <span>Live System Time:</span>
                               <span className="clock-time-val">
-                                {formatLocalTime(currentTime) || 'Loading...'}
+                                <LiveSystemClock />
                               </span>
                             </div>
 
@@ -1370,6 +1388,7 @@ export default function Dashboard() {
                                   <th>Employee Name</th>
                                   <th>Role</th>
                                   <th>Today's Clock-in</th>
+                                  <th>Today's Clock-out</th>
                                   <th>Status Badge</th>
                                 </tr>
                               </thead>
@@ -1392,7 +1411,8 @@ export default function Dashboard() {
                                       <tr key={emp.id} onClick={() => handleRowClick(emp.id)}>
                                         <td><strong>{emp.name}</strong></td>
                                         <td>{emp.isSuperAdmin ? 'Super Admin' : emp.designation}</td>
-                                        <td>{log ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                        <td>{log && log.clockIn ? new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                        <td>{log && log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                                         <td>
                                           {isWorking ? (
                                             <span className="status-dot online"></span>
@@ -1869,6 +1889,18 @@ export default function Dashboard() {
                   <div style={{ fontSize: '0.82rem', color: 'var(--text-light)', lineHeight: 1.5, maxWidth: 280, margin: '0 auto' }}>
                     Please allow GPS access if prompted. We're checking your office boundary.
                   </div>
+                  <div style={{ marginTop: 14 }}>
+                    <button
+                      type="button"
+                      onClick={() => { setCiStep('camera'); ciStartCamera('user'); }}
+                      style={{
+                        background: 'none', border: 'none', color: 'var(--primary)',
+                        fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline'
+                      }}
+                    >
+                      Skip to Camera Verification →
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1960,27 +1992,83 @@ export default function Dashboard() {
                     ) : ciStream ? (
                       <>
                         <video
-                          ref={ciVideoRef}
-                          autoPlay playsInline muted
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                        />
-                        {/* Flip camera */}
-                        <button
-                          onClick={() => { const m = ciFacing === 'user' ? 'environment' : 'user'; setCiFacing(m); ciStartCamera(m); }}
-                          style={{
-                            position: 'absolute', bottom: 10, right: 10,
-                            width: 34, height: 34, borderRadius: '50%', border: 'none',
-                            background: 'rgba(0,0,0,0.5)', color: '#fff',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: 'pointer', backdropFilter: 'blur(4px)'
+                          ref={(el) => {
+                            ciVideoRef.current = el;
+                            if (el && ciStream && el.srcObject !== ciStream) {
+                              el.srcObject = ciStream;
+                              el.onloadedmetadata = () => {
+                                el.play().catch(() => {});
+                              };
+                            }
                           }}
-                          title="Switch camera"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M23 4v6h-6M1 20v-6h6" />
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                          </svg>
-                        </button>
+                          autoPlay playsInline muted
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block',
+                            transform: ciMirrored ? 'scaleX(-1)' : 'scaleX(1)',
+                            transition: 'transform 0.2s ease'
+                          }}
+                        />
+                        {/* Camera Controls Overlay (Flip / Mirror & Switch Camera) */}
+                        <div style={{
+                          position: 'absolute', bottom: 10, right: 10,
+                          display: 'flex', alignItems: 'center', gap: '8px', zIndex: 10
+                        }}>
+                          {/* Flip / Mirror Button (Icon Only) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = !ciMirrored;
+                              setCiMirrored(next);
+                              try { localStorage.setItem('cubelogs_camera_mirrored', String(next)); } catch { }
+                            }}
+                            style={{
+                              width: 34,
+                              height: 34,
+                              borderRadius: '50%',
+                              border: ciMirrored ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.25)',
+                              background: ciMirrored ? 'rgba(37, 99, 235, 0.9)' : 'rgba(15, 23, 42, 0.75)',
+                              color: '#fff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              backdropFilter: 'blur(6px)',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={ciMirrored ? "Currently Mirrored — Click to Flip to Direct View" : "Currently Direct — Click to Flip to Mirrored View"}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
+                              <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                              <path d="m12 7-3 3 3 3" />
+                              <path d="m12 17 3-3-3-3" />
+                            </svg>
+                          </button>
+
+                          {/* Switch camera (front/back) */}
+                          <button
+                            type="button"
+                            onClick={() => { const m = ciFacing === 'user' ? 'environment' : 'user'; setCiFacing(m); ciStartCamera(m); }}
+                            style={{
+                              width: 34, height: 34, borderRadius: '50%',
+                              border: '1px solid rgba(255,255,255,0.25)',
+                              background: 'rgba(15, 23, 42, 0.75)', color: '#fff',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', backdropFilter: 'blur(6px)',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+                            }}
+                            title="Switch camera (Front / Back)"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M23 4v6h-6M1 20v-6h6" />
+                              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                            </svg>
+                          </button>
+                        </div>
                       </>
                     ) : (
                       <div style={{

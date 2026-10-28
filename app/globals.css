@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
-
 :root {
   /* Color system - curated premium blue palette */
   --primary: #2563eb;
@@ -1518,6 +1516,7 @@ h5 {
   color: var(--text-main);
   background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -4808,4 +4807,99 @@ div.cm-dialog-box button {
 :root.dark [style*="color: #1e293b"] { color: #f1f5f9 !important; }
 :root.dark [style*="color: #334155"] { color: #cbd5e1 !important; }
 :root.dark [style*="color: #475569"] { color: #94a3b8 !important; }
+
+/* ================================================================
+   Employee Create Form — Step Badges & Module Tabs (!important)
+   ================================================================ */
+.step-badge,
+span.step-badge,
+div.step-section span.step-badge,
+.step-section .step-badge,
+.step-badge * {
+  display: inline-block !important;
+  background-color: #0284c7 !important;
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  font-weight: 800 !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.05em !important;
+  padding: 4px 10px !important;
+  border-radius: 9999px !important;
+  text-transform: uppercase !important;
+  margin-right: 10px !important;
+  vertical-align: middle !important;
+  line-height: 1.2 !important;
+}
+
+.module-tabs {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 8px !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  -webkit-overflow-scrolling: touch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  scrollbar-width: thin !important;
+}
+
+.module-tabs::-webkit-scrollbar {
+  height: 4px !important;
+}
+
+.module-tabs::-webkit-scrollbar-thumb {
+  background: #cbd5e1 !important;
+  border-radius: 4px !important;
+}
+
+.module-tabs .module-tab-pill {
+  flex-shrink: 0 !important;
+  padding: 8px 18px !important;
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  border-radius: 9999px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+  outline: none !important;
+  text-decoration: none !important;
+}
+
+.module-tabs .module-tab-pill.active,
+.module-tabs .module-tab-pill[data-active-blue="true"] {
+  background: #2563eb !important;
+  background-color: #2563eb !important;
+  border: 1px solid #2563eb !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35) !important;
+}
+
+.module-tabs .module-tab-pill.active *,
+.module-tabs .module-tab-pill[data-active-blue="true"] * {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+.module-tabs .module-tab-pill:not(.active):not([data-active-blue="true"]) {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  -webkit-text-fill-color: #1e293b !important;
+  box-shadow: none !important;
+}
+
+.module-tabs .module-tab-pill:not(.active):not([data-active-blue="true"]):hover {
+  background: #f1f5f9 !important;
+  background-color: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
 

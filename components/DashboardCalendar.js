@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import SharedCalendar from './shared/calendar/SharedCalendar';
 import { HolidaysIcon } from './Icons';
 
-export default function DashboardCalendar({
+function DashboardCalendar({
   holidays = [],
   attendanceSummaries = [],
   activeLog = null,
@@ -623,3 +623,5 @@ export default function DashboardCalendar({
     </div>
   );
 }
+
+export default React.memo(DashboardCalendar);

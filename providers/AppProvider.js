@@ -472,13 +472,33 @@ const isAuthDataEqual = (a, b) => {
 };
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const hasToken = getAccessToken() || getRefreshToken();
+      const raw = localStorage.getItem('cubelogs_active_user');
+      if (hasToken && raw) {
+        return JSON.parse(raw);
+      }
+    } catch {}
+    return null;
+  });
   const [officePremises, setOfficePremises] = useState(null);
   const [officeLocations, setOfficeLocations] = useState([]);
   const [brandLogo, setBrandLogo] = useState(null);
   const [companyName, setCompanyName] = useState('');
   const [subscriptionDays, setSubscriptionDays] = useState(12);
-  const [authStatus, setAuthStatus] = useState('loading');
+  const [authStatus, setAuthStatus] = useState(() => {
+    if (typeof window === 'undefined') return 'loading';
+    try {
+      const hasToken = getAccessToken() || getRefreshToken();
+      const raw = localStorage.getItem('cubelogs_active_user');
+      if (hasToken && raw) {
+        return 'authenticated';
+      }
+    } catch {}
+    return 'loading';
+  });
   const [orgProfileStatus, setOrgProfileStatus] = useState('idle');
   const isInitialized = authStatus !== 'loading';
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -956,7 +976,16 @@ export function AppProvider({ children }) {
 
   const hasPermission = useCallback((permission) => {
     if (!currentUser) return false;
-    if (currentUser.isSuperAdmin) return true;
+    if (
+      currentUser.isSuperAdmin ||
+      currentUser.is_superuser ||
+      currentUser.role_name === 'Super Admin' ||
+      currentUser.role_name === 'System Admin' ||
+      currentUser.role === 'Super Admin' ||
+      currentUser.role === 'System Admin' ||
+      currentUser.designation === 'Super Admin' ||
+      currentUser.designation === 'System Admin'
+    ) return true;
     return (currentUser.effective_permissions || currentUser.permissions || []).includes(permission);
   }, [currentUser]);
 
