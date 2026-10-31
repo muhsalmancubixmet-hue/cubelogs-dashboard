@@ -366,10 +366,38 @@ function SettingsHubContent() {
     setAttendanceConfigError('');
     setAttendanceConfigSuccess('');
     try {
-      await apiFetch('/settings/current/', {
+      const updated = await apiFetch('/settings/current/', {
         method: 'PATCH',
         body: JSON.stringify(attendanceConfig),
       });
+      if (updated) {
+        setAttendanceConfig({
+          grace_period_minutes: updated.grace_period_minutes ?? attendanceConfig.grace_period_minutes,
+          full_day_minimum_minutes: updated.full_day_minimum_minutes ?? attendanceConfig.full_day_minimum_minutes,
+          half_day_minimum_minutes: updated.half_day_minimum_minutes ?? updated.half_day_threshold_minutes ?? attendanceConfig.half_day_minimum_minutes,
+          half_day_threshold_minutes: updated.half_day_minimum_minutes ?? updated.half_day_threshold_minutes ?? attendanceConfig.half_day_minimum_minutes,
+          minimum_session_minutes: updated.minimum_session_minutes ?? attendanceConfig.minimum_session_minutes,
+          break_duration_minutes: updated.break_duration_minutes ?? attendanceConfig.break_duration_minutes,
+          break_type: updated.break_type ?? attendanceConfig.break_type,
+          default_weekly_holidays: Array.isArray(updated.default_weekly_holidays) ? updated.default_weekly_holidays : attendanceConfig.default_weekly_holidays,
+          auto_approve_attendance: updated.auto_approve_attendance ?? attendanceConfig.auto_approve_attendance,
+        });
+      }
+      // Invalidate dashboard memory & storage cache so dashboard instantly picks up new attendance policy
+      try {
+        if (typeof window !== 'undefined') {
+          Object.keys(sessionStorage).forEach(key => {
+            if (key.startsWith('cubelogs_dashboard_cache_')) {
+              sessionStorage.removeItem(key);
+            }
+          });
+          const newMin = updated?.minimum_session_minutes ?? attendanceConfig.minimum_session_minutes;
+          window.dispatchEvent(new CustomEvent('cubelogs:attendance-config-updated', {
+            detail: { minimum_session_minutes: newMin }
+          }));
+        }
+      } catch (e) {}
+
       setAttendanceConfigSuccess('These attendance rules will apply from tomorrow.');
       setTimeout(() => setAttendanceConfigSuccess(''), 5000);
     } catch (err) {

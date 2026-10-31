@@ -119,7 +119,7 @@ export default function TiptapReadOnly({ content = '', className = '', enableToc
           })
           .catch((err) => {
             if (!isCurrent) return;
-            console.error('Failed to load authenticated rich-text image:', err);
+            console.warn('Could not load rich-text attachment image:', err?.message || err);
           });
       }
     });

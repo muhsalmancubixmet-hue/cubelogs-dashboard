@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getAttendanceStatusConfig,
   formatWorkedDuration,
@@ -19,6 +20,11 @@ export default function AttendanceDayDrawer({
   employeeName
 }) {
   const [lazyLog, setLazyLog] = useState(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [loadingLog, setLoadingLog] = useState(false);
 
   // Lazy-fetch raw attendance log with Base64 photo when drawer opens
@@ -71,7 +77,7 @@ export default function AttendanceDayDrawer({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === 'undefined') return null;
 
   const logData = lazyLog || propLog;
 
@@ -108,7 +114,7 @@ export default function AttendanceDayDrawer({
   const verificationCoords = logData?.verificationLocation || summary?.verification_location;
   const verificationPhoto = logData?.verificationPhoto || summary?.verification_photo;
 
-  return (
+  return createPortal(
     <div
       className="attendance-drawer-backdrop"
       onClick={onClose}
@@ -118,9 +124,9 @@ export default function AttendanceDayDrawer({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.5)',
+        backgroundColor: 'rgba(15, 23, 42, 0.55)',
         backdropFilter: 'blur(3px)',
-        zIndex: 1100,
+        zIndex: 9999,
         display: 'flex',
         justifyContent: 'flex-end',
         animation: 'fadeIn 0.2s ease'
@@ -134,14 +140,14 @@ export default function AttendanceDayDrawer({
         aria-label={`Attendance Details for ${dateFormatted}`}
         style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: 'clamp(320px, 92vw, 460px)',
           height: '100%',
-          backgroundColor: 'var(--bg-card)',
-          boxShadow: 'var(--shadow-lg)',
+          backgroundColor: 'var(--bg-card, #ffffff)',
+          boxShadow: 'var(--shadow-lg, -4px 0 24px rgba(0,0,0,0.15))',
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
-          padding: '24px',
+          padding: 'clamp(16px, 2.5vw, 24px)',
           borderLeft: '1px solid var(--border)'
         }}
       >
@@ -307,6 +313,7 @@ export default function AttendanceDayDrawer({
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

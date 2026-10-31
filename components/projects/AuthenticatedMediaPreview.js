@@ -57,7 +57,7 @@ export function useAuthenticatedBlob(url) {
       })
       .catch((err) => {
         if (!isMounted) return;
-        console.error('Authenticated media fetch failed:', err);
+        console.warn('Authenticated media fetch could not load resource:', err?.message || err);
         setError(true);
         setLoading(false);
       });

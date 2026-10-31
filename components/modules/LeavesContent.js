@@ -714,7 +714,7 @@ function LeavesContent() {
                       Select a leave category to check your remaining balance and proceed.
                     </p>
 
-                    <div className="custom-dropdown-container">
+                    <div className="custom-dropdown-container" style={{ minHeight: dropdownOpen ? '280px' : 'auto', transition: 'min-height 0.2s ease' }}>
                       <label className="form-label" style={{ fontWeight: '600', marginBottom: '8px', display: 'block' }}>Choose Leave Category</label>
                       <div className="custom-dropdown">
                         <button 
@@ -757,10 +757,12 @@ function LeavesContent() {
                                   }}
                                   onMouseLeave={() => setHoveredExhaustedType('')}
                                 >
-                                  <span className="option-name">{type}</span>
-                                  <span className={`option-balance ${isExhausted ? 'zero' : ''}`}>
-                                    {balance} / {dynamicLeaveAllowances[type]} left ({activeLeaveTypes.find(lt => lt.name === type)?.limitPeriod || 'Yearly'})
-                                  </span>
+                                  <div className="option-info-group">
+                                    <span className="option-name">{type}</span>
+                                    <span className={`option-balance ${isExhausted ? 'zero' : ''}`}>
+                                      {balance} / {dynamicLeaveAllowances[type]} left ({activeLeaveTypes.find(lt => lt.name === type)?.limitPeriod || 'Yearly'})
+                                    </span>
+                                  </div>
 
                                   {isExhausted && hoveredExhaustedType === type && (
                                     <div className="exhausted-tooltip" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1975,14 +1977,15 @@ function LeavesContent() {
           right: 0;
           z-index: 100;
           background: white;
-          border: 1px solid var(--border);
+          border: 1.5px solid #cbd5e1;
           border-radius: var(--radius-md);
-          box-shadow: var(--shadow-lg);
+          box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
           margin-top: 6px;
           padding: 6px 0;
           list-style: none;
           max-height: 280px;
           overflow-y: auto;
+          scrollbar-width: thin;
         }
 
         .dropdown-option-item {
@@ -1994,6 +1997,19 @@ function LeavesContent() {
           font-size: 0.88rem;
           transition: var(--transition-fast);
           position: relative;
+          border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dropdown-option-item:last-child {
+          border-bottom: none;
+        }
+
+        .option-info-group {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          gap: 12px;
         }
 
         .dropdown-option-item:hover:not(.exhausted) {
@@ -2090,11 +2106,20 @@ function LeavesContent() {
         .form-panel {
           flex: 1;
           min-width: 320px;
+          position: relative;
+          z-index: 50;
+          border: 1px solid #cbd5e1 !important;
+          border-bottom: 1.5px solid #cbd5e1 !important;
+          padding-bottom: 28px;
         }
 
         .list-panel {
           flex: 1.2;
           min-width: 380px;
+          position: relative;
+          z-index: 10;
+          border: 1px solid #cbd5e1 !important;
+          border-bottom: 1.5px solid #cbd5e1 !important;
         }
 
         .leave-form {
@@ -2272,10 +2297,72 @@ function LeavesContent() {
         }
 
         @media (max-width: 768px) {
-          .form-panel, .list-panel {
+          .form-panel {
             min-width: 0 !important;
             width: 100% !important;
             flex: 1 1 100% !important;
+            position: relative;
+            z-index: 50;
+          }
+          .list-panel {
+            min-width: 0 !important;
+            width: 100% !important;
+            flex: 1 1 100% !important;
+            position: relative;
+            z-index: 10;
+          }
+          .dropdown-toggle-btn {
+            padding: 11px 14px;
+            font-size: 0.86rem;
+          }
+          .dropdown-options-list {
+            position: static !important;
+            max-height: none !important;
+            overflow-y: visible !important;
+            margin-top: 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            width: 100%;
+          }
+          .dropdown-option-item {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-light, #f1f5f9);
+          }
+          .dropdown-option-item:last-child {
+            border-bottom: none;
+          }
+          .option-info-group {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+          }
+          .option-name {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-main, #0f172a);
+            word-break: break-word;
+            line-height: 1.3;
+          }
+          .option-balance {
+            font-size: 0.74rem;
+            color: var(--text-muted, #64748b);
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            font-weight: 600;
+          }
+          .option-balance.zero {
+            background: #fee2e2;
+            color: #dc2626;
+          }
+          .exhausted-tooltip {
+            position: static;
+            transform: none;
+            width: 100%;
+            margin-top: 6px;
+            box-sizing: border-box;
           }
           .form-grid-2 {
             grid-template-columns: 1fr;

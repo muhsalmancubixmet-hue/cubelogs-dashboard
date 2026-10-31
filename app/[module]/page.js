@@ -116,7 +116,7 @@ export default function ModulePage({ params }) {
   const { module: moduleSlug } = resolvedParams;
   const { permissionsRegistry, isInitialized } = useContext(AppContext);
 
-  if (!isInitialized) {
+  if (!isInitialized || !permissionsRegistry) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--bg-app)' }}>
         <div style={{ textAlign: 'center', color: 'var(--primary)' }}>

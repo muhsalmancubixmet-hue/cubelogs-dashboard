@@ -366,30 +366,52 @@ function HolidaysContent() {
                     const eventDate = new Date(hol.date);
                     const month = eventDate.toLocaleString('default', { month: 'short' });
                     const day = eventDate.getDate();
+                    const weekday = eventDate.toLocaleString('default', { weekday: 'short' });
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const diffDays = Math.ceil((new Date(hol.date) - today) / (1000 * 60 * 60 * 24));
+                    let statusLabel = 'Passed';
+                    let statusBg = '#f1f5f9';
+                    let statusColor = '#64748b';
+                    if (diffDays === 0) {
+                      statusLabel = 'Today';
+                      statusBg = '#dcfce7';
+                      statusColor = '#15803d';
+                    } else if (diffDays > 0) {
+                      statusLabel = diffDays === 1 ? 'Tomorrow' : `In ${diffDays} days`;
+                      statusBg = '#eff6ff';
+                      statusColor = '#2563eb';
+                    }
 
                     return (
-                      <div className="holiday-schedule-card-visual" key={hol.id}>
-                        {hol.banner ? (
-                          <img className="holiday-card-banner-img" src={hol.banner} alt={hol.name} />
-                        ) : (
-                          <div className="holiday-card-banner-img holiday-card-banner-fallback" />
-                        )}
-                        <div className="holiday-card-dark-overlay" />
-                        <div className="holiday-visual-content">
-                          <div className="calendar-badge">
-                            <span className="cal-month">{month}</span>
-                            <span className="cal-day">{day}</span>
-                          </div>
-                          <div className="holiday-text-info">
-                            <h4>{hol.name}</h4>
-                            <span className="formatted-date">{hol.date}</span>
-                          </div>
+                      <div className="holiday-modern-card" key={hol.id}>
+                        <div className="holiday-date-col">
+                          <span className="holiday-date-month">{month}</span>
+                          <span className="holiday-date-day">{day}</span>
+                          <span className="holiday-date-weekday">{weekday}</span>
                         </div>
-                        
-                        {/* Hover Tooltip Popover */}
-                        <div className="holiday-tooltip">
-                          <h5>{hol.name}</h5>
-                          <p>{hol.description || 'No closure notes provided.'}</p>
+                        <div className="holiday-details-col">
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                            <span style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              background: statusBg,
+                              color: statusColor
+                            }}>
+                              {statusLabel}
+                            </span>
+                            <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 500 }}>
+                              {hol.date}
+                            </span>
+                          </div>
+                          <h4 style={{ margin: '0 0 6px 0', fontSize: '0.96rem', fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>
+                            {hol.name}
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.45 }}>
+                            {hol.description || 'Official Organization Holiday Closure'}
+                          </p>
                         </div>
                       </div>
                     );
@@ -911,42 +933,124 @@ function HolidaysContent() {
           margin-bottom: 24px;
         }
 
-        .tab-btn {
-          background: none;
-          border: none;
-          padding: 12px 20px;
+        .tab-navigation-bar {
+          display: flex;
+          gap: 10px;
+          border-bottom: 1.5px solid var(--border);
+          margin-bottom: 24px;
+          padding-bottom: 12px;
+          flex-wrap: wrap;
+        }
+
+        .tab-navigation-bar .tab-btn {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          padding: 8px 18px;
+          border-radius: var(--radius-md, 8px);
           font-family: var(--font-sans);
-          font-size: 0.95rem;
+          font-size: 0.88rem;
           font-weight: 600;
-          color: var(--text-light);
+          color: #475569 !important;
           cursor: pointer;
           position: relative;
-          transition: var(--transition-fast);
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.15s ease;
         }
 
-        .tab-btn:hover {
-          color: var(--primary);
+        .tab-navigation-bar .tab-btn:hover {
+          color: var(--primary) !important;
+          border-color: var(--primary);
+          background-color: var(--primary-light);
         }
 
-        .tab-btn.active {
-          color: var(--primary);
+        .tab-navigation-bar .tab-btn.active {
+          background-color: #2563eb !important;
+          background: #2563eb !important;
+          color: #ffffff !important;
+          border-color: #2563eb !important;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
         }
 
-        .tab-btn.active::after {
-          content: '';
-          position: absolute;
-          bottom: -2px;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background-color: var(--primary);
+        .tab-navigation-bar .tab-btn.active * {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+          fill: #ffffff !important;
+        }
+
+        .tab-navigation-bar .tab-btn:not(.active) * {
+          color: #475569 !important;
+          stroke: #475569 !important;
         }
 
         /* Holiday Cards Grid */
         .holidays-grid-view {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 20px;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 380px));
+          gap: 18px;
+        }
+
+        .holiday-modern-card {
+          display: flex;
+          align-items: stretch;
+          background: #ffffff;
+          border: 1px solid var(--border, #e2e8f0);
+          border-radius: var(--radius-md, 10px);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          transition: all 0.2s ease;
+          overflow: hidden;
+        }
+
+        .holiday-modern-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+          border-color: #93c5fd;
+        }
+
+        .holiday-date-col {
+          width: 72px;
+          flex-shrink: 0;
+          background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 12px 6px;
+        }
+
+        .holiday-date-month {
+          font-size: 0.72rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          opacity: 0.95;
+          color: #ffffff !important;
+        }
+
+        .holiday-date-day {
+          font-size: 1.45rem;
+          font-weight: 800;
+          line-height: 1.1;
+          margin: 2px 0;
+          color: #ffffff !important;
+        }
+
+        .holiday-date-weekday {
+          font-size: 0.68rem;
+          font-weight: 600;
+          opacity: 0.85;
+          color: #ffffff !important;
+        }
+
+        .holiday-details-col {
+          flex: 1;
+          padding: 14px 16px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          min-width: 0;
         }
 
         /* Visual Holiday Cards */

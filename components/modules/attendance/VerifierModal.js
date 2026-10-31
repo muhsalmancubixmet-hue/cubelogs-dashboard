@@ -3,6 +3,7 @@ import { WarningIcon, CameraIcon, CloseIcon } from '@/components/Icons';
 
 export default function VerifierModal({
   showVerifierModal,
+  onSwitchToCamera,
   verifierStep,
   verifierLoading,
   verifierError,
@@ -65,7 +66,7 @@ export default function VerifierModal({
 
         {/* Step 1: Geolocation/Validation In Progress */}
         {verifierStep === 'checking' && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 10px', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 10px 16px', gap: '14px' }}>
             <div className="verifier-spinner"></div>
             <div style={{ fontSize: '0.92rem', fontWeight: '700', color: 'var(--text-main)', textAlign: 'center' }}>
               Validating Location Boundary...
@@ -73,6 +74,26 @@ export default function VerifierModal({
             <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', textAlign: 'center', maxWidth: '280px' }}>
               We are verifying your device coordinates against authorized office zones. Please authorize GPS access if prompted.
             </div>
+            {onSwitchToCamera && (
+              <button
+                type="button"
+                onClick={onSwitchToCamera}
+                className="btn btn-secondary"
+                style={{
+                  marginTop: '6px',
+                  fontSize: '0.8rem',
+                  padding: '7px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '20px',
+                  color: 'var(--text-main)'
+                }}
+              >
+                <CameraIcon size={14} />
+                <span>Verify with Live Camera instead</span>
+              </button>
+            )}
           </div>
         )}
 

@@ -863,7 +863,23 @@ export function AppProvider({ children }) {
   const saveBrandLogo = useCallback(async (logoData) => {
     try {
       const response = await organizationService.saveSettings({ brandLogo: logoData });
-      setBrandLogo(response.brandLogo);
+      const newLogo = response.brandLogo !== undefined ? response.brandLogo : logoData;
+      setBrandLogo(newLogo);
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          brandLogo: newLogo,
+          active_organization: prev.active_organization ? {
+            ...prev.active_organization,
+            settings: { ...(prev.active_organization.settings || {}), brandLogo: newLogo }
+          } : prev.active_organization
+        };
+        if (typeof window !== 'undefined') {
+          try { localStorage.setItem('cubelogs_active_user', JSON.stringify(updated)); } catch (e) {}
+        }
+        return updated;
+      });
     } catch (e) {
       console.error('Error saving brand logo:', e);
     }
@@ -872,7 +888,23 @@ export function AppProvider({ children }) {
   const saveCompanyName = useCallback(async (name) => {
     try {
       const response = await organizationService.saveSettings({ companyName: name });
-      setCompanyName(response.companyName);
+      const newName = response.companyName || name;
+      setCompanyName(newName);
+      setCurrentUser(prev => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          companyName: newName,
+          active_organization: prev.active_organization ? {
+            ...prev.active_organization,
+            name: newName
+          } : prev.active_organization
+        };
+        if (typeof window !== 'undefined') {
+          try { localStorage.setItem('cubelogs_active_user', JSON.stringify(updated)); } catch (e) {}
+        }
+        return updated;
+      });
     } catch (e) {
       console.error('Error saving company name:', e);
       throw e;

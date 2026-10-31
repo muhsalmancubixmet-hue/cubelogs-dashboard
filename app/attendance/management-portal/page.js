@@ -17,31 +17,13 @@ import {
   EyeIcon,
   CloseIcon,
   EmployeesIcon,
+  CalendarIcon,
+  SearchIcon,
+  DownloadIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowRightIcon,
 } from '@/components/Icons';
-
-const CalendarIcon = ({ size = 16, style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-    <line x1="16" y1="2" x2="16" y2="6" />
-    <line x1="8" y1="2" x2="8" y2="6" />
-    <line x1="3" y1="10" x2="21" y2="10" />
-  </svg>
-);
-
-const SearchIcon = ({ size = 16, style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-    <circle cx="11" cy="11" r="8" />
-    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-  </svg>
-);
-
-const DownloadIcon = ({ size = 15, style = {} }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={style}>
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7 10 12 15 17 10" />
-    <line x1="12" y1="15" x2="12" y2="3" />
-  </svg>
-);
 
 const STATUS_CONFIG = {
   'Pending Approval': { bg: '#e0f2fe', border: '#bae6fd', text: '#0369a1', dot: '#0284c7' },
@@ -75,15 +57,30 @@ const AvatarPill = ({ name, color = '#2563eb', size = 40 }) => (
 
 const StatusPill = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG['Pending Approval'];
+  const shortText = status === 'Pending Approval' ? 'Pending' : status;
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
-      padding: '4px 12px', borderRadius: '20px', background: cfg.bg,
-      border: `1px solid ${cfg.border}`, fontSize: '0.78rem', fontWeight: 600, color: cfg.text,
-      whiteSpace: 'nowrap',
+    <span className="portal-status-pill" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 10px', borderRadius: '16px', background: cfg.bg,
+      border: `1px solid ${cfg.border}`, fontSize: '0.75rem', fontWeight: 600, color: cfg.text,
+      whiteSpace: 'nowrap', flexShrink: 0,
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, display: 'inline-block' }} />
-      {status}
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.dot, display: 'inline-block', flexShrink: 0 }} />
+      <span className="status-full">{status}</span>
+      <span className="status-short">{shortText}</span>
+      <style jsx>{`
+        .status-short {
+          display: none;
+        }
+        @media (max-width: 480px) {
+          .status-full {
+            display: none;
+          }
+          .status-short {
+            display: inline;
+          }
+        }
+      `}</style>
     </span>
   );
 };
@@ -110,112 +107,420 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
   })();
 
   return (
-    <div className="log-item-row" style={{
-      display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-      padding: '14px 18px', borderRadius: 'var(--radius-md, 10px)',
-      background: 'var(--bg-card, #ffffff)',
-      border: '1px solid var(--border, #e2e8f0)',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-      transition: 'all 0.15s ease',
-    }}>
-      <AvatarPill name={log.employeeName} color={isApproved ? '#1d4ed8' : '#2563eb'} />
-      <div style={{ flex: 1, minWidth: 200 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main, #0f172a)', marginBottom: 2 }}>
-          {log.employeeName}
+    <div className="portal-log-card">
+      {/* Header: Avatar + Employee Name & Role + Status */}
+      <div className="portal-card-header">
+        <div className="portal-user-group">
+          <AvatarPill name={log.employeeName} color={isApproved ? '#1d4ed8' : '#2563eb'} size={36} />
+          <div className="portal-user-meta">
+            <div className="portal-user-name">{log.employeeName}</div>
+            <div className="portal-role-row">
+              <span className="portal-role-tag">{log.employeeDesignation || 'Staff'}</span>
+            </div>
+          </div>
         </div>
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span>{log.employeeDesignation || 'Staff'}</span>
-          <span>&bull;</span>
-          <span>Clock-in: <strong style={{ color: 'var(--text-main, #0f172a)' }}>{fmt12h(log.clockIn)}</strong></span>
-          {log.clockOut && (
-            <>
-              <span>&bull;</span>
-              <span>Clock-out: <strong style={{ color: 'var(--text-main, #0f172a)' }}>{fmt12h(log.clockOut)}</strong></span>
-            </>
-          )}
-          {log.minutesLate !== undefined && (
-            <span style={{ color: '#d97706', fontWeight: 600 }}>+{log.minutesLate} min late</span>
-          )}
+        <div className="portal-status-wrapper">
+          <StatusPill status={isApproved ? 'Approved' : log.status} />
         </div>
       </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <StatusPill status={isApproved ? 'Approved' : log.status} />
-        {!isApproved && onApprove && (
-          isShiftActive ? (
-            <span
-              style={{
-                padding: '6px 12px',
-                fontSize: '0.76rem',
-                fontWeight: 600,
-                color: '#b45309',
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fde68a',
-                borderRadius: '16px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5
-              }}
-              title="Attendance cannot be approved while shift is still active. Please approve after clock-out or shift end."
-            >
-              ⏳ Shift Active (Awaiting Clock-out)
-            </span>
+
+      {/* Middle: Sleek, Unified Attendance Punch Bar */}
+      <div className="portal-punch-strip">
+        <div className="punch-col">
+          <span className="punch-label">CLOCK IN</span>
+          <span className="punch-value">{fmt12h(log.clockIn)}</span>
+        </div>
+
+        <div className="punch-divider" />
+
+        <div className="punch-col">
+          <span className="punch-label">CLOCK OUT</span>
+          {log.clockOut ? (
+            <span className="punch-value">{fmt12h(log.clockOut)}</span>
           ) : (
-            <button 
-              type="button"
-              className="btn btn-sm btn-primary"
-              onClick={() => onApprove(log.id)} 
-              disabled={approving} 
-              style={{
-                padding: '6px 14px',
-                fontSize: '0.8rem',
-                fontWeight: '600',
-                backgroundColor: '#16a34a',
-                borderColor: '#16a34a',
-                color: '#ffffff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              {approving ? (
-                'Approving...'
-              ) : (
-                <>
-                  <CheckIcon size={14} /> Approve
-                </>
-              )}
-            </button>
-          )
+            <span className="punch-value punch-active-badge">
+              <span className="active-dot" /> In Progress
+            </span>
+          )}
+        </div>
+
+        {log.minutesLate !== undefined && log.minutesLate > 0 && (
+          <>
+            <div className="punch-divider" />
+            <div className="punch-col punch-col-late">
+              <span className="punch-label">LATE</span>
+              <span className="punch-value punch-late-text">+{log.minutesLate}m</span>
+            </div>
+          </>
         )}
       </div>
+
+      {/* Bottom Footer: Notice or Approval Action */}
+      {!isApproved && onApprove && (
+        <div className="portal-action-row">
+          {isShiftActive ? (
+            <div className="portal-active-banner">
+              <ClockIcon size={13} style={{ color: '#b45309', flexShrink: 0 }} />
+              <span>Shift active &bull; Approvals unlock after clock-out</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary portal-approve-btn"
+              style={{
+                backgroundColor: '#2563eb',
+                color: '#ffffff',
+                borderColor: '#1d4ed8',
+              }}
+              onClick={() => onApprove(log.id)}
+              disabled={approving}
+            >
+              {approving ? (
+                <span style={{ color: '#ffffff' }}>Approving...</span>
+              ) : (
+                <span style={{ color: '#ffffff', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckIcon size={14} style={{ color: '#ffffff', stroke: '#ffffff' }} />
+                  <span style={{ color: '#ffffff', fontWeight: 600 }}>Approve Attendance</span>
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      <style jsx>{`
+        .portal-log-card {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 12px 14px;
+          border-radius: 10px;
+          background: var(--bg-card, #ffffff);
+          border: 1px solid var(--border, #e2e8f0);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .portal-log-card:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+        .portal-card-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .portal-user-group {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          min-width: 0;
+          flex: 1;
+        }
+        .portal-user-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          min-width: 0;
+        }
+        .portal-user-name {
+          font-weight: 700;
+          font-size: 0.88rem;
+          color: var(--text-main, #0f172a);
+          line-height: 1.25;
+          word-break: break-word;
+        }
+        .portal-role-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .portal-role-tag {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: var(--text-muted, #64748b);
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 4px;
+          padding: 0 6px;
+          line-height: 1.5;
+          display: inline-block;
+          width: fit-content;
+        }
+        .portal-status-wrapper {
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+
+        /* Unified Punch Strip */
+        .portal-punch-strip {
+          display: flex;
+          align-items: center;
+          background: #f8fafc;
+          border: 1px solid #edf2f7;
+          border-radius: 8px;
+          padding: 8px 12px;
+          gap: 10px;
+        }
+        .punch-col {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          flex: 1;
+          min-width: 0;
+        }
+        .punch-col-late {
+          flex: 0 0 auto;
+        }
+        .punch-label {
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: var(--text-muted, #64748b);
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          line-height: 1;
+        }
+        .punch-value {
+          font-size: 0.84rem;
+          font-weight: 700;
+          color: var(--text-main, #0f172a);
+          white-space: nowrap;
+          line-height: 1.2;
+        }
+        .punch-active-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: #b45309;
+          font-weight: 700;
+          font-size: 0.8rem;
+        }
+        .active-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #d97706;
+          display: inline-block;
+        }
+        .punch-late-text {
+          color: #b45309;
+          font-weight: 700;
+        }
+        .punch-divider {
+          width: 1px;
+          height: 24px;
+          background: #e2e8f0;
+          flex-shrink: 0;
+        }
+
+        /* Action Row */
+        .portal-action-row {
+          margin-top: 1px;
+          padding-top: 8px;
+          border-top: 1px solid var(--border-light, #f1f5f9);
+        }
+        .portal-active-banner {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          background: #fffbeb;
+          border: 1px solid #fef3c7;
+          border-radius: 6px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          color: #92400e;
+          width: 100%;
+        }
+        .portal-approve-btn,
+        .portal-approve-btn *,
+        .portal-approve-btn span {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+        }
+        .portal-approve-btn {
+          width: 100%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 16px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #ffffff !important;
+          background-color: #2563eb !important;
+          border: 1px solid #1d4ed8;
+          border-radius: 6px;
+          cursor: pointer;
+          box-shadow: 0 1px 2px rgba(37, 99, 235, 0.15);
+          transition: background-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .portal-approve-btn:hover:not(:disabled) {
+          background-color: #1d4ed8;
+          box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+        }
+        .portal-approve-btn:active:not(:disabled) {
+          background-color: #1e40af;
+        }
+        .portal-approve-btn:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+        @media (min-width: 641px) {
+          .portal-log-card {
+            padding: 14px 18px;
+            gap: 12px;
+          }
+          .portal-punch-strip {
+            padding: 9px 16px;
+          }
+          .portal-approve-btn {
+            width: auto;
+            margin-left: auto;
+          }
+          .portal-action-row {
+            display: flex;
+            justify-content: flex-end;
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
 const AbsentRow = ({ item, isLeave }) => (
-  <div style={{
-    display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-    padding: '14px 18px', borderRadius: 'var(--radius-md, 10px)',
-    background: 'var(--bg-card, #ffffff)',
-    border: '1px solid var(--border, #e2e8f0)',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-  }}>
-    <AvatarPill name={item.employeeName} color={isLeave ? '#8b5cf6' : '#64748b'} />
-    <div style={{ flex: 1, minWidth: 200 }}>
-      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main, #0f172a)', marginBottom: 2 }}>
-        {item.employeeName}
+  <div className="portal-log-card">
+    <div className="portal-card-header">
+      <div className="portal-user-group">
+        <AvatarPill name={item.employeeName} color={isLeave ? '#8b5cf6' : '#64748b'} size={36} />
+        <div className="portal-user-meta">
+          <div className="portal-user-name">{item.employeeName}</div>
+          <div className="portal-role-row">
+            <span className="portal-role-tag">{item.designation || item.employeeDesignation || 'Staff'}</span>
+          </div>
+        </div>
       </div>
-      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)' }}>
-        {item.designation || item.employeeDesignation || 'Staff'}
-        {isLeave && item.leaveTypeName && (
-          <span style={{ marginLeft: 8, fontWeight: 600, color: '#6b21a8' }}>&bull; {item.leaveTypeName}</span>
-        )}
+      <div className="portal-status-wrapper">
+        <StatusPill status={isLeave ? 'On Leave' : 'Absent'} />
       </div>
     </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-      <StatusPill status={isLeave ? 'On Leave' : 'Absent'} />
+
+    <div className="portal-punch-strip">
+      {isLeave ? (
+        <div className="punch-col">
+          <span className="punch-label">LEAVE TYPE</span>
+          <span className="punch-value" style={{ color: '#6b21a8', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <LeavesIcon size={13} style={{ color: '#7c3aed', flexShrink: 0 }} />
+            {item.leaveTypeName || 'Approved Leave'}
+          </span>
+        </div>
+      ) : (
+        <div className="punch-col">
+          <span className="punch-label">ATTENDANCE</span>
+          <span className="punch-value" style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            <WarningIcon size={13} style={{ color: '#64748b', flexShrink: 0 }} />
+            No clock-in recorded today
+          </span>
+        </div>
+      )}
     </div>
+
+    <style jsx>{`
+      .portal-log-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: var(--bg-card, #ffffff);
+        border: 1px solid var(--border, #e2e8f0);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .portal-card-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .portal-user-group {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-width: 0;
+        flex: 1;
+      }
+      .portal-user-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .portal-user-name {
+        font-weight: 700;
+        font-size: 0.88rem;
+        color: var(--text-main, #0f172a);
+        line-height: 1.25;
+        word-break: break-word;
+      }
+      .portal-role-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .portal-role-tag {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-muted, #64748b);
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        padding: 0 6px;
+        line-height: 1.5;
+        display: inline-block;
+        width: fit-content;
+      }
+      .portal-status-wrapper {
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .portal-punch-strip {
+        display: flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 1px solid #edf2f7;
+        border-radius: 8px;
+        padding: 8px 12px;
+      }
+      .punch-col {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .punch-label {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: var(--text-muted, #64748b);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        line-height: 1;
+      }
+      .punch-value {
+        font-size: 0.84rem;
+        font-weight: 700;
+        color: var(--text-main, #0f172a);
+        line-height: 1.2;
+      }
+      @media (min-width: 641px) {
+        .portal-log-card {
+          padding: 14px 18px;
+          gap: 12px;
+        }
+        .portal-punch-strip {
+          padding: 9px 16px;
+        }
+      }
+    `}</style>
   </div>
 );
 
@@ -233,6 +538,61 @@ const EmptyState = ({ IconComponent = CheckIcon, msg }) => (
   </div>
 );
 
+const getAuditActionStyle = (action) => {
+  switch (action) {
+    case 'Attendance Status Updated':
+    case 'Approved':
+      return { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', dot: '#2563eb', label: 'Status Approved' };
+    case 'Attendance Override':
+      return { bg: '#fffbeb', border: '#fde68a', text: '#b45309', dot: '#d97706', label: 'Manual Override' };
+    case 'Clocked In':
+      return { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d', dot: '#16a34a', label: 'Clocked In' };
+    case 'Clocked Out':
+      return { bg: '#f8fafc', border: '#e2e8f0', text: '#475569', dot: '#64748b', label: 'Clocked Out' };
+    case 'Clock-Out Attempt Rejected':
+      return { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c', dot: '#dc2626', label: 'Punch Rejected' };
+    case 'Attendance Period Finalized':
+      return { bg: '#faf5ff', border: '#e9d5ff', text: '#7e22ce', dot: '#9333ea', label: 'Period Locked' };
+    case 'Attendance Period Reopened':
+      return { bg: '#fff7ed', border: '#ffedd5', text: '#c2410c', dot: '#ea580c', label: 'Period Reopened' };
+    case 'Leave Applied':
+    case 'Leave Status Updated':
+      return { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9', dot: '#7c3aed', label: 'Leave Event' };
+    default:
+      return { bg: '#f1f5f9', border: '#cbd5e1', text: '#334155', dot: '#475569', label: action };
+  }
+};
+
+const formatAuditDateTime = (isoStr) => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const dateFormatted = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeFormatted = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return `${dateFormatted} • ${timeFormatted}`;
+  } catch {
+    return isoStr;
+  }
+};
+
+const getAuditRelativeTime = (isoStr) => {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const diffSec = Math.floor((new Date() - d) / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return d.toLocaleDateString();
+  } catch {
+    return '';
+  }
+};
+
 export default function HRAttendancePortalPage() {
   const [viewMode, setViewMode] = useState('daily'); // 'daily' | 'monthly' | 'yearly'
   const [activeTab, setActiveTab] = useState('pending');
@@ -241,6 +601,14 @@ export default function HRAttendancePortalPage() {
   const [error, setError] = useState('');
   const [approvingId, setApprovingId] = useState(null);
   const [approvedIds, setApprovedIds] = useState(new Set());
+
+  // Attendance Audit Trail States
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditPageSize, setAuditPageSize] = useState(10);
 
   // Daily View Date State
   const [dailyDate, setDailyDate] = useState(() => {
@@ -276,13 +644,14 @@ export default function HRAttendancePortalPage() {
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState('');
   const [rangeSearch, setRangeSearch] = useState('');
+  const [exportingCSV, setExportingCSV] = useState(false);
 
   const fetchRangeData = useCallback(async (start = rangeStart, end = rangeEnd) => {
     setRangeLoading(true);
     setRangeError('');
     try {
-      const res = await apiFetch(`/attendance/?start_date=${start}&end_date=${end}`);
-      const list = Array.isArray(res) ? res : (res?.results || []);
+      const res = await apiFetch(`/attendance/?start_date=${start}&end_date=${end}&page_size=1000`);
+      const list = Array.isArray(res) ? res : (res?.results || res?.data || []);
       setRangeData(list);
     } catch (e) {
       setRangeError(e.message || 'Failed to load custom date range attendance.');
@@ -297,28 +666,76 @@ export default function HRAttendancePortalPage() {
     }
   }, [viewMode, rangeStart, rangeEnd, fetchRangeData]);
 
-  const handleExportRangeCSV = () => {
-    if (!rangeData || rangeData.length === 0) {
-      alert('No attendance data available to export for this range.');
+  const filteredRangeData = rangeData.filter(item => {
+    if (!rangeSearch) return true;
+    const q = rangeSearch.toLowerCase();
+    return (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
+           (item.status && item.status.toLowerCase().includes(q)) ||
+           (item.date && item.date.includes(q)) ||
+           (item.employeeDesignation && item.employeeDesignation.toLowerCase().includes(q));
+  });
+
+  const handleExportRangeCSV = async () => {
+    let dataset = rangeData;
+
+    // If rangeData is empty, fetch it automatically before exporting
+    if (!dataset || dataset.length === 0) {
+      setExportingCSV(true);
+      try {
+        const fetched = await apiFetch(`/attendance/?start_date=${rangeStart}&end_date=${rangeEnd}&page_size=1000`);
+        const list = Array.isArray(fetched) ? fetched : (fetched?.results || fetched?.data || []);
+        if (list.length === 0) {
+          alert(`No attendance records found between ${rangeStart} and ${rangeEnd}.`);
+          return;
+        }
+        setRangeData(list);
+        dataset = list;
+      } catch (err) {
+        alert(err.message || 'Failed to fetch attendance data for export.');
+        return;
+      } finally {
+        setExportingCSV(false);
+      }
+    }
+
+    const exportList = rangeSearch.trim() ? filteredRangeData : dataset;
+
+    if (exportList.length === 0) {
+      alert('No records matching the search query to export.');
       return;
     }
-    const headers = ['Employee Name', 'Date', 'Clock In', 'Clock Out', 'Duration (Hours)', 'Status'];
-    const rows = rangeData.map(r => [
-      `"${(r.employeeName || '').replace(/"/g, '""')}"`,
-      r.date || '',
-      r.clockIn ? new Date(r.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--',
-      r.clockOut ? new Date(r.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--',
-      r.totalDuration || '0',
-      r.status || 'Pending'
-    ]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+
+    const headers = ['Employee Name', 'Designation', 'Date', 'Clock In', 'Clock Out', 'Duration', 'Status'];
+    const rows = exportList.map(r => {
+      const clockInStr = r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+      const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Shift Active');
+      const durationStr = formatDurationStr(r);
+      const name = (r.employeeName || '').replace(/"/g, '""');
+      const designation = (r.employeeDesignation || 'Staff').replace(/"/g, '""');
+      const dateStr = r.date || (r.clockIn ? r.clockIn.split('T')[0] : '');
+      const status = r.status || 'Pending Approval';
+
+      return [
+        `"${name}"`,
+        `"${designation}"`,
+        `"${dateStr}"`,
+        `"${clockInStr}"`,
+        `"${clockOutStr}"`,
+        `"${durationStr}"`,
+        `"${status}"`
+      ];
+    });
+
+    const csvString = [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Reopen Modal State
@@ -383,6 +800,23 @@ export default function HRAttendancePortalPage() {
     }
   }, []);
 
+  const fetchAuditLogs = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const data = await apiFetch('/audit-logs/?module=attendance');
+      const list = Array.isArray(data) ? data : (data?.results || data?.data || []);
+      setAuditLogs(list);
+    } catch (err) {
+      console.error('Failed to fetch attendance audit logs:', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAuditLogs();
+  }, [fetchAuditLogs]);
+
   useEffect(() => {
     fetchDashboard(dailyDate);
     const t = setInterval(() => fetchDashboard(dailyDate), 30000);
@@ -427,6 +861,7 @@ export default function HRAttendancePortalPage() {
         body: JSON.stringify({ status: 'Approved' }),
       });
       setApprovedIds(prev => new Set([...prev, logId]));
+      fetchAuditLogs();
     } catch (e) {
       alert(e.message || 'Failed to approve.');
     } finally {
@@ -544,7 +979,34 @@ export default function HRAttendancePortalPage() {
     { id: 'late',    label: `Late Comers (${summary.lateCount ?? 0})` },
     { id: 'absent',  label: `Leave & Absent (${(summary.onLeaveCount ?? 0) + (summary.absentCount ?? 0)})` },
     { id: 'needs_review', label: `Needs Review (${summary.needsReviewCount ?? 0})` },
+    { id: 'audit_trail', label: `Audit Trail & History (${auditLogs.length})` },
   ];
+
+  const filteredAuditLogs = auditLogs.filter(log => {
+    if (auditActionFilter === 'approvals') {
+      if (!['Attendance Status Updated', 'Approved'].includes(log.action)) return false;
+    } else if (auditActionFilter === 'overrides') {
+      if (!['Attendance Override'].includes(log.action)) return false;
+    } else if (auditActionFilter === 'clock') {
+      if (!['Clocked In', 'Clocked Out', 'Clock-Out Attempt Rejected'].includes(log.action)) return false;
+    } else if (auditActionFilter === 'period') {
+      if (!['Attendance Period Finalized', 'Attendance Period Reopened'].includes(log.action)) return false;
+    }
+    if (auditSearch.trim()) {
+      const q = auditSearch.toLowerCase();
+      const matchesActor = log.employeeName?.toLowerCase().includes(q);
+      const matchesDetails = log.details?.toLowerCase().includes(q);
+      const matchesAction = log.action?.toLowerCase().includes(q);
+      if (!matchesActor && !matchesDetails && !matchesAction) return false;
+    }
+    return true;
+  });
+
+  const totalAuditPages = Math.ceil(filteredAuditLogs.length / auditPageSize) || 1;
+  const currentAuditPage = Math.min(Math.max(1, auditPage), totalAuditPages);
+  const auditStartIndex = (currentAuditPage - 1) * auditPageSize;
+  const auditEndIndex = Math.min(auditStartIndex + auditPageSize, filteredAuditLogs.length);
+  const paginatedAuditLogs = filteredAuditLogs.slice(auditStartIndex, auditEndIndex);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -602,7 +1064,16 @@ export default function HRAttendancePortalPage() {
         </div>
 
         {/* View Mode Switcher: Daily Monitor | Monthly Register | Yearly Matrix */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderBottom: '2px solid var(--border, #e2e8f0)', paddingBottom: '12px' }}>
+        <div className="portal-view-switcher" style={{
+          display: 'flex',
+          gap: '10px',
+          overflowX: 'auto',
+          flexWrap: 'nowrap',
+          borderBottom: '2px solid var(--border, #e2e8f0)',
+          paddingBottom: '12px',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none'
+        }}>
           <button
             type="button"
             className={`btn btn-sm ${viewMode === 'daily' ? 'btn-white-text btn-blue-active' : ''}`}
@@ -610,6 +1081,8 @@ export default function HRAttendancePortalPage() {
             data-white-text={viewMode === 'daily' ? 'true' : undefined}
             onClick={() => setViewMode('daily')}
             style={{
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               padding: '9px 20px',
               fontSize: '0.88rem',
               fontWeight: viewMode === 'daily' ? '700' : '600',
@@ -625,7 +1098,7 @@ export default function HRAttendancePortalPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            <ClockIcon size={16} /> <span className={viewMode === 'daily' ? 'active-tab-text' : ''} style={{ color: viewMode === 'daily' ? '#ffffff' : 'inherit' }}>Daily Monitor</span>
+            <ClockIcon size={16} /> <span className={viewMode === 'daily' ? 'active-tab-text' : ''} style={{ color: viewMode === 'daily' ? '#ffffff' : 'inherit', whiteSpace: 'nowrap' }}>Daily Monitor</span>
           </button>
 
           <button
@@ -635,6 +1108,8 @@ export default function HRAttendancePortalPage() {
             data-white-text={viewMode === 'range' ? 'true' : undefined}
             onClick={() => setViewMode('range')}
             style={{
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               padding: '9px 20px',
               fontSize: '0.88rem',
               fontWeight: viewMode === 'range' ? '700' : '600',
@@ -650,7 +1125,7 @@ export default function HRAttendancePortalPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            <CalendarIcon size={16} /> <span className={viewMode === 'range' ? 'active-tab-text' : ''} style={{ color: viewMode === 'range' ? '#ffffff' : 'inherit' }}>Custom Date Range</span>
+            <CalendarIcon size={16} /> <span className={viewMode === 'range' ? 'active-tab-text' : ''} style={{ color: viewMode === 'range' ? '#ffffff' : 'inherit', whiteSpace: 'nowrap' }}>Custom Date Range</span>
           </button>
 
           <button
@@ -660,6 +1135,8 @@ export default function HRAttendancePortalPage() {
             data-white-text={viewMode === 'monthly' ? 'true' : undefined}
             onClick={() => setViewMode('monthly')}
             style={{
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               padding: '9px 20px',
               fontSize: '0.88rem',
               fontWeight: viewMode === 'monthly' ? '700' : '600',
@@ -675,7 +1152,7 @@ export default function HRAttendancePortalPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            <CalendarIcon size={16} /> <span className={viewMode === 'monthly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'monthly' ? '#ffffff' : 'inherit' }}>Monthly Register & Lock</span>
+            <CalendarIcon size={16} /> <span className={viewMode === 'monthly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'monthly' ? '#ffffff' : 'inherit', whiteSpace: 'nowrap' }}>Monthly Register & Lock</span>
           </button>
 
           <button
@@ -685,6 +1162,8 @@ export default function HRAttendancePortalPage() {
             data-white-text={viewMode === 'yearly' ? 'true' : undefined}
             onClick={() => setViewMode('yearly')}
             style={{
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
               padding: '9px 20px',
               fontSize: '0.88rem',
               fontWeight: viewMode === 'yearly' ? '700' : '600',
@@ -700,7 +1179,7 @@ export default function HRAttendancePortalPage() {
               transition: 'all 0.15s ease'
             }}
           >
-            <AuditIcon size={16} /> <span className={viewMode === 'yearly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'yearly' ? '#ffffff' : 'inherit' }}>Yearly Matrix</span>
+            <AuditIcon size={16} /> <span className={viewMode === 'yearly' ? 'active-tab-text' : ''} style={{ color: viewMode === 'yearly' ? '#ffffff' : 'inherit', whiteSpace: 'nowrap' }}>Yearly Matrix</span>
           </button>
         </div>
 
@@ -740,7 +1219,7 @@ export default function HRAttendancePortalPage() {
                   onClick={handlePrevDay}
                   style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: '600' }}
                 >
-                  &larr; Prev Day
+                  <ChevronLeftIcon size={14} /> Prev Day
                 </button>
                 <input
                   type="date"
@@ -755,7 +1234,7 @@ export default function HRAttendancePortalPage() {
                   onClick={handleNextDay}
                   style={{ padding: '6px 12px', fontSize: '0.82rem', fontWeight: '600' }}
                 >
-                  Next Day &rarr;
+                  Next Day <ChevronRightIcon size={14} />
                 </button>
                 <button
                   type="button"
@@ -769,7 +1248,7 @@ export default function HRAttendancePortalPage() {
             </div>
 
             {/* Stat Cards Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+            <div className="portal-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <div className="panel settings-panel-card" style={{ padding: '18px 20px', borderLeft: '4px solid #0284c7' }}>
                 <div style={{ fontSize: '0.78rem', fontWeight: '600', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Pending Approvals</div>
                 <div style={{ fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '6px' }}>{summary.pendingCount ?? 0}</div>
@@ -956,6 +1435,386 @@ export default function HRAttendancePortalPage() {
                 </div>
               )}
 
+              {/* Tab 5: Audit Trail & History */}
+              {activeTab === 'audit_trail' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {/* Header & Controls */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h3 style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AuditIcon size={18} style={{ color: 'var(--primary, #2563eb)' }} />
+                        <span>Attendance & Approval Audit Trail</span>
+                      </h3>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', margin: '3px 0 0' }}>
+                        Immutable corporate audit record of manager approvals, clock punches, manual overrides, and period locks.
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={fetchAuditLogs}
+                        disabled={auditLoading}
+                        style={{ padding: '6px 12px', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        title="Refresh Audit Trail"
+                      >
+                        <ChangeIcon size={14} />
+                        <span>{auditLoading ? 'Refreshing...' : 'Refresh'}</span>
+                      </button>
+                      <Link
+                        href="/audit-logs"
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '6px 12px', fontSize: '0.78rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <span>System Audit Logs</span>
+                        <ArrowRightIcon size={12} />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Search & Filter Controls */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', background: 'var(--bg-subtle, #f8fafc)', padding: '12px', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--border, #e2e8f0)' }}>
+                    <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                      <SearchIcon size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #94a3b8)' }} />
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Filter by actor, employee, or detail..."
+                        value={auditSearch}
+                        onChange={(e) => {
+                          setAuditSearch(e.target.value);
+                          setAuditPage(1);
+                        }}
+                        style={{ paddingLeft: '32px', fontSize: '0.82rem', height: '34px', width: '100%', borderRadius: '6px' }}
+                      />
+                      {auditSearch && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuditSearch('');
+                            setAuditPage(1);
+                          }}
+                          style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                        >
+                          <CloseIcon size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }}>
+                      {[
+                        { id: 'all', label: 'All Activity' },
+                        { id: 'approvals', label: 'Approvals' },
+                        { id: 'overrides', label: 'Overrides' },
+                        { id: 'clock', label: 'Clock Punches' },
+                        { id: 'period', label: 'Period Actions' },
+                      ].map(filter => {
+                        const isFilterActive = auditActionFilter === filter.id;
+                        return (
+                          <button
+                            key={filter.id}
+                            type="button"
+                            className={`audit-filter-chip ${isFilterActive ? 'active-filter-chip btn-white-text btn-blue-active' : ''}`}
+                            data-active-blue={isFilterActive ? 'true' : undefined}
+                            data-white-text={isFilterActive ? 'true' : undefined}
+                            onClick={() => {
+                              setAuditActionFilter(filter.id);
+                              setAuditPage(1);
+                            }}
+                            style={{
+                              padding: '5px 12px',
+                              fontSize: '0.76rem',
+                              fontWeight: isFilterActive ? 700 : 600,
+                              borderRadius: '16px',
+                              border: isFilterActive ? '1px solid #2563eb' : '1px solid var(--border, #cbd5e1)',
+                              background: isFilterActive ? '#2563eb' : '#ffffff',
+                              backgroundColor: isFilterActive ? '#2563eb' : '#ffffff',
+                              color: isFilterActive ? '#ffffff' : 'var(--text-main, #334155)',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <span
+                              className={isFilterActive ? 'active-tab-text' : ''}
+                              style={{
+                                color: isFilterActive ? '#ffffff' : 'inherit',
+                                fontWeight: 'inherit'
+                              }}
+                            >
+                              {filter.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Audit Logs Timeline List */}
+                  {auditLoading && auditLogs.length === 0 ? (
+                    <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <p style={{ margin: 0, fontSize: '0.88rem' }}>Loading attendance activity trail...</p>
+                    </div>
+                  ) : filteredAuditLogs.length === 0 ? (
+                    <EmptyState
+                      IconComponent={AuditIcon}
+                      msg={auditSearch || auditActionFilter !== 'all' ? "No audit activity matching the selected filters." : "No attendance activity recorded yet."}
+                    />
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {paginatedAuditLogs.map(log => {
+                          const actionStyle = getAuditActionStyle(log.action);
+                          return (
+                            <div
+                              key={`audit-${log.id}`}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '14px',
+                                padding: '14px 16px',
+                                borderRadius: 'var(--radius-md, 10px)',
+                                background: '#ffffff',
+                                border: '1px solid var(--border, #e2e8f0)',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                                transition: 'border-color 0.15s ease'
+                              }}
+                            >
+                              <AvatarPill name={log.employeeName} color={actionStyle.dot} size={36} />
+
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px', marginBottom: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-main, #0f172a)' }}>
+                                      {log.employeeName || 'System'}
+                                    </span>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                      padding: '2px 8px',
+                                      borderRadius: '12px',
+                                      background: actionStyle.bg,
+                                      border: `1px solid ${actionStyle.border}`,
+                                      color: actionStyle.text,
+                                      fontSize: '0.72rem',
+                                      fontWeight: 600,
+                                    }}>
+                                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: actionStyle.dot }} />
+                                      <span>{actionStyle.label}</span>
+                                    </span>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.74rem', color: 'var(--text-muted, #64748b)' }}>
+                                    <span>{formatAuditDateTime(log.createdAt)}</span>
+                                    <span>&bull;</span>
+                                    <span style={{ fontWeight: 500 }}>{getAuditRelativeTime(log.createdAt)}</span>
+                                  </div>
+                                </div>
+
+                                <div style={{ fontSize: '0.82rem', color: 'var(--text-main, #334155)', lineHeight: 1.45, wordBreak: 'break-word' }}>
+                                  {log.details || `Performed ${log.action}`}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Best-Practice Audit Trail Pagination Controls */}
+                      {filteredAuditLogs.length > 0 && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: '12px',
+                          marginTop: '20px',
+                          padding: '12px 16px',
+                          background: '#f8fafc',
+                          borderRadius: 'var(--radius-md, 8px)',
+                          border: '1px solid var(--border, #e2e8f0)',
+                          fontSize: '0.84rem'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-muted, #64748b)' }}>
+                            <span>
+                              Showing <strong>{filteredAuditLogs.length === 0 ? 0 : auditStartIndex + 1}</strong> to <strong>{auditEndIndex}</strong> of <strong>{filteredAuditLogs.length}</strong> entries
+                            </span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              <label htmlFor="auditPageSizeSelect" style={{ fontSize: '0.8rem' }}>Show:</label>
+                              <select
+                                id="auditPageSizeSelect"
+                                value={auditPageSize}
+                                onChange={(e) => {
+                                  setAuditPageSize(Number(e.target.value));
+                                  setAuditPage(1);
+                                }}
+                                style={{
+                                  padding: '4px 8px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  background: '#ffffff',
+                                  fontSize: '0.8rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setAuditPage(prev => Math.max(1, prev - 1))}
+                              disabled={currentAuditPage <= 1}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                background: currentAuditPage <= 1 ? '#f1f5f9' : '#ffffff',
+                                color: currentAuditPage <= 1 ? '#94a3b8' : '#334155',
+                                cursor: currentAuditPage <= 1 ? 'not-allowed' : 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.82rem'
+                              }}
+                            >
+                              &larr; Previous
+                            </button>
+
+                            {Array.from({ length: totalAuditPages }, (_, idx) => idx + 1)
+                              .filter(p => p === 1 || p === totalAuditPages || Math.abs(p - currentAuditPage) <= 2)
+                              .reduce((acc, p, idx, arr) => {
+                                if (idx > 0 && p - arr[idx - 1] > 1) {
+                                  acc.push('...');
+                                }
+                                acc.push(p);
+                                return acc;
+                              }, [])
+                              .map((item, i) => item === '...' ? (
+                                <span key={`ellipsis-${i}`} style={{ padding: '0 4px', color: '#94a3b8' }}>...</span>
+                              ) : (
+                                <button
+                                  key={`page-${item}`}
+                                  type="button"
+                                  onClick={() => setAuditPage(item)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    border: item === currentAuditPage ? '1.5px solid var(--primary, #2563eb)' : '1px solid #cbd5e1',
+                                    background: item === currentAuditPage ? 'var(--primary, #2563eb)' : '#ffffff',
+                                    color: item === currentAuditPage ? '#ffffff' : '#334155',
+                                    fontWeight: item === currentAuditPage ? '700' : '500',
+                                    cursor: 'pointer',
+                                    fontSize: '0.82rem'
+                                  }}
+                                >
+                                  {item}
+                                </button>
+                              ))}
+
+                            <button
+                              type="button"
+                              onClick={() => setAuditPage(prev => Math.min(totalAuditPages, prev + 1))}
+                              disabled={currentAuditPage >= totalAuditPages}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                border: '1px solid #cbd5e1',
+                                background: currentAuditPage >= totalAuditPages ? '#f1f5f9' : '#ffffff',
+                                color: currentAuditPage >= totalAuditPages ? '#94a3b8' : '#334155',
+                                cursor: currentAuditPage >= totalAuditPages ? 'not-allowed' : 'pointer',
+                                fontWeight: '600',
+                                fontSize: '0.82rem'
+                              }}
+                            >
+                              Next &rarr;
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Recent Activity Strip at bottom of other tabs */}
+              {activeTab !== 'audit_trail' && auditLogs.length > 0 && (
+                <div style={{ marginTop: '24px', paddingTop: '18px', borderTop: '1px solid var(--border, #e2e8f0)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AuditIcon size={16} style={{ color: 'var(--primary, #2563eb)' }} />
+                      <span style={{ fontSize: '0.86rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>
+                        Recent Activity & Audit Trail
+                      </span>
+                      <span style={{ fontSize: '0.7rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 7px', borderRadius: '10px', fontWeight: '600' }}>
+                        Live Log
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setActiveTab('audit_trail')}
+                      style={{ padding: '4px 10px', fontSize: '0.75rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <span>View Full Trail</span>
+                      <ArrowRightIcon size={12} />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '10px' }}>
+                    {auditLogs.slice(0, 3).map(log => {
+                      const actionStyle = getAuditActionStyle(log.action);
+                      return (
+                        <div
+                          key={`mini-audit-${log.id}`}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: 'var(--radius-md, 8px)',
+                            background: 'var(--bg-subtle, #f8fafc)',
+                            border: '1px solid var(--border, #e2e8f0)',
+                            fontSize: '0.78rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-main, #0f172a)' }}>{log.employeeName || 'System'}</span>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #64748b)' }}>{getAuditRelativeTime(log.createdAt)}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '1px 6px',
+                              borderRadius: '8px',
+                              background: actionStyle.bg,
+                              border: `1px solid ${actionStyle.border}`,
+                              color: actionStyle.text,
+                              fontSize: '0.68rem',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              <span style={{ width: 4, height: 4, borderRadius: '50%', background: actionStyle.dot }} />
+                              <span>{actionStyle.label}</span>
+                            </span>
+                            <span style={{ color: 'var(--text-muted, #64748b)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {log.details || log.action}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
@@ -967,71 +1826,155 @@ export default function HRAttendancePortalPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Filter & Date Selection Bar */}
             <div className="panel settings-panel-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', margin: 0 }}>
-                    Custom Attendance Date Range Query
-                  </h3>
-                  <p style={{ margin: '4px 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.84rem' }}>
-                    Select specific start and end dates (e.g. 20/07/2026 to 16/08/2026) to manually pull and inspect detailed employee records.
-                  </p>
-                </div>
-                
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleExportRangeCSV}
-                  disabled={rangeData.length === 0}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', padding: '8px 16px' }}
-                >
-                  <DownloadIcon size={14} /> Export Range CSV
-                </button>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', margin: 0 }}>
+                  Custom Attendance Date Range Query
+                </h3>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.84rem' }}>
+                  Select specific start and end dates to manually inspect and export detailed employee attendance records.
+                </p>
               </div>
 
-              {/* Range Date Inputs & Filters */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap', background: 'var(--bg-app, #f8fafc)', padding: '14px 18px', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--border, #e2e8f0)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>From Date:</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={rangeStart}
-                    onChange={(e) => setRangeStart(e.target.value)}
-                    style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)' }}
-                  />
+              {/* Range Date Inputs & Actions Card */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '14px',
+                flexWrap: 'wrap',
+                background: 'var(--bg-app, #f8fafc)',
+                padding: '16px 20px',
+                borderRadius: 'var(--radius-md, 10px)',
+                border: '1px solid var(--border, #e2e8f0)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '170px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>From Date:</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={rangeStart}
+                      onChange={(e) => setRangeStart(e.target.value)}
+                      style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)', width: '100%' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '170px' }}>
+                    <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>To Date:</label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={rangeEnd}
+                      onChange={(e) => setRangeEnd(e.target.value)}
+                      style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)', width: '100%' }}
+                    />
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-main, #0f172a)' }}>To Date:</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={rangeEnd}
-                    onChange={(e) => setRangeEnd(e.target.value)}
-                    style={{ padding: '7px 12px', fontSize: '0.85rem', borderRadius: 'var(--radius-sm, 6px)', border: '1px solid var(--border, #cbd5e1)' }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => fetchRangeData(rangeStart, rangeEnd)}
+                    disabled={rangeLoading}
+                    style={{ padding: '9px 20px', fontSize: '0.84rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    {rangeLoading ? 'Loading Records...' : 'Pull Attendance Data'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleExportRangeCSV}
+                    disabled={exportingCSV}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.84rem',
+                      fontWeight: '600',
+                      padding: '9px 18px',
+                      whiteSpace: 'nowrap',
+                      background: '#ffffff',
+                      border: '1px solid var(--border, #cbd5e1)',
+                      color: 'var(--text-main, #0f172a)'
+                    }}
+                  >
+                    <DownloadIcon size={14} /> {exportingCSV ? 'Generating CSV...' : 'Export Range CSV'}
+                  </button>
                 </div>
+              </div>
 
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => fetchRangeData(rangeStart, rangeEnd)}
-                  disabled={rangeLoading}
-                  style={{ padding: '8px 18px', fontSize: '0.84rem', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  {rangeLoading ? 'Loading...' : 'Pull Attendance Data'}
-                </button>
-
-                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
-                  <SearchIcon size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)' }} />
+              {/* Standard Dedicated Search Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap',
+                background: '#ffffff',
+                padding: '12px 18px',
+                borderRadius: 'var(--radius-md, 10px)',
+                border: '1px solid var(--border, #e2e8f0)',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+              }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                  <SearchIcon size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted, #64748b)'
+                  }} />
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Search by employee name or status..."
+                    placeholder="Search by employee name, role, date, or status..."
                     value={rangeSearch}
                     onChange={(e) => setRangeSearch(e.target.value)}
-                    style={{ width: '100%', paddingLeft: '32px', paddingRight: '12px', fontSize: '0.84rem' }}
+                    style={{
+                      width: '100%',
+                      height: '40px',
+                      paddingLeft: '38px',
+                      paddingRight: rangeSearch ? '36px' : '14px',
+                      fontSize: '0.86rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border, #cbd5e1)',
+                      background: 'var(--bg-app, #f8fafc)',
+                      boxShadow: 'none',
+                      outline: 'none'
+                    }}
                   />
+                  {rangeSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setRangeSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#94a3b8',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      title="Clear search"
+                    >
+                      <CloseIcon size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  {rangeSearch ? (
+                    <span>Filtered: <strong>{filteredRangeData.length}</strong> of <strong>{rangeData.length}</strong></span>
+                  ) : (
+                    <span>Total: <strong>{rangeData.length}</strong> records</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1095,15 +2038,7 @@ export default function HRAttendancePortalPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rangeData
-                        .filter(item => {
-                          if (!rangeSearch) return true;
-                          const q = rangeSearch.toLowerCase();
-                          return (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
-                                 (item.status && item.status.toLowerCase().includes(q)) ||
-                                 (item.date && item.date.includes(q));
-                        })
-                        .map(log => {
+                      {filteredRangeData.map(log => {
                           const isApproved = approvedIds.has(log.id) || log.status === 'Approved';
                           return (
                             <tr key={log.id}>
@@ -1321,7 +2256,7 @@ export default function HRAttendancePortalPage() {
                           borderRadius: 'var(--radius-sm, 6px)'
                         }}
                       >
-                        <span>Proceed to Monthly Payroll →</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>Proceed to Monthly Payroll <ArrowRightIcon size={14} /></span>
                       </Link>
                     </div>
                   )}
@@ -1934,6 +2869,53 @@ export default function HRAttendancePortalPage() {
               </div>
             )}
 
+             <style jsx>{`
+          .active-filter-chip,
+          .active-filter-chip * {
+            color: #ffffff !important;
+            background-color: #2563eb !important;
+            background: #2563eb !important;
+          }
+          .portal-view-switcher {
+            display: flex !important;
+            gap: 10px !important;
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding-bottom: 8px !important;
+            scrollbar-width: none !important;
+          }
+          .portal-view-switcher::-webkit-scrollbar {
+            display: none !important;
+          }
+          .portal-view-switcher button,
+          .portal-view-switcher button * {
+            white-space: nowrap !important;
+            flex-shrink: 0 !important;
+          }
+          @media (max-width: 640px) {
+            .portal-stat-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 10px !important;
+            }
+            .portal-legend-bar {
+              gap: 8px 12px !important;
+              padding: 8px 12px !important;
+              font-size: 0.74rem !important;
+              margin-bottom: 14px !important;
+            }
+            .portal-view-switcher {
+              overflow-x: auto !important;
+              flex-wrap: nowrap !important;
+              -webkit-overflow-scrolling: touch;
+              padding-bottom: 8px !important;
+              scrollbar-width: none;
+            }
+            .portal-view-switcher::-webkit-scrollbar {
+              display: none;
+            }
+          }
+        `}</style>
       </div>
     </PageWrapper>
   );
