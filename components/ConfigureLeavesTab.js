@@ -269,7 +269,18 @@ export default function ConfigureLeavesTab() {
                           {type.is_paid !== false ? 'Paid' : 'Unpaid'}
                         </span>
                       </div>
-                      <span className={`badge ${type.status === 'Active' ? 'badge-success' : 'badge-danger'}`} style={{ color: '#ffffff' }}>
+                      <span 
+                        className={`badge ${type.status === 'Active' ? 'badge-success' : 'badge-danger'}`} 
+                        style={{ 
+                          fontWeight: '700', 
+                          fontSize: '0.72rem',
+                          padding: '3px 10px', 
+                          borderRadius: '12px', 
+                          backgroundColor: type.status === 'Active' ? '#dcfce7' : '#fee2e2', 
+                          color: type.status === 'Active' ? '#15803d' : '#b91c1c', 
+                          border: type.status === 'Active' ? '1px solid #86efac' : '1px solid #fca5a5' 
+                        }}
+                      >
                         {type.status}
                       </span>
                     </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useApp } from '../context/AppContext';
 import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
@@ -9,17 +9,17 @@ import { WarningIcon } from './Icons';
 import OnboardingDashboard from './OnboardingDashboard';
 
 export default function PageWrapper({ children, title, requiredPermission, requiredSubscriptionFlag }) {
-  const { 
-    currentUser, 
-    authStatus, 
-    orgProfileStatus, 
-    fetchInitialData, 
-    hasPermission, 
-    sidebarOpen, 
-    setSidebarOpen, 
-    brandLogo, 
-    officeLocations, 
-    logout 
+  const {
+    currentUser,
+    authStatus,
+    orgProfileStatus,
+    fetchInitialData,
+    hasPermission,
+    sidebarOpen,
+    setSidebarOpen,
+    brandLogo,
+    officeLocations,
+    logout
   } = useApp();
   const router = useRouter();
 
@@ -46,42 +46,39 @@ export default function PageWrapper({ children, title, requiredPermission, requi
     }
   }, [currentUser, authStatus, isUnpaid, router]);
 
-  const isLoading = authStatus === 'loading' && !currentUser;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isLoading = !mounted || (authStatus === 'loading' && !currentUser);
 
   if (isLoading) {
     return (
-      <div className="loading-container">
-        <div className="spinner"></div>
-        <span className="loading-text">Loading CubeLogs...</span>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-            font-family: var(--font-sans);
-          }
-          .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid var(--primary-border);
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 16px;
-          }
-          .loading-text {
-            color: var(--primary-dark);
-            font-weight: 600;
-            font-size: 1.1rem;
-          }
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div className="loading-container" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+        fontFamily: 'var(--font-sans)'
+      }}>
+        <div className="spinner" style={{
+          width: 50,
+          height: 50,
+          border: '4px solid var(--primary-border, #bfdbfe)',
+          borderTop: '4px solid var(--primary, #2563eb)',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: 16
+        }}></div>
+        <span className="loading-text" style={{
+          color: 'var(--primary-dark, #0c1e3d)',
+          fontWeight: 600,
+          fontSize: '1.1rem'
+        }}>Loading CubeLogs...</span>
       </div>
     );
   }
@@ -92,7 +89,15 @@ export default function PageWrapper({ children, title, requiredPermission, requi
 
   if (orgProfileStatus === 'error') {
     return (
-      <div className="loading-container">
+      <div className="loading-container" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+        fontFamily: 'var(--font-sans)'
+      }}>
         <div className="panel alert-box alert-box-danger" style={{ maxWidth: '460px', textAlign: 'center', margin: '0 20px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
           <div style={{ color: 'var(--danger)' }}>
             <WarningIcon size={40} />
@@ -110,17 +115,6 @@ export default function PageWrapper({ children, title, requiredPermission, requi
             Retry Loading
           </button>
         </div>
-        <style jsx>{`
-          .loading-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-            font-family: var(--font-sans);
-          }
-        `}</style>
       </div>
     );
   }
@@ -173,11 +167,11 @@ export default function PageWrapper({ children, title, requiredPermission, requi
               <p style={{ fontSize: '0.9rem', color: '#94a3b8', lineHeight: '1.5', margin: 0 }}>
                 Your administrator has not completed the workspace onboarding registration yet. Please verify with your admin to finalize the system activation.
               </p>
-              <button 
+              <button
                 onClick={() => {
                   logout();
                   window.location.href = '/login';
-                }} 
+                }}
                 style={{
                   background: 'transparent',
                   color: '#94a3b8',
@@ -225,7 +219,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
     const moduleName = flag === 'is_attendance_enabled' ? 'Attendance Management' : 'Project & Tasks Management';
     return (
       <div className="app-container">
-        <div 
+        <div
           className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
           onClick={() => setSidebarOpen(false)}
         />
@@ -268,7 +262,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
   if (!hasPageAccess()) {
     return (
       <div className="app-container">
-        <div 
+        <div
           className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
           onClick={() => setSidebarOpen(false)}
         />
@@ -301,7 +295,7 @@ export default function PageWrapper({ children, title, requiredPermission, requi
 
   return (
     <div className="app-container">
-      <div 
+      <div
         className={`sidebar-overlay ${sidebarOpen ? 'active' : ''}`}
         onClick={() => setSidebarOpen(false)}
       />

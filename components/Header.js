@@ -29,7 +29,8 @@ export default function Header({ title }) {
   const subInfo = currentUser?.subscription;
   const isWarningActive = currentUser?.isSuperAdmin && (subInfo?.warningActive || (subInfo?.secondsRemaining !== undefined && subInfo.secondsRemaining <= 300 && subInfo.secondsRemaining > 0));
   const secondsRemaining = subInfo?.secondsRemaining || 0;
-  const showNormalWarning = currentUser?.isSuperAdmin && !isWarningActive && subscriptionDays <= 15;
+  const isPendingOrExpired = subInfo?.isExpired || subInfo?.subscriptionStatus === 'Pending Payment' || subInfo?.subscriptionStatus === 'Restricted';
+  const showNormalWarning = currentUser?.isSuperAdmin && !isWarningActive && (isPendingOrExpired || subscriptionDays <= 5);
 
   const availableMemberships = currentUser?.available_memberships || [];
   const activeOrgId = currentUser?.active_organization?.id || currentUser?.organization;
@@ -101,7 +102,7 @@ export default function Header({ title }) {
               boxShadow: '0 0 8px #ef4444' 
             }}></span>
             <span>
-              {subInfo?.isExpired 
+              {isPendingOrExpired 
                 ? `Subscription ended! Access locks in ${subscriptionDays} days`
                 : `${subscriptionDays} days left until sub end`}
             </span>

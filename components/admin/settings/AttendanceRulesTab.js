@@ -255,7 +255,10 @@ export default function AttendanceRulesTab({
                     return { ...prev, default_weekly_holidays: next };
                   });
                 }}
-                className={`day-pill-btn ${isSelected ? 'selected' : ''}`}
+                className={`day-pill-btn ${isSelected ? 'selected active-selected-day btn-blue-active' : ''}`}
+                data-selected={isSelected ? 'true' : 'false'}
+
+                data-active-blue={isSelected ? 'true' : undefined}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -269,13 +272,17 @@ export default function AttendanceRulesTab({
                   fontWeight: isSelected ? '700' : '600',
                   border: isSelected ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
                   background: isSelected ? '#2563eb' : '#ffffff',
+                  backgroundColor: isSelected ? '#2563eb' : '#ffffff',
                   color: isSelected ? '#ffffff' : '#334155',
+                  WebkitTextFillColor: isSelected ? '#ffffff' : '#334155',
                   boxShadow: isSelected ? '0 2px 6px rgba(37, 99, 235, 0.25)' : '0 1px 2px rgba(0,0,0,0.03)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease'
                 }}
               >
-                {shortName}
+                <span style={{ color: isSelected ? '#ffffff' : '#334155', WebkitTextFillColor: isSelected ? '#ffffff' : 'inherit', fontWeight: isSelected ? '700' : '600' }}>
+                  {shortName}
+                </span>
               </button>
             );
           })}
@@ -284,7 +291,7 @@ export default function AttendanceRulesTab({
         {/* Selected Summary note */}
         <div style={{ marginTop: '6px', fontSize: '0.72rem', color: '#64748b' }}>
           {(attendanceConfig.default_weekly_holidays?.length || 0) > 0 ? (
-            <span>Selected Off: <strong style={{ color: '#0f172a' }}>{attendanceConfig.default_weekly_holidays.join(', ')}</strong></span>
+            <span>Selected Off: <strong style={{ color: '#2563eb', fontWeight: '700' }}>{attendanceConfig.default_weekly_holidays.join(', ')}</strong></span>
           ) : (
             <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>No weekly offs selected (7-day work week)</span>
           )}
@@ -725,8 +732,12 @@ export default function AttendanceRulesTab({
           color: #0f172a;
         }
 
-        .day-pill-btn.selected {
+        .day-pill-btn.selected,
+        .day-pill-btn.selected *,
+        .day-pill-btn[data-selected="true"],
+        .day-pill-btn[data-selected="true"] * {
           background: #2563eb !important;
+          background-color: #2563eb !important;
           color: #ffffff !important;
           border-color: #2563eb !important;
           font-weight: 700 !important;

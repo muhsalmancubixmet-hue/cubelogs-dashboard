@@ -57,6 +57,8 @@ function EmployeeProfileContent() {
   const [editingLog, setEditingLog] = useState(null);
   const [editClockIn, setEditClockIn] = useState('');
   const [editClockOut, setEditClockOut] = useState('');
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideError, setOverrideError] = useState('');
   const [recentLogsSearchQuery, setRecentLogsSearchQuery] = useState('');
 
   // Profile photo upload ref (in-place)
@@ -304,26 +306,18 @@ function EmployeeProfileContent() {
   };
 
   const localAdjustAttendance = async (logId, changes) => {
-    setLoading(true);
-    setErrorMsg('');
-    try {
-      const response = await apiFetch(`/attendance/${logId}/`, {
-        method: 'PATCH',
-        body: JSON.stringify(changes),
-      });
-      const mappedLog = {
-        ...response,
-        id: String(response.id),
-        employeeId: String(response.employee)
-      };
+    const response = await apiFetch(`/attendance/${logId}/`, {
+      method: 'PATCH',
+      body: JSON.stringify(changes),
+    });
+    const mappedLog = {
+      ...response,
+      id: String(response.id),
+      employeeId: String(response.employee)
+    };
 
-      setAttendanceLogs(prev => prev.map(log => log.id === logId ? mappedLog : log));
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to adjust attendance.');
-    } finally {
-      setLoading(false);
-    }
+    setAttendanceLogs(prev => prev.map(log => log.id === logId ? mappedLog : log));
+    return mappedLog;
   };
 
   // Compress image to a small JPEG thumbnail before storing (avoids localStorage quota issues)
@@ -531,22 +525,33 @@ function EmployeeProfileContent() {
     setEditingLog(log);
     setEditClockIn(formatDateTimeLocal(log.clockIn));
     setEditClockOut(log.clockOut ? formatDateTimeLocal(log.clockOut) : '');
+    setOverrideError('');
   };
 
-  const handleSaveOverride = (e) => {
+  const handleSaveOverride = async (e) => {
     e.preventDefault();
     if (!editingLog) return;
 
-    // Parse edit inputs back to ISO strings
-    const clockInIso = editClockIn ? new Date(editClockIn).toISOString() : null;
-    const clockOutIso = editClockOut ? new Date(editClockOut).toISOString() : null;
+    setOverrideLoading(true);
+    setOverrideError('');
 
-    localAdjustAttendance(editingLog.id, {
-      clockIn: clockInIso,
-      clockOut: clockOutIso
-    });
+    try {
+      // Parse edit inputs back to ISO strings
+      const clockInIso = editClockIn ? new Date(editClockIn).toISOString() : null;
+      const clockOutIso = editClockOut ? new Date(editClockOut).toISOString() : null;
 
-    setEditingLog(null);
+      await localAdjustAttendance(editingLog.id, {
+        clockIn: clockInIso,
+        clockOut: clockOutIso
+      });
+
+      setEditingLog(null);
+    } catch (err) {
+      console.error(err);
+      setOverrideError(err.message || 'Failed to adjust attendance.');
+    } finally {
+      setOverrideLoading(false);
+    }
   };
 
   const formatTimeStr = (isoStr) => {
@@ -1317,55 +1322,102 @@ function EmployeeProfileContent() {
           </div>
         )}
 
-        {/* EDIT / OVERRIDE PANEL FOR ADMINS */}
+        {/* EDIT / OVERRIDE MODAL POPUP FOR ADMINS */}
         {isAttendanceEnabled && editingLog && hasPermission('attendance:admin') && (
-          <div className="panel adjust-log-panel" style={{ marginTop: '24px', border: '1px solid var(--primary-border)', background: 'var(--primary-light)' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <EditIcon size={20} style={{ color: 'var(--primary)' }} />
-              <span>Override Clock Logs for {editingLog.date}</span>
-            </h3>
-            
-            <form onSubmit={handleSaveOverride} className="adjust-log-form">
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px', marginBottom: '24px' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontWeight: '600', color: 'var(--primary-dark)' }}>Clock-In Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    className="form-input"
-                    value={editClockIn}
-                    onChange={(e) => setEditClockIn(e.target.value)}
-                    required
-                  />
+          <div className="modal-overlay" onClick={() => { setEditingLog(null); setOverrideError(''); }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px', width: '90%', padding: '24px' }}>
+              <button 
+                type="button" 
+                className="modal-close-btn" 
+                onClick={() => { setEditingLog(null); setOverrideError(''); }}
+                aria-label="Close override modal"
+              >
+                <CloseIcon size={20} />
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  backgroundColor: 'var(--primary-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--primary)'
+                }}>
+                  <EditIcon size={20} />
                 </div>
-                
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ fontWeight: '600', color: 'var(--primary-dark)' }}>Clock-Out Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    className="form-input"
-                    value={editClockOut}
-                    onChange={(e) => setEditClockOut(e.target.value)}
-                    placeholder="Active shift (leave blank)"
-                  />
-                  <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '4px' }}>
-                    Leave blank to keep the shift active (ticking).
-                  </small>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '600' }}>
+                    Override Attendance Log
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-light)' }}>
+                    Adjust clock timestamps for {editingLog.date}
+                  </p>
                 </div>
               </div>
-              
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button type="submit" className="btn btn-primary btn-sm">
-                  Save Adjustments
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setEditingLog(null)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+
+              {overrideError && (
+                <div className="alert-box alert-box-danger" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px' }}>
+                  <WarningIcon size={16} />
+                  <span>{overrideError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveOverride} className="adjust-log-form">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontWeight: '600', marginBottom: '6px', display: 'block' }}>
+                      Clock-In Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={editClockIn}
+                      onChange={(e) => setEditClockIn(e.target.value)}
+                      required
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontWeight: '600', marginBottom: '6px', display: 'block' }}>
+                      Clock-Out Date & Time
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="form-input"
+                      value={editClockOut}
+                      onChange={(e) => setEditClockOut(e.target.value)}
+                      placeholder="Active shift (leave blank)"
+                      style={{ width: '100%' }}
+                    />
+                    <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '6px', fontSize: '0.78rem' }}>
+                      Leave blank to keep the shift active (ticking).
+                    </small>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setEditingLog(null); setOverrideError(''); }}
+                    disabled={overrideLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={overrideLoading}
+                  >
+                    {overrideLoading ? 'Saving...' : 'Save Adjustments'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         )}
 

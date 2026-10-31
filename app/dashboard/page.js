@@ -101,6 +101,7 @@ export default function Dashboard() {
   const [hasInitialData, setHasInitialData] = useState(() => !!cachedData);
   const [error, setError] = useState('');
   const [attendanceAlerts, setAttendanceAlerts] = useState({ pendingCount: 0, lateCount: 0 });
+  const [dashboardMinSession, setDashboardMinSession] = useState(() => (typeof cachedData?.minSession === 'number' ? cachedData.minSession : null));
 
   // Dashboard corporate calendar logged-in user attendance state
   const [userAttendanceSummaries, setUserAttendanceSummaries] = useState(() => cachedData?.userAttendanceSummaries || []);
@@ -175,6 +176,7 @@ export default function Dashboard() {
   const [officeLocations, setOfficeLocations] = useState(() => cachedData?.officeLocations || []);
   const ciVideoRef = useRef(null);
   const ciLockRef = useRef(false);
+
   const coLockRef = useRef(false);
   const [isClockingOut, setIsClockingOut] = useState(false);
 
@@ -186,11 +188,14 @@ export default function Dashboard() {
     }
   }, [ciStream]);
 
-  // Clean up stream when modal closes
+  // Clean up stream & state when modal closes
   useEffect(() => {
     if (!ciModal) {
       ciStream?.getTracks().forEach(t => t.stop());
       setCiStream(null);
+      setCiPhoto(null);
+      setCiSubmitting(false);
+      setCiError('');
     }
   }, [ciModal, ciStream]);
 
@@ -295,8 +300,11 @@ export default function Dashboard() {
           _dashboardMemoryCache = null;
         }
       } catch (e) {}
-      await fetchDashboardData(true);
-      await fetchUserAttendance();
+      // Perform background sync without blocking modal dismissal
+      Promise.all([
+        fetchDashboardData(true),
+        fetchUserAttendance()
+      ]).catch(() => {});
       return { success: true };
     } catch (err) {
       if (err.message && err.message.toLowerCase().includes('already clocked in')) {
@@ -306,8 +314,10 @@ export default function Dashboard() {
             _dashboardMemoryCache = null;
           }
         } catch (e) {}
-        await fetchDashboardData(true);
-        await fetchUserAttendance();
+        Promise.all([
+          fetchDashboardData(true),
+          fetchUserAttendance()
+        ]).catch(() => {});
         return { success: true, alreadyClockedIn: true };
       }
       return { success: false, error: err.message || 'Clock-in failed.' };
@@ -328,11 +338,19 @@ export default function Dashboard() {
           ? { lat: ciLocation.lat, lon: ciLocation.lon, distance: ciDistance, locationName: ciClosest?.name || 'Office' }
           : { lat: 0, lon: 0, distance: 9999, locationName: 'Camera Fallback' }
       });
-      if (result.success) { ciStopCamera(); setCiStep('success'); }
-      else setCiError(result.error || 'Clock-in failed.');
+      if (result.success) {
+        ciStopCamera();
+        setCiStep('success');
+        setTimeout(() => {
+          setCiModal(false);
+          setCiSubmitting(false);
+        }, 700);
+      } else {
+        setCiError(result.error || 'Clock-in failed.');
+        setCiSubmitting(false);
+      }
     } catch (err) {
       setCiError(err.message);
-    } finally {
       setCiSubmitting(false);
     }
   };
@@ -377,8 +395,15 @@ export default function Dashboard() {
           photo: null,
           coords: { lat, lon, distance: minDist < Infinity ? minDist : 0, locationName: closest?.name || 'Remote/Direct' }
         });
-        if (result.success) setCiStep('success');
-        else { setCiError(result.error || 'Clock-in failed.'); setCiStep('failed'); }
+        if (result.success) {
+          setCiStep('success');
+          setTimeout(() => {
+            setCiModal(false);
+          }, 700);
+        } else {
+          setCiError(result.error || 'Clock-in failed.');
+          setCiStep('failed');
+        }
       } else {
         setCiError(`Outside office geofence (${closest?.name || 'Office'}). Please verify with a live camera photo.`);
         setCiStep('camera');
@@ -484,8 +509,11 @@ export default function Dashboard() {
       const fetchHrDashboard = hasHrDashboardPerm
         ? apiFetch('/attendance/hr-dashboard/').catch(() => null)
         : Promise.resolve(null);
+      const fetchSettings = isAttendanceEnabled
+        ? apiFetch('/settings/current/').catch(() => null)
+        : Promise.resolve(null);
 
-      const [tasksData, leavesData, holidaysData, employeesData, attendanceData, projectsData, statusesData, hrDashData] = await Promise.all([
+      const [tasksData, leavesData, holidaysData, employeesData, attendanceData, projectsData, statusesData, hrDashData, settingsData] = await Promise.all([
         fetchTasks,
         fetchLeaves,
         fetchHolidays,
@@ -493,8 +521,14 @@ export default function Dashboard() {
         fetchAttendance,
         fetchProjects,
         fetchStatuses,
-        fetchHrDashboard
+        fetchHrDashboard,
+        fetchSettings
       ]);
+      if (settingsData?.minimum_session_minutes != null) {
+        const configuredMin = Number(settingsData.minimum_session_minutes);
+        setDashboardMinSession(configuredMin);
+        setActiveLog(prev => prev ? { ...prev, minimum_session_minutes: configuredMin } : null);
+      }
 
       const mappedEmployees = getArrayData(employeesData).map(emp => ({ ...emp, id: String(emp.id) }));
       const mappedAttendance = getArrayData(attendanceData).map(log => ({
@@ -536,6 +570,7 @@ export default function Dashboard() {
       if (uid && typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
         const newCache = {
           userId: uid,
+          minSession: settingsData?.minimum_session_minutes != null ? Number(settingsData.minimum_session_minutes) : null,
           employees: mappedEmployees,
           attendanceLogs: mappedAttendance,
           tasks: mappedTasks,
@@ -563,29 +598,58 @@ export default function Dashboard() {
     if (coLockRef.current) return;
     coLockRef.current = true;
     setIsClockingOut(true);
-    setLoading(true);
     setError('');
     try {
-      await apiFetch('/attendance/clock-out/', {
+      const responseLog = await apiFetch('/attendance/clock-out/', {
         method: 'POST',
         body: JSON.stringify({ employeeId: parseInt(employeeId) }),
       });
-      await fetchDashboardData(true);
-      await fetchUserAttendance();
+      // Instant optimistic local state update for zero-latency clock-out
+      if (responseLog) {
+        const fullLog = { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) };
+        setAttendanceLogs(prev => prev.map(l => (
+          (String(l.employee) === String(employeeId) || String(l.employeeId) === String(employeeId)) && !l.clockOut
+            ? fullLog
+            : l
+        )));
+      }
+      setIsClockingOut(false);
+      // Background sync without blocking user interaction
+      Promise.all([
+        fetchDashboardData(true),
+        fetchUserAttendance()
+      ]).catch(() => {});
     } catch (err) {
       if (err?.message && err.message.includes('No active clock-in session found')) {
-        await fetchDashboardData(true);
-        await fetchUserAttendance();
+        Promise.all([
+          fetchDashboardData(true),
+          fetchUserAttendance()
+        ]).catch(() => {});
       } else {
         console.error(err);
         setError(err.message || 'Clock-out failed');
       }
-    } finally {
-      setLoading(false);
       setIsClockingOut(false);
+    } finally {
       setTimeout(() => { coLockRef.current = false; }, 1000);
     }
   };
+
+  useEffect(() => {
+    const handleConfigUpdate = (e) => {
+      const minSession = e.detail?.minimum_session_minutes;
+      if (minSession != null) {
+        const num = Number(minSession);
+        setDashboardMinSession(num);
+        setActiveLog(prev => prev ? { ...prev, minimum_session_minutes: num } : null);
+      }
+      fetchDashboardData(true);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cubelogs:attendance-config-updated', handleConfigUpdate);
+      return () => window.removeEventListener('cubelogs:attendance-config-updated', handleConfigUpdate);
+    }
+  }, [fetchDashboardData]);
 
   useEffect(() => {
     if (authStatus === 'authenticated' && currentUser) {
@@ -672,7 +736,7 @@ export default function Dashboard() {
           clockIn: openSummary.first_clock_in,
           clockOut: null,
           date: openSummary.date || today,
-          minimum_session_minutes: openSummary.minimum_session_minutes || 5
+          minimum_session_minutes: (dashboardMinSession != null) ? dashboardMinSession : (openSummary.minimum_session_minutes != null ? openSummary.minimum_session_minutes : 5)
         };
         // Background fetch to hydrate full log record
         if (currentUser?.id) {
@@ -1270,7 +1334,7 @@ export default function Dashboard() {
                                   Clock In
                                 </button>
                               ) : (() => {
-                                const minMins = activeLog?.minimum_session_minutes || 5;
+                                const minMins = (dashboardMinSession != null) ? dashboardMinSession : (activeLog?.minimum_session_minutes != null ? activeLog.minimum_session_minutes : 5);
                                 const minSecs = minMins * 60;
                                 const remSecs = Math.max(0, minSecs - workSeconds);
                                 const isAvailable = remSecs === 0;
@@ -1289,7 +1353,7 @@ export default function Dashboard() {
                                     </button>
                                     {!isAvailable && (
                                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                                        Minimum session before clock out is {minMins} minutes.
+                                        Minimum session before clock out is {minMins} {minMins === 1 ? 'minute' : 'minutes'}.
                                       </span>
                                     )}
                                   </div>

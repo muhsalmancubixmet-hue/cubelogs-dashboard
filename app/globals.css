@@ -4902,4 +4902,25 @@ div.step-section span.step-badge,
   color: #0f172a !important;
 }
 
-
+
+
+
+/* ================================================================
+   Attendance Rules: Weekly Off Days Selection Buttons (!important)
+   ================================================================ */
+.day-pill-btn.selected,
+.day-pill-btn.selected *,
+.day-pill-btn.selected span,
+.day-pill-btn[data-selected="true"],
+.day-pill-btn[data-selected="true"] *,
+.day-pill-btn[data-selected="true"] span,
+.days-button-row button.selected,
+.days-button-row button.selected *,
+.days-button-row button[data-selected="true"],
+.days-button-row button[data-selected="true"] * {
+  background-color: #2563eb !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  fill: #ffffff !important;
+}

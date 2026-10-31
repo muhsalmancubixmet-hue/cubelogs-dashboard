@@ -43,6 +43,7 @@ function AttendanceContent() {
   const [cachedEmployees, setCachedEmployees] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [dailySummaries, setDailySummaries] = useState([]);
+  const [attendanceConfig, setAttendanceConfig] = useState(null);
   const [roleTemplates, setRoleTemplates] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [facingMode, setFacingMode] = useState('user');
@@ -67,6 +68,7 @@ function AttendanceContent() {
   // Lock to prevent double-firing Clock-In API
   const clockingInProgress = useRef(false);
   const clockingOutProgress = useRef(false);
+  const clockInCancelledRef = useRef(false);
 
   const fetchAttendanceData = async () => {
     if (!currentUser) return;
@@ -81,10 +83,14 @@ function AttendanceContent() {
         summaryPath += `&employee_id=${currentUser.id}`;
       }
 
-      const [logsRes, summaryRes] = await Promise.allSettled([
+      const [logsRes, summaryRes, configRes] = await Promise.allSettled([
         apiFetch(path),
-        apiFetch(summaryPath)
+        apiFetch(summaryPath),
+        apiFetch('/settings/current/')
       ]);
+      if (configRes.status === 'fulfilled' && configRes.value) {
+        setAttendanceConfig(configRes.value);
+      }
 
       if (logsRes.status === 'fulfilled') {
         const attendanceList = unpackList(logsRes.value);
@@ -144,7 +150,6 @@ function AttendanceContent() {
   const localClockOut = async (employeeId) => {
     if (clockingOutProgress.current) return;
     clockingOutProgress.current = true;
-    setLoading(true);
     setErrorMsg('');
     try {
       const responseLog = await apiFetch('/attendance/clock-out/', {
@@ -152,21 +157,23 @@ function AttendanceContent() {
         body: JSON.stringify({ employeeId: parseInt(employeeId) }),
       });
 
-      setAttendanceLogs(prev => prev.map(log => 
-        (log.employeeId === String(employeeId) && !log.clockOut) 
-          ? { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) } 
-          : log
-      ));
-      await fetchAttendanceData();
+      if (responseLog) {
+        setAttendanceLogs(prev => prev.map(log => 
+          (log.employeeId === String(employeeId) && !log.clockOut) 
+            ? { ...responseLog, id: String(responseLog.id), employeeId: String(responseLog.employee) } 
+            : log
+        ));
+      }
+      // Non-blocking background sync
+      fetchAttendanceData().catch(() => {});
     } catch (err) {
       if (err?.message && err.message.includes('No active clock-in session found')) {
-        await fetchAttendanceData();
+        fetchAttendanceData().catch(() => {});
       } else {
         console.warn('Clock-out error:', err.message);
         setErrorMsg(err.message || 'Clock-out failed.');
       }
     } finally {
-      setLoading(false);
       setTimeout(() => { clockingOutProgress.current = false; }, 1000);
     }
   };
@@ -493,10 +500,10 @@ function AttendanceContent() {
                 reject(fallbackErr);
               }
             },
-            { enableHighAccuracy: false, timeout: timeoutMs }
+            { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 15000 }
           );
         },
-        { enableHighAccuracy: true, timeout: timeoutMs }
+        { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 15000 }
       );
     });
   };
@@ -676,12 +683,21 @@ function AttendanceContent() {
   };
 
   const handleCloseVerifier = () => {
+    clockInCancelledRef.current = true;
     stopWebcam();
     setShowVerifierModal(false);
   };
 
+  const handleSwitchToCameraVerification = () => {
+    clockInCancelledRef.current = true;
+    setVerifierError('Switched to live camera verification.');
+    setVerifierStep('camera');
+    startWebcam('user');
+  };
+
   // Clock Actions
   async function handleClockIn() {
+    clockInCancelledRef.current = false;
     setShowVerifierModal(true);
     setVerifierStep('checking');
     setVerifierError('');
@@ -702,8 +718,9 @@ function AttendanceContent() {
       return;
     }
 
-    getCoordinates(6000).then(
+    getCoordinates(8000).then(
       (position) => {
+        if (clockInCancelledRef.current) return;
         const lat = position.coords.latitude;
         const lon = position.coords.longitude;
         
@@ -758,6 +775,7 @@ function AttendanceContent() {
         }
       },
       (err) => {
+        if (clockInCancelledRef.current) return;
         let msg = 'Location unavailable. Live photo verification required.';
         if (err.code === 1) {
           msg = 'Location permission denied. Live photo verification required.';
@@ -790,15 +808,16 @@ function AttendanceContent() {
     };
   };
 
-  const isLateClockIn = (clockInIso, shiftStartStr) => {
+  const isLateClockIn = (clockInIso, shiftStartStr, gracePeriod = 15) => {
     if (!clockInIso || !shiftStartStr) return false;
     const d = new Date(clockInIso);
     const inMinutes = d.getHours() * 60 + d.getMinutes();
     
     const [startH, startM] = shiftStartStr.split(':').map(Number);
     const startMinutes = startH * 60 + startM;
+    const effectiveGrace = typeof gracePeriod === 'number' ? gracePeriod : 15;
     
-    return inMinutes > startMinutes;
+    return inMinutes > (startMinutes + effectiveGrace);
   };
 
   const handleEditScheduleClick = (sch) => {
@@ -873,11 +892,11 @@ function AttendanceContent() {
         </div>
       )}
 
-      <div className="attendance-layout-grid">
+      <div className="attendance-top-grid">
         
         {/* LEFT COLUMN: Punch Clock Actions for standard users */}
         {isStaffView && (
-          <div className="panel action-panel">
+          <div className="panel action-panel clock-punch-panel">
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ClockIcon size={20} style={{ color: 'var(--primary)' }} />
               <span>Shift Clock Punch</span>
@@ -939,7 +958,7 @@ function AttendanceContent() {
                   Clock In
                 </button>
               ) : (() => {
-                const minMins = activeLog?.minimum_session_minutes || 5;
+                const minMins = (attendanceConfig?.minimum_session_minutes != null) ? attendanceConfig.minimum_session_minutes : (activeLog?.minimum_session_minutes != null ? activeLog.minimum_session_minutes : 5);
                 const minSecs = minMins * 60;
                 const remSecs = Math.max(0, minSecs - workSeconds);
                 const isAvailable = remSecs === 0;
@@ -957,192 +976,13 @@ function AttendanceContent() {
                     </button>
                     {!isAvailable && (
                       <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                        Minimum session before clock out is {minMins} minutes.
+                        Minimum session before clock out is {minMins} {minMins === 1 ? 'minute' : 'minutes'}.
                       </span>
                     )}
                   </div>
                 );
               })()}
-            </div>
-
-            {/* Employee's Own Logs & Attendance History */}
-            <div style={{ marginTop: '48px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ClockIcon size={18} style={{ color: 'var(--primary)' }} />
-                  <span>My Attendance History</span>
-                </h4>
-
-                <div
-                  role="tablist"
-                  aria-label="Attendance view mode"
-                  style={{
-                    display: 'flex',
-                    gap: '4px',
-                    background: 'var(--bg-app)',
-                    padding: '3px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)'
-                  }}
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={myAttendanceViewMode === 'calendar'}
-                    data-active-blue={myAttendanceViewMode === 'calendar' ? 'true' : undefined}
-                    className={`btn btn-sm ${myAttendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
-                    onClick={() => setMyAttendanceViewMode('calendar')}
-                    style={{
-                      padding: '6px 14px',
-                      fontSize: '0.82rem',
-                      fontWeight: '700',
-                      borderRadius: 'var(--radius-sm)',
-                      background: myAttendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
-                      color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
-                      border: myAttendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <CalendarIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
-                    <span style={{ color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={myAttendanceViewMode === 'list'}
-                    data-active-blue={myAttendanceViewMode === 'list' ? 'true' : undefined}
-                    className={`btn btn-sm ${myAttendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
-                    onClick={() => setMyAttendanceViewMode('list')}
-                    style={{
-                      padding: '6px 14px',
-                      fontSize: '0.82rem',
-                      fontWeight: '700',
-                      borderRadius: 'var(--radius-sm)',
-                      background: myAttendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
-                      color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155',
-                      border: myAttendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px'
-                    }}
-                  >
-                    <AuditIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
-                    <span style={{ color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
-                  </button>
-                </div>
-              </div>
-
-              {myAttendanceViewMode === 'calendar' ? (
-                <AttendanceCalendar
-                  employeeId={currentUser?.id}
-                  employeeName={currentUser?.name}
-                  year={selectedYear}
-                  month={selectedMonth}
-                  dailySummaries={dailySummaries}
-                  attendanceLogs={myLogs}
-                  onMonthChange={(y, m) => {
-                    setSelectedYear(y);
-                    setSelectedMonth(m);
-                  }}
-                />
-              ) : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      placeholder="Search history by date..."
-                      value={myAttendanceSearchQuery}
-                      onChange={(e) => setMyAttendanceSearchQuery(e.target.value)}
-                      style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }}
-                    />
-                  </div>
-                  <div
-                    className="table-container"
-                    style={{
-                      maxHeight: 'clamp(360px, 48vh, 480px)',
-                      overflowY: 'auto',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      position: 'relative',
-                      scrollbarWidth: 'thin'
-                    }}
-                  >
-                    <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
-                        <tr>
-                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
-                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>In Time</th>
-                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Out Time</th>
-                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Duration</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).length === 0 ? (
-                          <tr>
-                            <td colSpan="4" className="no-data-text" style={{ padding: '20px 0' }}>No logs recorded matching search.</td>
-                          </tr>
-                        ) : (
-                          myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).map(log => {
-                            let durationText = '—';
-                            if (log.clockOut) {
-                              const sec = typeof log.totalDuration === 'number' && !isNaN(log.totalDuration) && log.totalDuration > 0
-                                ? log.totalDuration
-                                : (new Date(log.clockOut) - new Date(log.clockIn)) / 1000;
-                              if (!isNaN(sec) && sec > 0) {
-                                const h = Math.floor(sec / 3600);
-                                const m = Math.floor((sec % 3600) / 60);
-                                durationText = `${h}h ${m}m`;
-                              }
-                            }
-                            return (
-                              <tr key={log.id}>
-                                <td>{log.date}</td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>{new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    {log.verificationPhoto && (
-                                      <button 
-                                        type="button"
-                                        title="View Punch-In Photo Verification" 
-                                        onClick={() => {
-                                          setActivePhotoModal(log.verificationPhoto);
-                                          setActivePhotoLocation(log.verificationLocation);
-                                        }}
-                                        style={{ 
-                                          display: 'inline-flex', 
-                                          color: 'var(--primary)', 
-                                          cursor: 'pointer',
-                                          background: 'none',
-                                          border: 'none',
-                                          padding: 0
-                                        }}
-                                      >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                                          <circle cx="12" cy="13" r="4" />
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="badge badge-success">Active</span>}</td>
-                                <td>{log.clockOut ? durationText : 'Ticking...'}</td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+            </div>          </div>
         )}
 
         {/* RIGHT COLUMN: Admin Monitors & Monthly Punch Grid */}
@@ -1154,17 +994,45 @@ function AttendanceContent() {
                 type="button"
                 className={`tab-btn ${adminTab === 'realtime' ? 'active' : ''}`}
                 onClick={() => setAdminTab('realtime')}
+                style={{
+                  backgroundColor: adminTab === 'realtime' ? '#2563eb' : '#ffffff',
+                  color: adminTab === 'realtime' ? '#ffffff' : '#475569',
+                  border: adminTab === 'realtime' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                  boxShadow: adminTab === 'realtime' ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none',
+                  fontWeight: '700',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
               >
-                <EmployeesIcon size={16} />
-                <span>Real-Time Board</span>
+                <EmployeesIcon size={16} style={{ color: adminTab === 'realtime' ? '#ffffff' : '#475569', stroke: adminTab === 'realtime' ? '#ffffff' : '#475569' }} />
+                <span style={{ color: adminTab === 'realtime' ? '#ffffff' : '#475569' }}>Real-Time Board</span>
               </button>
               <button 
                 type="button"
                 className={`tab-btn ${adminTab === 'monthly' ? 'active' : ''}`}
                 onClick={() => setAdminTab('monthly')}
+                style={{
+                  backgroundColor: adminTab === 'monthly' ? '#2563eb' : '#ffffff',
+                  color: adminTab === 'monthly' ? '#ffffff' : '#475569',
+                  border: adminTab === 'monthly' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+                  boxShadow: adminTab === 'monthly' ? '0 2px 6px rgba(37, 99, 235, 0.25)' : 'none',
+                  fontWeight: '700',
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
               >
-                <LeavesIcon size={16} />
-                <span>Monthly Directory Grid</span>
+                <LeavesIcon size={16} style={{ color: adminTab === 'monthly' ? '#ffffff' : '#475569', stroke: adminTab === 'monthly' ? '#ffffff' : '#475569' }} />
+                <span style={{ color: adminTab === 'monthly' ? '#ffffff' : '#475569' }}>Monthly Directory Grid</span>
               </button>
             </div>
 
@@ -1190,15 +1058,22 @@ function AttendanceContent() {
                     />
                   </div>
 
-                  <div className="table-container">
-                    <table className="data-table">
-                      <thead>
+                  <div className="table-container" style={{
+                    maxHeight: '360px',
+                    overflowY: 'auto',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    position: 'relative',
+                    scrollbarWidth: 'thin'
+                  }}>
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
                         <tr>
-                          <th>Employee Name</th>
-                          <th>Designation</th>
-                          <th>Shift Status</th>
-                          <th>Active Session Duration</th>
-                          <th>Override Log Actions</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Employee Name</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Designation</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Shift Status</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Active Session Duration</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Override Log Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1217,7 +1092,7 @@ function AttendanceContent() {
                           const empSch = getEmpSchedule(emp.designation);
                           const todaysLogs = attendanceLogs.filter(l => l.employeeId === emp.id && l.date === today);
                           
-                          const hasLateCheckIn = todaysLogs.some(l => isLateClockIn(l.clockIn, empSch.shiftStart));
+                          const hasLateCheckIn = todaysLogs.some(l => isLateClockIn(l.clockIn, empSch.shiftStart, attendanceConfig?.grace_period_minutes ?? 15));
 
                           return (
                             <tr key={emp.id}>
@@ -1368,13 +1243,20 @@ function AttendanceContent() {
                           style={{ width: '100%', padding: '8px 12px', fontSize: '0.85rem' }}
                         />
                       </div>
-                      <div className="table-container">
-                        <table className="data-table">
-                        <thead>
+                      <div className="table-container" style={{
+                        maxHeight: '340px',
+                        overflowY: 'auto',
+                        border: '1px solid var(--border)',
+                        borderRadius: '8px',
+                        position: 'relative',
+                        scrollbarWidth: 'thin'
+                      }}>
+                        <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc' }}>
                           <tr>
-                            <th>Designation</th>
-                            <th>Shift Hours</th>
-                            <th>Actions</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Designation</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Shift Hours</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1606,8 +1488,192 @@ function AttendanceContent() {
         )}
       </div>
 
+      {/* SEPARATE FULL-WIDTH SECTION: My Attendance History */}
+      {isStaffView && (
+        <div className="panel attendance-history-panel" style={{ width: '100%', marginTop: '24px' }}>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ClockIcon size={18} style={{ color: 'var(--primary)' }} />
+                  <span>My Attendance History</span>
+                </h4>
+
+                <div
+                  role="tablist"
+                  aria-label="Attendance view mode"
+                  style={{
+                    display: 'flex',
+                    gap: '4px',
+                    background: 'var(--bg-app)',
+                    padding: '3px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border)'
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={myAttendanceViewMode === 'calendar'}
+                    data-active-blue={myAttendanceViewMode === 'calendar' ? 'true' : undefined}
+                    className={`btn btn-sm ${myAttendanceViewMode === 'calendar' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setMyAttendanceViewMode('calendar')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: myAttendanceViewMode === 'calendar' ? 'var(--primary)' : '#ffffff',
+                      color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155',
+                      border: myAttendanceViewMode === 'calendar' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <CalendarIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: myAttendanceViewMode === 'calendar' ? '#ffffff' : '#334155' }}>Calendar View</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={myAttendanceViewMode === 'list'}
+                    data-active-blue={myAttendanceViewMode === 'list' ? 'true' : undefined}
+                    className={`btn btn-sm ${myAttendanceViewMode === 'list' ? 'btn-blue-active active-blue-btn' : ''}`}
+                    onClick={() => setMyAttendanceViewMode('list')}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: '0.82rem',
+                      fontWeight: '700',
+                      borderRadius: 'var(--radius-sm)',
+                      background: myAttendanceViewMode === 'list' ? 'var(--primary)' : '#ffffff',
+                      color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155',
+                      border: myAttendanceViewMode === 'list' ? '1px solid var(--primary)' : '1px solid #cbd5e1',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <AuditIcon style={{ width: '14px', height: '14px', color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }} />
+                    <span style={{ color: myAttendanceViewMode === 'list' ? '#ffffff' : '#334155' }}>List View</span>
+                  </button>
+                </div>
+              </div>
+
+              {myAttendanceViewMode === 'calendar' ? (
+                <AttendanceCalendar
+                  employeeId={currentUser?.id}
+                  employeeName={currentUser?.name}
+                  year={selectedYear}
+                  month={selectedMonth}
+                  dailySummaries={dailySummaries}
+                  attendanceLogs={myLogs}
+                  onMonthChange={(y, m) => {
+                    setSelectedYear(y);
+                    setSelectedMonth(m);
+                  }}
+                />
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="Search history by date..."
+                      value={myAttendanceSearchQuery}
+                      onChange={(e) => setMyAttendanceSearchQuery(e.target.value)}
+                      style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                  <div
+                    className="table-container"
+                    style={{
+                      maxHeight: 'clamp(360px, 48vh, 480px)',
+                      overflowY: 'auto',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      position: 'relative',
+                      scrollbarWidth: 'thin'
+                    }}
+                  >
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#ffffff' }}>
+                        <tr>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Date</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>In Time</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Out Time</th>
+                          <th style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).length === 0 ? (
+                          <tr>
+                            <td colSpan="4" className="no-data-text" style={{ padding: '20px 0' }}>No logs recorded matching search.</td>
+                          </tr>
+                        ) : (
+                          myLogs.filter(log => !myAttendanceSearchQuery || log.date.includes(myAttendanceSearchQuery)).map(log => {
+                            let durationText = '—';
+                            if (log.clockOut) {
+                              const sec = typeof log.totalDuration === 'number' && !isNaN(log.totalDuration) && log.totalDuration > 0
+                                ? log.totalDuration
+                                : (new Date(log.clockOut) - new Date(log.clockIn)) / 1000;
+                              if (!isNaN(sec) && sec > 0) {
+                                const h = Math.floor(sec / 3600);
+                                const m = Math.floor((sec % 3600) / 60);
+                                durationText = `${h}h ${m}m`;
+                              }
+                            }
+                            return (
+                              <tr key={log.id}>
+                                <td>{log.date}</td>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{new Date(log.clockIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    {log.verificationPhoto && (
+                                      <button 
+                                        type="button"
+                                        title="View Punch-In Photo Verification" 
+                                        onClick={() => {
+                                          setActivePhotoModal(log.verificationPhoto);
+                                          setActivePhotoLocation(log.verificationLocation);
+                                        }}
+                                        style={{ 
+                                          display: 'inline-flex', 
+                                          color: 'var(--primary)', 
+                                          cursor: 'pointer',
+                                          background: 'none',
+                                          border: 'none',
+                                          padding: 0
+                                        }}
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                                          <circle cx="12" cy="13" r="4" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td>{log.clockOut ? new Date(log.clockOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : <span className="badge badge-success">Active</span>}</td>
+                                <td>{log.clockOut ? durationText : 'Ticking...'}</td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            
+        </div>
+      )}
+
+
       <VerifierModal
         showVerifierModal={showVerifierModal}
+        onSwitchToCamera={handleSwitchToCameraVerification}
         verifierStep={verifierStep}
         verifierLoading={verifierLoading}
         verifierError={verifierError}
@@ -1659,29 +1725,45 @@ function AttendanceContent() {
           100% { transform: rotate(360deg); }
         }
 
-        .attendance-layout-grid {
+        .attendance-top-grid {
           display: flex;
           flex-direction: column;
-          gap: 32px;
+          gap: 24px;
           width: 100%;
           max-width: 100%;
           min-width: 0;
         }
 
-        @media (min-width: 1150px) {
-          .attendance-layout-grid {
+        @media (min-width: 1024px) {
+          .attendance-top-grid {
             flex-direction: row;
             align-items: flex-start;
-            gap: 32px;
+            gap: 24px;
           }
-          .action-panel {
-            flex: 1.85;
-            min-width: 680px;
+          .action-panel.clock-punch-panel {
+            flex: 0 0 clamp(320px, 35%, 420px);
+            min-width: 300px;
           }
           .admin-view-wrapper {
             flex: 1;
-            min-width: 350px;
+            min-width: 0;
           }
+        }
+
+        .action-panel {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .admin-view-wrapper {
+          width: 100%;
+          min-width: 0;
+        }
+
+        .attendance-history-panel {
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
 
         .filters-row {
@@ -1941,9 +2023,28 @@ function AttendanceContent() {
         }
 
         .tab-btn.active {
-          background-color: var(--primary-light);
-          color: var(--primary-dark);
-          border-color: var(--primary-border);
+          background-color: #2563eb !important;
+          background: #2563eb !important;
+          color: #ffffff !important;
+          border-color: #2563eb !important;
+          box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+        }
+
+        .tab-btn.active * {
+          color: #ffffff !important;
+          stroke: #ffffff !important;
+          fill: #ffffff !important;
+        }
+
+        .tab-btn:not(.active) {
+          background-color: #ffffff;
+          color: #475569 !important;
+          border-color: #cbd5e1;
+        }
+
+        .tab-btn:not(.active) * {
+          color: #475569 !important;
+          stroke: #475569 !important;
         }
 
         .monthly-table-wrapper {
@@ -2154,10 +2255,10 @@ function AttendanceContent() {
         }
 
         @media (max-width: 768px) {
-          .attendance-layout-grid {
+          .attendance-layout-grid, .attendance-top-grid {
             gap: 20px;
           }
-          .action-panel, .admin-panel, .admin-view-wrapper {
+          .action-panel, .admin-panel, .admin-view-wrapper, .attendance-history-panel {
             min-width: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
