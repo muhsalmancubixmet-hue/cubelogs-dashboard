@@ -922,11 +922,18 @@ export default function Dashboard() {
               display: 'flex',
               flexWrap: 'wrap',
               gap: '12px',
-              marginBottom: '24px'
+              marginBottom: '24px',
+              width: '100%',
+              maxWidth: '100%',
+              minWidth: 0,
+              boxSizing: 'border-box'
             }}>
               {canViewAttendanceAlerts && attendanceAlerts.pendingCount > 0 && (
                 <div style={{
                   flex: '1 1 280px',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -934,20 +941,21 @@ export default function Dashboard() {
                   borderRadius: 'var(--radius-md, 8px)',
                   backgroundColor: '#fffbeb',
                   border: '1px solid #fde68a',
-                  color: '#92400e'
+                  color: '#92400e',
+                  gap: '10px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fef3c7', color: '#d97706', flexShrink: 0 }}>
                       <ClockIcon size={16} />
                     </span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Pending Attendance</div>
-                      <div style={{ fontSize: '0.78rem', color: '#b45309' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Pending Attendance</div>
+                      <div style={{ fontSize: '0.78rem', color: '#b45309', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {attendanceAlerts.pendingCount} attendance {attendanceAlerts.pendingCount === 1 ? 'record needs' : 'records need'} approval
                       </div>
                     </div>
                   </div>
-                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#d97706', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#d97706', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600', flexShrink: 0, whiteSpace: 'nowrap' }}>
                     Review
                   </Link>
                 </div>
@@ -956,6 +964,9 @@ export default function Dashboard() {
               {canViewAttendanceAlerts && attendanceAlerts.lateCount > 0 && (
                 <div style={{
                   flex: '1 1 280px',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -963,20 +974,21 @@ export default function Dashboard() {
                   borderRadius: 'var(--radius-md, 8px)',
                   backgroundColor: '#fef2f2',
                   border: '1px solid #fecaca',
-                  color: '#991b1b'
+                  color: '#991b1b',
+                  gap: '10px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#fee2e2', color: '#dc2626', flexShrink: 0 }}>
                       <WarningIcon size={16} />
                     </span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Late Attendance Today</div>
-                      <div style={{ fontSize: '0.78rem', color: '#b91c1c' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Late Attendance Today</div>
+                      <div style={{ fontSize: '0.78rem', color: '#b91c1c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {attendanceAlerts.lateCount} {attendanceAlerts.lateCount === 1 ? 'employee arrived' : 'employees arrived'} late
                       </div>
                     </div>
                   </div>
-                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#dc2626', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                  <Link href="/attendance/management-portal" className="btn btn-sm" style={{ backgroundColor: '#dc2626', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600', flexShrink: 0, whiteSpace: 'nowrap' }}>
                     View List
                   </Link>
                 </div>
@@ -985,6 +997,9 @@ export default function Dashboard() {
               {canApproveLeaves && pendingLeaves > 0 && (
                 <div style={{
                   flex: '1 1 280px',
+                  minWidth: 0,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
@@ -992,20 +1007,21 @@ export default function Dashboard() {
                   borderRadius: 'var(--radius-md, 8px)',
                   backgroundColor: '#eff6ff',
                   border: '1px solid #bfdbfe',
-                  color: '#1e40af'
+                  color: '#1e40af',
+                  gap: '10px'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#dbeafe', color: '#2563eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '50%', backgroundColor: '#dbeafe', color: '#2563eb', flexShrink: 0 }}>
                       <LeavesIcon size={16} />
                     </span>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '0.85rem' }}>Pending Leave Approvals</div>
-                      <div style={{ fontSize: '0.78rem', color: '#2563eb' }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                      <div style={{ fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Pending Leave Approvals</div>
+                      <div style={{ fontSize: '0.78rem', color: '#2563eb', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {pendingLeaves} leave {pendingLeaves === 1 ? 'request awaits' : 'requests await'} decision
                       </div>
                     </div>
                   </div>
-                  <Link href="/attendance?tab=leaves-approve" className="btn btn-sm" style={{ backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600' }}>
+                  <Link href="/attendance?tab=leaves-approve" className="btn btn-sm" style={{ backgroundColor: '#2563eb', color: '#ffffff', textDecoration: 'none', fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px', fontWeight: '600', flexShrink: 0, whiteSpace: 'nowrap' }}>
                     Approve
                   </Link>
                 </div>
@@ -1633,7 +1649,7 @@ export default function Dashboard() {
           min-width: 0;
         }
 
-        .col-12 { width: 100%; }
+        .col-12 { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
         .col-8 { flex: 2; min-width: 350px; }
         .col-6 { flex: 1 1 350px; }
         .col-4 { flex: 1; min-width: 280px; }
@@ -1797,7 +1813,7 @@ export default function Dashboard() {
         }
 
         @media (max-width: 768px) {
-          .col-8, .col-6, .col-4, .dashboard-control-col-left, .dashboard-control-col-right {
+          .col-12, .col-8, .col-6, .col-4, .dashboard-control-col-left, .dashboard-control-col-right {
             min-width: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
