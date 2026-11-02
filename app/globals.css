@@ -1186,6 +1186,15 @@ textarea {
   scrollbar-color: var(--primary-border) transparent;
 }
 
+html {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
 a {
   text-decoration: none;
 }
@@ -1201,7 +1210,12 @@ body {
   font-family: var(--font-sans);
   font-weight: 400;
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
   overflow-x: hidden;
+  position: relative;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -2473,6 +2487,25 @@ h5 {
 }
 
 @media (max-width: 768px) {
+  /* Prevent iOS WebKit auto-zoom on input focus (minimum 16px font-size) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  .panel, .card, .modal-content, .modal-shell {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
   .metrics-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px !important;
