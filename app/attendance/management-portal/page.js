@@ -75,7 +75,7 @@ const formatDurationStr = (logOrSecs, detailed = false) => {
     }
   }
 
-  if (isInProgress) return 'Shift Active';
+  if (isInProgress) return 'Clocked In';
   if (totalSecs === null || isNaN(totalSecs) || totalSecs <= 0) return detailed ? '0 hrs' : '0m';
 
   const totalMins = Math.round(totalSecs / 60);
@@ -210,7 +210,7 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
           {isShiftActive ? (
             <div className="portal-active-banner">
               <ClockIcon size={13} style={{ color: '#b45309', flexShrink: 0 }} />
-              <span>Shift active &bull; Approvals unlock after clock-out</span>
+              <span>Clocked in &bull; Approvals unlock after clock-out</span>
             </div>
           ) : (
             <button
@@ -694,6 +694,8 @@ export default function HRAttendancePortalPage() {
   const [rangeError, setRangeError] = useState('');
   const [rangeSearch, setRangeSearch] = useState('');
   const [rangeEmployeeFilter, setRangeEmployeeFilter] = useState('all');
+  const [rangeStatusFilter, setRangeStatusFilter] = useState('all'); // 'all', 'Pending Approval', 'Approved'
+  const [rangePunchFilter, setRangePunchFilter] = useState('all'); // 'all', 'active', 'completed'
   const [selectedStaffList, setSelectedStaffList] = useState([]);
   const [exportingCSV, setExportingCSV] = useState(false);
 
@@ -765,6 +767,25 @@ export default function HRAttendancePortalPage() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [rangeData]);
 
+  // Aggregate counts for quick status & punch filter pills
+  const rangeFilterCounts = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    let active = 0;
+    let completed = 0;
+
+    rangeData.forEach(item => {
+      const isAppr = approvedIds.has(item.id) || item.status === 'Approved';
+      if (isAppr) approved++;
+      else pending++;
+
+      if (item.clockIn && !item.clockOut) active++;
+      else if (item.clockIn && item.clockOut) completed++;
+    });
+
+    return { total: rangeData.length, pending, approved, active, completed };
+  }, [rangeData, approvedIds]);
+
   const filteredRangeData = useMemo(() => {
     return rangeData.filter(item => {
       // 1. Employee Dropdown Filter
@@ -775,20 +796,32 @@ export default function HRAttendancePortalPage() {
       if (selectedStaffList.length > 0 && !selectedStaffList.includes(item.employeeName)) {
         return false;
       }
-      // 3. Search Bar Filter
+      // 3. Approval Status Filter
+      const isApproved = approvedIds.has(item.id) || item.status === 'Approved';
+      if (rangeStatusFilter === 'Approved' && !isApproved) return false;
+      if (rangeStatusFilter === 'Pending Approval' && isApproved) return false;
+
+      // 4. Punch State Filter (Clock-In only vs Clock-In & Out)
+      const isShiftActive = item.clockIn && !item.clockOut;
+      const isCompleted = item.clockIn && item.clockOut;
+      if (rangePunchFilter === 'active' && !isShiftActive) return false;
+      if (rangePunchFilter === 'completed' && !isCompleted) return false;
+
+      // 5. Search Bar Filter
       if (rangeSearch) {
         const q = rangeSearch.toLowerCase();
         const matchesName = item.employeeName && item.employeeName.toLowerCase().includes(q);
         const matchesStatus = item.status && item.status.toLowerCase().includes(q);
         const matchesDate = item.date && item.date.includes(q);
         const matchesDesignation = item.employeeDesignation && item.employeeDesignation.toLowerCase().includes(q);
-        if (!matchesName && !matchesStatus && !matchesDate && !matchesDesignation) {
+        const matchesLoc = item.verificationLocation?.locationName && item.verificationLocation.locationName.toLowerCase().includes(q);
+        if (!matchesName && !matchesStatus && !matchesDate && !matchesDesignation && !matchesLoc) {
           return false;
         }
       }
       return true;
     });
-  }, [rangeData, rangeEmployeeFilter, selectedStaffList, rangeSearch]);
+  }, [rangeData, rangeEmployeeFilter, selectedStaffList, rangeStatusFilter, rangePunchFilter, rangeSearch, approvedIds]);
 
   const handleExportRangeCSV = async () => {
     setExportingCSV(true);
@@ -807,7 +840,7 @@ export default function HRAttendancePortalPage() {
         dataset = list;
       }
 
-      const isFiltered = rangeSearch.trim() || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0;
+      const isFiltered = rangeSearch.trim() || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0 || rangeStatusFilter !== 'all' || rangePunchFilter !== 'all';
       const exportList = isFiltered ? filteredRangeData : dataset;
 
       if (!exportList || exportList.length === 0) {
@@ -818,7 +851,7 @@ export default function HRAttendancePortalPage() {
       const headers = ['Employee Name', 'Designation', 'Attendance Date', 'Clock In', 'Clock Out', 'Duration', 'Verified Location', 'Clock-In Distance', 'Status'];
       const rows = exportList.map(r => {
         const clockInStr = r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-        const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Shift Active');
+        const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Clocked In');
         const durationStr = formatDurationStr(r, true);
         const name = (r.employeeName || '').replace(/"/g, '""');
         const designation = (r.employeeDesignation || 'Staff').replace(/"/g, '""');
@@ -864,19 +897,31 @@ export default function HRAttendancePortalPage() {
       const link = document.createElement('a');
       link.href = url;
 
-      // Generate customized filename with employee name when filtered
+      // Generate customized filename with employee name & active filters
+      let filterTag = '';
+      if (rangeStatusFilter !== 'all') {
+        filterTag += `_${rangeStatusFilter.replace(/\s+/g, '_')}`;
+      }
+      if (rangePunchFilter === 'active') {
+        filterTag += '_Clocked_In';
+      } else if (rangePunchFilter === 'completed') {
+        filterTag += '_Clocked_Out';
+      }
+
       let filename = `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`;
       if (rangeEmployeeFilter !== 'all' && rangeEmployeeFilter.trim()) {
         const safeName = rangeEmployeeFilter.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeName}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (selectedStaffList.length === 1) {
         const safeName = selectedStaffList[0].trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeName}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (selectedStaffList.length > 1) {
-        filename = `Attendance_Report_Selected_Staff_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_Selected_Staff${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (rangeSearch.trim()) {
         const safeSearch = rangeSearch.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeSearch}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeSearch}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
+      } else if (filterTag) {
+        filename = `Attendance_Report${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else {
         filename = `Attendance_Report_All_Staff_${rangeStart}_to_${rangeEnd}.csv`;
       }
@@ -2094,7 +2139,7 @@ export default function HRAttendancePortalPage() {
                 </div>
               </div>
 
-              {/* Employee Selection & Dedicated Search Bar */}
+              {/* Employee Selection, Status Dropdown & Dedicated Search Bar */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -2108,7 +2153,7 @@ export default function HRAttendancePortalPage() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
               }}>
                 {/* Employee Dropdown Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '190px', flex: '1 1 190px' }}>
                   <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
                     Staff:
                   </label>
@@ -2152,8 +2197,90 @@ export default function HRAttendancePortalPage() {
                   </div>
                 </div>
 
+                {/* Approval Status Filter Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '175px', flex: '1 1 175px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
+                    Status:
+                  </label>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <ShieldIcon size={15} style={{
+                      position: 'absolute',
+                      left: '11px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748b)',
+                      pointerEvents: 'none'
+                    }} />
+                    <select
+                      className="form-control"
+                      value={rangeStatusFilter}
+                      onChange={(e) => setRangeStatusFilter(e.target.value)}
+                      style={{
+                        paddingLeft: '32px',
+                        paddingRight: '26px',
+                        paddingTop: '7px',
+                        paddingBottom: '7px',
+                        height: '38px',
+                        fontSize: '0.84rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border, #cbd5e1)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        color: 'var(--text-main, #0f172a)',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="Pending Approval">Pending Approval ({rangeFilterCounts.pending})</option>
+                      <option value="Approved">Approved ({rangeFilterCounts.approved})</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Clock-In / Clock-Out Filter Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '175px', flex: '1 1 175px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
+                    Clock Status:
+                  </label>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <ClockIcon size={15} style={{
+                      position: 'absolute',
+                      left: '11px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748b)',
+                      pointerEvents: 'none'
+                    }} />
+                    <select
+                      className="form-control"
+                      value={rangePunchFilter}
+                      onChange={(e) => setRangePunchFilter(e.target.value)}
+                      style={{
+                        paddingLeft: '32px',
+                        paddingRight: '26px',
+                        paddingTop: '7px',
+                        paddingBottom: '7px',
+                        height: '38px',
+                        fontSize: '0.84rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border, #cbd5e1)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        color: 'var(--text-main, #0f172a)',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">All Punches</option>
+                      <option value="active">Clocked In ({rangeFilterCounts.active})</option>
+                      <option value="completed">Clocked Out ({rangeFilterCounts.completed})</option>
+                    </select>
+                  </div>
+                </div>
+
                 {/* Text Search Input */}
-                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <div style={{ position: 'relative', flex: '2 1 200px', minWidth: '190px' }}>
                   <SearchIcon size={16} style={{
                     position: 'absolute',
                     left: '12px',
@@ -2164,7 +2291,7 @@ export default function HRAttendancePortalPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Search by role, date, status, notes..."
+                    placeholder="Search role, date, status, notes..."
                     value={rangeSearch}
                     onChange={(e) => setRangeSearch(e.target.value)}
                     style={{
@@ -2205,7 +2332,7 @@ export default function HRAttendancePortalPage() {
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {(rangeSearch || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0) ? (
+                  {(rangeSearch || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0 || rangeStatusFilter !== 'all' || rangePunchFilter !== 'all') ? (
                     <span>Filtered: <strong>{filteredRangeData.length}</strong> of <strong>{rangeData.length}</strong></span>
                   ) : (
                     <span>Total: <strong>{rangeData.length}</strong> records</span>
@@ -2334,6 +2461,8 @@ export default function HRAttendancePortalPage() {
                       setRangeSearch('');
                       setRangeEmployeeFilter('all');
                       setSelectedStaffList([]);
+                      setRangeStatusFilter('all');
+                      setRangePunchFilter('all');
                     }}
                     style={{ marginTop: '10px' }}
                   >
