@@ -10,6 +10,19 @@ import {
 import { CloseIcon, ClockIcon, LocationIcon, CameraIcon, ShieldIcon } from '../../Icons';
 import { apiFetch } from '../../../lib/api';
 
+const formatDistanceStr = (meters) => {
+  if (meters === undefined || meters === null || isNaN(meters)) return null;
+  const num = Number(meters);
+  if (num >= 9999) {
+    return 'Outside Geofence (> 10 km)';
+  }
+  if (num >= 1000) {
+    const km = (num / 1000).toFixed(1);
+    return `${km} km away`;
+  }
+  return `${Math.round(num)}m away`;
+};
+
 export default function AttendanceDayDrawer({
   isOpen,
   onClose,
@@ -278,7 +291,10 @@ export default function AttendanceDayDrawer({
                   </div>
                   <div>
                     {verificationCoords.locationName ? `Office: ${verificationCoords.locationName}` : 'Coordinates recorded'}
-                    {verificationCoords.distance !== undefined && ` (${verificationCoords.distance.toFixed(0)}m away)`}
+                    {verificationCoords.distance !== undefined && (() => {
+                      const distText = formatDistanceStr(verificationCoords.distance);
+                      return distText ? ` (${distText})` : '';
+                    })()}
                   </div>
                 </div>
               ) : (

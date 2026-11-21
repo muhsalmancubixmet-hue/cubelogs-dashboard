@@ -758,7 +758,8 @@ function AttendanceContent() {
             });
           } else {
             // Outside Geofence -> Transition into Camera Fallback automatically
-            triggerCameraFallback(`You are outside the office geofence (${minDistance.toFixed(1)}m away). Live photo verification required.`);
+            const distLabel = minDistance >= 9999 ? '> 10 km' : (minDistance >= 1000 ? `${(minDistance / 1000).toFixed(1)} km` : `${minDistance.toFixed(0)}m`);
+            triggerCameraFallback(`You are outside the office geofence (${distLabel} away). Live photo verification required.`);
           }
         } else {
           // Organization has no office locations -> Direct/Remote clock in without photo

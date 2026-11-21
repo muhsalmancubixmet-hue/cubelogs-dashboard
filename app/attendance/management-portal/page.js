@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import PageWrapper from '@/components/PageWrapper';
 import { useApp } from '@/context/AppContext';
@@ -38,6 +38,55 @@ const fmt12h = (s) => {
   if (!s) return '--';
   try { return new Date(s).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }); }
   catch { return s; }
+};
+
+const formatDurationStr = (logOrSecs, detailed = false) => {
+  if (!logOrSecs) return detailed ? '0 hrs' : '0m';
+
+  let totalSecs = null;
+  let isInProgress = false;
+
+  if (typeof logOrSecs === 'number' && !isNaN(logOrSecs)) {
+    totalSecs = logOrSecs;
+  } else if (typeof logOrSecs === 'string' && !isNaN(Number(logOrSecs))) {
+    totalSecs = parseFloat(logOrSecs);
+  } else if (typeof logOrSecs === 'object' && logOrSecs !== null) {
+    const log = logOrSecs;
+
+    // Active shift detection: clocked in without clock out
+    if (log.clockIn && !log.clockOut) {
+      isInProgress = true;
+    } else if (log.clockIn && log.clockOut) {
+      try {
+        const inMs = new Date(log.clockIn).getTime();
+        const outMs = new Date(log.clockOut).getTime();
+        if (!isNaN(inMs) && !isNaN(outMs) && outMs >= inMs) {
+          totalSecs = Math.round((outMs - inMs) / 1000);
+        }
+      } catch {}
+    }
+
+    // Fallback: totalDuration in seconds (stored in Django AttendanceLog model)
+    if (totalSecs === null && log.totalDuration !== undefined && log.totalDuration !== null && log.totalDuration !== '') {
+      const parsed = parseFloat(log.totalDuration);
+      if (!isNaN(parsed) && parsed > 0) {
+        totalSecs = parsed;
+      }
+    }
+  }
+
+  if (isInProgress) return 'Shift Active';
+  if (totalSecs === null || isNaN(totalSecs) || totalSecs <= 0) return detailed ? '0 hrs' : '0m';
+
+  const totalMins = Math.round(totalSecs / 60);
+  const hrs = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const decHrs = (totalSecs / 3600).toFixed(2);
+
+  if (detailed) {
+    return hrs > 0 ? `${hrs}h ${mins}m (${decHrs} hrs)` : `${mins}m (${decHrs} hrs)`;
+  }
+  return hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
 };
 
 const getInitials = (n) => n ? n.split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2) : 'E';
@@ -644,6 +693,8 @@ export default function HRAttendancePortalPage() {
   const [rangeLoading, setRangeLoading] = useState(false);
   const [rangeError, setRangeError] = useState('');
   const [rangeSearch, setRangeSearch] = useState('');
+  const [rangeEmployeeFilter, setRangeEmployeeFilter] = useState('all');
+  const [selectedStaffList, setSelectedStaffList] = useState([]);
   const [exportingCSV, setExportingCSV] = useState(false);
 
   const fetchRangeData = useCallback(async (start = rangeStart, end = rangeEnd) => {
@@ -666,22 +717,86 @@ export default function HRAttendancePortalPage() {
     }
   }, [viewMode, rangeStart, rangeEnd, fetchRangeData]);
 
-  const filteredRangeData = rangeData.filter(item => {
-    if (!rangeSearch) return true;
-    const q = rangeSearch.toLowerCase();
-    return (item.employeeName && item.employeeName.toLowerCase().includes(q)) ||
-           (item.status && item.status.toLowerCase().includes(q)) ||
-           (item.date && item.date.includes(q)) ||
-           (item.employeeDesignation && item.employeeDesignation.toLowerCase().includes(q));
-  });
+  // Quick Preset Date Helpers
+  const applyDatePreset = (preset) => {
+    const now = new Date();
+    let start = '';
+    let end = now.toISOString().split('T')[0];
+
+    if (preset === 'today') {
+      start = end;
+    } else if (preset === 'yesterday') {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      start = y.toISOString().split('T')[0];
+      end = start;
+    } else if (preset === 'this_week') {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+      const monday = new Date(d.setDate(diff));
+      start = monday.toISOString().split('T')[0];
+      end = new Date().toISOString().split('T')[0];
+    } else if (preset === 'this_month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      end = new Date().toISOString().split('T')[0];
+    } else if (preset === 'last_month') {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+      end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    } else if (preset === 'last_30_days') {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      start = d.toISOString().split('T')[0];
+      end = new Date().toISOString().split('T')[0];
+    }
+
+    if (start && end) {
+      setRangeStart(start);
+      setRangeEnd(end);
+      fetchRangeData(start, end);
+    }
+  };
+
+  const rangeUniqueEmployees = useMemo(() => {
+    const names = new Set();
+    rangeData.forEach(r => {
+      if (r.employeeName) names.add(r.employeeName);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [rangeData]);
+
+  const filteredRangeData = useMemo(() => {
+    return rangeData.filter(item => {
+      // 1. Employee Dropdown Filter
+      if (rangeEmployeeFilter !== 'all' && item.employeeName !== rangeEmployeeFilter) {
+        return false;
+      }
+      // 2. Multi-Select Pills Filter (if any selected)
+      if (selectedStaffList.length > 0 && !selectedStaffList.includes(item.employeeName)) {
+        return false;
+      }
+      // 3. Search Bar Filter
+      if (rangeSearch) {
+        const q = rangeSearch.toLowerCase();
+        const matchesName = item.employeeName && item.employeeName.toLowerCase().includes(q);
+        const matchesStatus = item.status && item.status.toLowerCase().includes(q);
+        const matchesDate = item.date && item.date.includes(q);
+        const matchesDesignation = item.employeeDesignation && item.employeeDesignation.toLowerCase().includes(q);
+        if (!matchesName && !matchesStatus && !matchesDate && !matchesDesignation) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rangeData, rangeEmployeeFilter, selectedStaffList, rangeSearch]);
 
   const handleExportRangeCSV = async () => {
-    let dataset = rangeData;
+    setExportingCSV(true);
+    try {
+      let dataset = rangeData;
 
-    // If rangeData is empty, fetch it automatically before exporting
-    if (!dataset || dataset.length === 0) {
-      setExportingCSV(true);
-      try {
+      // If rangeData is empty, fetch it automatically before exporting
+      if (!dataset || dataset.length === 0) {
         const fetched = await apiFetch(`/attendance/?start_date=${rangeStart}&end_date=${rangeEnd}&page_size=1000`);
         const list = Array.isArray(fetched) ? fetched : (fetched?.results || fetched?.data || []);
         if (list.length === 0) {
@@ -690,52 +805,92 @@ export default function HRAttendancePortalPage() {
         }
         setRangeData(list);
         dataset = list;
-      } catch (err) {
-        alert(err.message || 'Failed to fetch attendance data for export.');
-        return;
-      } finally {
-        setExportingCSV(false);
       }
+
+      const isFiltered = rangeSearch.trim() || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0;
+      const exportList = isFiltered ? filteredRangeData : dataset;
+
+      if (!exportList || exportList.length === 0) {
+        alert('No records matching the selected employee or search criteria to export.');
+        return;
+      }
+
+      const headers = ['Employee Name', 'Designation', 'Attendance Date', 'Clock In', 'Clock Out', 'Duration', 'Verified Location', 'Clock-In Distance', 'Status'];
+      const rows = exportList.map(r => {
+        const clockInStr = r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+        const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Shift Active');
+        const durationStr = formatDurationStr(r, true);
+        const name = (r.employeeName || '').replace(/"/g, '""');
+        const designation = (r.employeeDesignation || 'Staff').replace(/"/g, '""');
+        const dateStr = r.date || (r.clockIn ? r.clockIn.split('T')[0] : '');
+        const status = r.status || 'Pending Approval';
+
+        // Extract verified location & formatted distance
+        const loc = r.verificationLocation || {};
+        const locName = loc.locationName || (loc.verification_method ? loc.verification_method : (r.clockIn ? 'Direct / Office' : '--'));
+        let distStr = '--';
+        if (loc.distance !== undefined && loc.distance !== null && !isNaN(loc.distance)) {
+          const d = Number(loc.distance);
+          if (d >= 9999) {
+            distStr = 'Outside Geofence (> 10 km)';
+          } else if (d >= 1000) {
+            distStr = `${(d / 1000).toFixed(1)} km`;
+          } else {
+            distStr = `${Math.round(d)}m`;
+          }
+        } else if (loc.verification_method === 'Camera Fallback') {
+          distStr = 'Outside Geofence';
+        }
+
+        const locationClean = locName.replace(/"/g, '""');
+        const distanceClean = distStr.replace(/"/g, '""');
+
+        return [
+          `"${name}"`,
+          `"${designation}"`,
+          `"${dateStr}"`,
+          `"${clockInStr}"`,
+          `"${clockOutStr}"`,
+          `"${durationStr}"`,
+          `"${locationClean}"`,
+          `"${distanceClean}"`,
+          `"${status}"`
+        ];
+      });
+
+      const csvString = [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
+      const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      // Generate customized filename with employee name when filtered
+      let filename = `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`;
+      if (rangeEmployeeFilter !== 'all' && rangeEmployeeFilter.trim()) {
+        const safeName = rangeEmployeeFilter.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+      } else if (selectedStaffList.length === 1) {
+        const safeName = selectedStaffList[0].trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+      } else if (selectedStaffList.length > 1) {
+        filename = `Attendance_Report_Selected_Staff_${rangeStart}_to_${rangeEnd}.csv`;
+      } else if (rangeSearch.trim()) {
+        const safeSearch = rangeSearch.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+        filename = `Attendance_Report_${safeSearch}_${rangeStart}_to_${rangeEnd}.csv`;
+      } else {
+        filename = `Attendance_Report_All_Staff_${rangeStart}_to_${rangeEnd}.csv`;
+      }
+
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || 'Failed to export attendance CSV.');
+    } finally {
+      setExportingCSV(false);
     }
-
-    const exportList = rangeSearch.trim() ? filteredRangeData : dataset;
-
-    if (exportList.length === 0) {
-      alert('No records matching the search query to export.');
-      return;
-    }
-
-    const headers = ['Employee Name', 'Designation', 'Date', 'Clock In', 'Clock Out', 'Duration', 'Status'];
-    const rows = exportList.map(r => {
-      const clockInStr = r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-      const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Shift Active');
-      const durationStr = formatDurationStr(r);
-      const name = (r.employeeName || '').replace(/"/g, '""');
-      const designation = (r.employeeDesignation || 'Staff').replace(/"/g, '""');
-      const dateStr = r.date || (r.clockIn ? r.clockIn.split('T')[0] : '');
-      const status = r.status || 'Pending Approval';
-
-      return [
-        `"${name}"`,
-        `"${designation}"`,
-        `"${dateStr}"`,
-        `"${clockInStr}"`,
-        `"${clockOutStr}"`,
-        `"${durationStr}"`,
-        `"${status}"`
-      ];
-    });
-
-    const csvString = [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
-    const blob = new Blob(['\uFEFF' + csvString], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   // Reopen Modal State
@@ -1835,6 +1990,40 @@ export default function HRAttendancePortalPage() {
                 </p>
               </div>
 
+              {/* Quick Preset Date Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', marginRight: '4px' }}>
+                  Quick Presets:
+                </span>
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: 'this_week', label: 'This Week' },
+                  { id: 'this_month', label: 'This Month' },
+                  { id: 'last_month', label: 'Last Month' },
+                  { id: 'last_30_days', label: 'Last 30 Days' },
+                ].map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => applyDatePreset(p.id)}
+                    style={{
+                      padding: '5px 12px',
+                      fontSize: '0.78rem',
+                      fontWeight: '600',
+                      borderRadius: '20px',
+                      background: 'var(--bg-app, #f1f5f9)',
+                      border: '1px solid var(--border, #cbd5e1)',
+                      color: 'var(--text-main, #0f172a)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Range Date Inputs & Actions Card */}
               <div style={{
                 display: 'flex',
@@ -1905,7 +2094,7 @@ export default function HRAttendancePortalPage() {
                 </div>
               </div>
 
-              {/* Standard Dedicated Search Bar */}
+              {/* Employee Selection & Dedicated Search Bar */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1918,7 +2107,53 @@ export default function HRAttendancePortalPage() {
                 border: '1px solid var(--border, #e2e8f0)',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
               }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+                {/* Employee Dropdown Filter */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
+                    Staff:
+                  </label>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <EmployeesIcon size={16} style={{
+                      position: 'absolute',
+                      left: '11px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748b)',
+                      pointerEvents: 'none'
+                    }} />
+                    <select
+                      className="form-control"
+                      value={rangeEmployeeFilter}
+                      onChange={(e) => {
+                        setRangeEmployeeFilter(e.target.value);
+                        setSelectedStaffList([]);
+                      }}
+                      style={{
+                        paddingLeft: '34px',
+                        paddingRight: '28px',
+                        paddingTop: '7px',
+                        paddingBottom: '7px',
+                        height: '38px',
+                        fontSize: '0.84rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border, #cbd5e1)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        color: 'var(--text-main, #0f172a)',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">All Employees ({rangeUniqueEmployees.length})</option>
+                      {rangeUniqueEmployees.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Text Search Input */}
+                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
                   <SearchIcon size={16} style={{
                     position: 'absolute',
                     left: '12px',
@@ -1929,15 +2164,15 @@ export default function HRAttendancePortalPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Search by employee name, role, date, or status..."
+                    placeholder="Search by role, date, status, notes..."
                     value={rangeSearch}
                     onChange={(e) => setRangeSearch(e.target.value)}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       paddingLeft: '38px',
                       paddingRight: rangeSearch ? '36px' : '14px',
-                      fontSize: '0.86rem',
+                      fontSize: '0.85rem',
                       borderRadius: '8px',
                       border: '1px solid var(--border, #cbd5e1)',
                       background: 'var(--bg-app, #f8fafc)',
@@ -1970,42 +2205,108 @@ export default function HRAttendancePortalPage() {
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {rangeSearch ? (
+                  {(rangeSearch || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0) ? (
                     <span>Filtered: <strong>{filteredRangeData.length}</strong> of <strong>{rangeData.length}</strong></span>
                   ) : (
                     <span>Total: <strong>{rangeData.length}</strong> records</span>
                   )}
                 </div>
               </div>
+
+              {/* Multi-Staff Quick Toggle Badges */}
+              {rangeUniqueEmployees.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', padding: '2px 4px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted, #64748b)' }}>
+                    Multi-Staff Select:
+                  </span>
+                  {rangeUniqueEmployees.map(empName => {
+                    const isSelected = selectedStaffList.includes(empName) || rangeEmployeeFilter === empName;
+                    return (
+                      <button
+                        key={empName}
+                        type="button"
+                        onClick={() => {
+                          if (rangeEmployeeFilter !== 'all') {
+                            setRangeEmployeeFilter('all');
+                          }
+                          setSelectedStaffList(prev => {
+                            if (prev.includes(empName)) {
+                              return prev.filter(n => n !== empName);
+                            } else {
+                              return [...prev, empName];
+                            }
+                          });
+                        }}
+                        style={{
+                          padding: '4px 11px',
+                          fontSize: '0.76rem',
+                          fontWeight: isSelected ? '700' : '500',
+                          borderRadius: '16px',
+                          border: isSelected ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                          background: isSelected ? '#eff6ff' : '#ffffff',
+                          color: isSelected ? '#1d4ed8' : '#334155',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}
+                      >
+                        <span>{empName}</span>
+                        {isSelected && <span style={{ fontSize: '0.7rem' }}>✓</span>}
+                      </button>
+                    );
+                  })}
+                  {(selectedStaffList.length > 0 || rangeEmployeeFilter !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStaffList([]);
+                        setRangeEmployeeFilter('all');
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '0.74rem',
+                        color: '#ef4444',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Range KPI Stats */}
+            {/* Range KPI Stats (Reactive to filtered records) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
               <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #2563eb' }}>
                 <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Records Found</div>
                 <div style={{ fontSize: '1.45rem', fontWeight: '800', color: 'var(--text-main, #0f172a)', marginTop: '2px' }}>
-                  {rangeData.length}
+                  {filteredRangeData.length}
                 </div>
               </div>
 
               <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #16a34a' }}>
                 <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Unique Staff</div>
                 <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#16a34a', marginTop: '2px' }}>
-                  {new Set(rangeData.map(r => r.employee || r.employeeId)).size}
+                  {new Set(filteredRangeData.map(r => r.employeeName || r.employee || r.employeeId)).size}
                 </div>
               </div>
 
               <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #8b5cf6' }}>
                 <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Approved Logs</div>
                 <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#6b21a8', marginTop: '2px' }}>
-                  {rangeData.filter(r => r.status === 'Approved').length}
+                  {filteredRangeData.filter(r => r.status === 'Approved' || approvedIds.has(r.id)).length}
                 </div>
               </div>
 
               <div className="panel settings-panel-card" style={{ padding: '14px 18px', borderLeft: '4px solid #d97706' }}>
                 <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>Pending Approvals</div>
                 <div style={{ fontSize: '1.45rem', fontWeight: '800', color: '#b45309', marginTop: '2px' }}>
-                  {rangeData.filter(r => r.status === 'Pending Approval').length}
+                  {filteredRangeData.filter(r => r.status === 'Pending Approval' && !approvedIds.has(r.id)).length}
                 </div>
               </div>
             </div>
@@ -2023,6 +2324,22 @@ export default function HRAttendancePortalPage() {
                 </div>
               ) : rangeData.length === 0 ? (
                 <EmptyState IconComponent={CalendarIcon} msg={`No attendance logs found between ${rangeStart} and ${rangeEnd}.`} />
+              ) : filteredRangeData.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted, #64748b)' }}>
+                  <p style={{ margin: 0, fontWeight: '600' }}>No attendance records match your selected staff / filter query.</p>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      setRangeSearch('');
+                      setRangeEmployeeFilter('all');
+                      setSelectedStaffList([]);
+                    }}
+                    style={{ marginTop: '10px' }}
+                  >
+                    Reset Filters
+                  </button>
+                </div>
               ) : (
                 <div className="table-container" style={{ overflowX: 'auto' }}>
                   <table className="data-table" style={{ width: '100%', fontSize: '0.85rem' }}>
@@ -2032,7 +2349,7 @@ export default function HRAttendancePortalPage() {
                         <th>Date</th>
                         <th>Clock-In</th>
                         <th>Clock-Out</th>
-                        <th>Total Hours</th>
+                        <th>Duration</th>
                         <th>Status</th>
                         <th style={{ textAlign: 'right' }}>Actions</th>
                       </tr>
@@ -2049,9 +2366,25 @@ export default function HRAttendancePortalPage() {
                                 </div>
                               </td>
                               <td>{log.date}</td>
-                              <td>{log.clockIn ? fmt12h(log.clockIn) : '—'}</td>
+                              <td>
+                                <div>{log.clockIn ? fmt12h(log.clockIn) : '—'}</div>
+                                {log.verificationLocation?.locationName && (
+                                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px', whiteSpace: 'nowrap' }}>
+                                    <span>📍 {log.verificationLocation.locationName}</span>
+                                    {log.verificationLocation.distance !== undefined && (
+                                      <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                        ({log.verificationLocation.distance >= 9999 ? '>10km' : (log.verificationLocation.distance >= 1000 ? `${(log.verificationLocation.distance / 1000).toFixed(1)}km` : `${Math.round(log.verificationLocation.distance)}m`)})
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
                               <td>{log.clockOut ? fmt12h(log.clockOut) : '—'}</td>
-                              <td>{log.totalDuration ? `${log.totalDuration} hrs` : (log.clockIn && !log.clockOut ? 'In Progress' : '0 hrs')}</td>
+                              <td>
+                                <span style={{ fontWeight: '600', color: (log.clockIn && !log.clockOut) ? '#2563eb' : 'inherit' }}>
+                                  {formatDurationStr(log)}
+                                </span>
+                              </td>
                               <td><StatusPill status={isApproved ? 'Approved' : log.status} /></td>
                               <td style={{ textAlign: 'right' }}>
                                 {!isApproved && (
