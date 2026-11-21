@@ -75,7 +75,7 @@ const formatDurationStr = (logOrSecs, detailed = false) => {
     }
   }
 
-  if (isInProgress) return 'Shift Active';
+  if (isInProgress) return 'Clocked In';
   if (totalSecs === null || isNaN(totalSecs) || totalSecs <= 0) return detailed ? '0 hrs' : '0m';
 
   const totalMins = Math.round(totalSecs / 60);
@@ -210,7 +210,7 @@ const LogRow = ({ log, onApprove, approving, approved }) => {
           {isShiftActive ? (
             <div className="portal-active-banner">
               <ClockIcon size={13} style={{ color: '#b45309', flexShrink: 0 }} />
-              <span>Shift active &bull; Approvals unlock after clock-out</span>
+              <span>Clocked in &bull; Approvals unlock after clock-out</span>
             </div>
           ) : (
             <button
@@ -851,7 +851,7 @@ export default function HRAttendancePortalPage() {
       const headers = ['Employee Name', 'Designation', 'Attendance Date', 'Clock In', 'Clock Out', 'Duration', 'Verified Location', 'Clock-In Distance', 'Status'];
       const rows = exportList.map(r => {
         const clockInStr = r.clockIn ? new Date(r.clockIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
-        const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Shift Active');
+        const clockOutStr = r.clockOut ? new Date(r.clockOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (!r.clockIn ? '--' : 'Clocked In');
         const durationStr = formatDurationStr(r, true);
         const name = (r.employeeName || '').replace(/"/g, '""');
         const designation = (r.employeeDesignation || 'Staff').replace(/"/g, '""');
@@ -903,9 +903,9 @@ export default function HRAttendancePortalPage() {
         filterTag += `_${rangeStatusFilter.replace(/\s+/g, '_')}`;
       }
       if (rangePunchFilter === 'active') {
-        filterTag += '_Active_Shifts';
+        filterTag += '_Clocked_In';
       } else if (rangePunchFilter === 'completed') {
-        filterTag += '_Completed_Shifts';
+        filterTag += '_Clocked_Out';
       }
 
       let filename = `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`;
@@ -2238,10 +2238,10 @@ export default function HRAttendancePortalPage() {
                   </div>
                 </div>
 
-                {/* Punch / Shift Activity Filter Dropdown */}
+                {/* Clock-In / Clock-Out Filter Dropdown */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '175px', flex: '1 1 175px' }}>
                   <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
-                    Activity:
+                    Clock Status:
                   </label>
                   <div style={{ position: 'relative', flex: 1 }}>
                     <ClockIcon size={15} style={{
@@ -2272,9 +2272,9 @@ export default function HRAttendancePortalPage() {
                         width: '100%'
                       }}
                     >
-                      <option value="all">All Shifts</option>
-                      <option value="active">Shift Active ({rangeFilterCounts.active})</option>
-                      <option value="completed">Completed ({rangeFilterCounts.completed})</option>
+                      <option value="all">All Punches</option>
+                      <option value="active">Clocked In ({rangeFilterCounts.active})</option>
+                      <option value="completed">Clocked Out ({rangeFilterCounts.completed})</option>
                     </select>
                   </div>
                 </div>

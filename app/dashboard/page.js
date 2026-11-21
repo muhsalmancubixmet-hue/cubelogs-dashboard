@@ -1338,7 +1338,7 @@ export default function Dashboard() {
                             ) : (
                               <div className="timer-display-group">
                                 <div className="timer-circle inactive">
-                                  <span className="timer-label">Shift Inactive</span>
+                                  <span className="timer-label">Not Clocked In</span>
                                   <span className="timer-val">00:00:00</span>
                                 </div>
                               </div>

@@ -240,7 +240,7 @@ export default function AttendanceDayDrawer({
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-app)', border: '1px solid var(--border)', fontSize: '0.86rem' }}>
             <span style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Clock Out</span>
             <span style={{ fontWeight: '700', color: lastClockOut ? 'var(--primary)' : 'var(--text-muted)' }}>
-              {summary?.is_open_session ? 'Active Shift (Ticking)' : (lastClockOut ? `↑ ${formatTime(lastClockOut)}` : '—')}
+              {summary?.is_open_session ? 'Clocked In (Active)' : (lastClockOut ? `↑ ${formatTime(lastClockOut)}` : '—')}
             </span>
           </div>
 

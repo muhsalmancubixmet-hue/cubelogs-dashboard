@@ -1390,11 +1390,11 @@ function EmployeeProfileContent() {
                       className="form-input"
                       value={editClockOut}
                       onChange={(e) => setEditClockOut(e.target.value)}
-                      placeholder="Active shift (leave blank)"
+                      placeholder="Clocked in (leave blank)"
                       style={{ width: '100%' }}
                     />
                     <small style={{ color: 'var(--text-light)', display: 'block', marginTop: '6px', fontSize: '0.78rem' }}>
-                      Leave blank to keep the shift active (ticking).
+                      Leave blank if employee is currently clocked in.
                     </small>
                   </div>
                 </div>
@@ -1715,7 +1715,7 @@ function EmployeeProfileContent() {
                           detailsCell = 'Off Duty';
                         } else if (st === 'In Progress') {
                           statusBadge = <span className="badge" style={{ backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }}>In Progress</span>;
-                          detailsCell = 'Active shift';
+                          detailsCell = 'Clocked In';
                         } else if (st === 'Incomplete') {
                           statusBadge = <span className="badge badge-danger">Incomplete</span>;
                           detailsCell = 'Missing Clock-Out (Needs Review)';
@@ -1726,7 +1726,7 @@ function EmployeeProfileContent() {
 
                         if (sum) {
                           if (sum.first_clock_in) punchInCell = formatTimeStr(sum.first_clock_in);
-                          if (sum.is_open_session) punchOutCell = 'Active Shift';
+                          if (sum.is_open_session) punchOutCell = 'Clocked In';
                           else if (sum.last_clock_out) punchOutCell = formatTimeStr(sum.last_clock_out);
 
                           if (sum.worked_minutes > 0) {
@@ -1746,7 +1746,7 @@ function EmployeeProfileContent() {
                           }
                         } else if (day.log) {
                           punchInCell = formatTimeStr(day.log.clockIn);
-                          punchOutCell = day.log.clockOut ? formatTimeStr(day.log.clockOut) : 'Active Shift';
+                          punchOutCell = day.log.clockOut ? formatTimeStr(day.log.clockOut) : 'Clocked In';
                           hoursCell = day.log.clockOut ? formatDurationStr(day.log.totalDuration) : 'Ticking...';
                         }
 

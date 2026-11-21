@@ -788,7 +788,7 @@ export default function PersonalProfile() {
                               ↑ {formatTimeStr(log.clockOut)}
                             </span>
                           ) : (
-                            <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Active Shift</span>
+                            <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>Clocked In</span>
                           )}
                         </td>
                         <td>{log.clockOut ? formatDurationStr(log, log.clockIn, log.clockOut) : 'Ticking...'}</td>

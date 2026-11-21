@@ -310,7 +310,7 @@ function DashboardCalendar({
           )}
           {hasAtt && attStatus === 'In Progress' && (
             <span
-              title="Shift Active"
+              title="Clocked In"
               style={{
                 width: '6px',
                 height: '6px',
