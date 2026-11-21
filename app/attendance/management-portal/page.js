@@ -694,6 +694,8 @@ export default function HRAttendancePortalPage() {
   const [rangeError, setRangeError] = useState('');
   const [rangeSearch, setRangeSearch] = useState('');
   const [rangeEmployeeFilter, setRangeEmployeeFilter] = useState('all');
+  const [rangeStatusFilter, setRangeStatusFilter] = useState('all'); // 'all', 'Pending Approval', 'Approved'
+  const [rangePunchFilter, setRangePunchFilter] = useState('all'); // 'all', 'active', 'completed'
   const [selectedStaffList, setSelectedStaffList] = useState([]);
   const [exportingCSV, setExportingCSV] = useState(false);
 
@@ -765,6 +767,25 @@ export default function HRAttendancePortalPage() {
     return Array.from(names).sort((a, b) => a.localeCompare(b));
   }, [rangeData]);
 
+  // Aggregate counts for quick status & punch filter pills
+  const rangeFilterCounts = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    let active = 0;
+    let completed = 0;
+
+    rangeData.forEach(item => {
+      const isAppr = approvedIds.has(item.id) || item.status === 'Approved';
+      if (isAppr) approved++;
+      else pending++;
+
+      if (item.clockIn && !item.clockOut) active++;
+      else if (item.clockIn && item.clockOut) completed++;
+    });
+
+    return { total: rangeData.length, pending, approved, active, completed };
+  }, [rangeData, approvedIds]);
+
   const filteredRangeData = useMemo(() => {
     return rangeData.filter(item => {
       // 1. Employee Dropdown Filter
@@ -775,20 +796,32 @@ export default function HRAttendancePortalPage() {
       if (selectedStaffList.length > 0 && !selectedStaffList.includes(item.employeeName)) {
         return false;
       }
-      // 3. Search Bar Filter
+      // 3. Approval Status Filter
+      const isApproved = approvedIds.has(item.id) || item.status === 'Approved';
+      if (rangeStatusFilter === 'Approved' && !isApproved) return false;
+      if (rangeStatusFilter === 'Pending Approval' && isApproved) return false;
+
+      // 4. Punch State Filter (Clock-In only vs Clock-In & Out)
+      const isShiftActive = item.clockIn && !item.clockOut;
+      const isCompleted = item.clockIn && item.clockOut;
+      if (rangePunchFilter === 'active' && !isShiftActive) return false;
+      if (rangePunchFilter === 'completed' && !isCompleted) return false;
+
+      // 5. Search Bar Filter
       if (rangeSearch) {
         const q = rangeSearch.toLowerCase();
         const matchesName = item.employeeName && item.employeeName.toLowerCase().includes(q);
         const matchesStatus = item.status && item.status.toLowerCase().includes(q);
         const matchesDate = item.date && item.date.includes(q);
         const matchesDesignation = item.employeeDesignation && item.employeeDesignation.toLowerCase().includes(q);
-        if (!matchesName && !matchesStatus && !matchesDate && !matchesDesignation) {
+        const matchesLoc = item.verificationLocation?.locationName && item.verificationLocation.locationName.toLowerCase().includes(q);
+        if (!matchesName && !matchesStatus && !matchesDate && !matchesDesignation && !matchesLoc) {
           return false;
         }
       }
       return true;
     });
-  }, [rangeData, rangeEmployeeFilter, selectedStaffList, rangeSearch]);
+  }, [rangeData, rangeEmployeeFilter, selectedStaffList, rangeStatusFilter, rangePunchFilter, rangeSearch, approvedIds]);
 
   const handleExportRangeCSV = async () => {
     setExportingCSV(true);
@@ -807,7 +840,7 @@ export default function HRAttendancePortalPage() {
         dataset = list;
       }
 
-      const isFiltered = rangeSearch.trim() || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0;
+      const isFiltered = rangeSearch.trim() || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0 || rangeStatusFilter !== 'all' || rangePunchFilter !== 'all';
       const exportList = isFiltered ? filteredRangeData : dataset;
 
       if (!exportList || exportList.length === 0) {
@@ -864,19 +897,31 @@ export default function HRAttendancePortalPage() {
       const link = document.createElement('a');
       link.href = url;
 
-      // Generate customized filename with employee name when filtered
+      // Generate customized filename with employee name & active filters
+      let filterTag = '';
+      if (rangeStatusFilter !== 'all') {
+        filterTag += `_${rangeStatusFilter.replace(/\s+/g, '_')}`;
+      }
+      if (rangePunchFilter === 'active') {
+        filterTag += '_Active_Shifts';
+      } else if (rangePunchFilter === 'completed') {
+        filterTag += '_Completed_Shifts';
+      }
+
       let filename = `Attendance_Report_${rangeStart}_to_${rangeEnd}.csv`;
       if (rangeEmployeeFilter !== 'all' && rangeEmployeeFilter.trim()) {
         const safeName = rangeEmployeeFilter.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeName}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (selectedStaffList.length === 1) {
         const safeName = selectedStaffList[0].trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeName}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeName}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (selectedStaffList.length > 1) {
-        filename = `Attendance_Report_Selected_Staff_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_Selected_Staff${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else if (rangeSearch.trim()) {
         const safeSearch = rangeSearch.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-        filename = `Attendance_Report_${safeSearch}_${rangeStart}_to_${rangeEnd}.csv`;
+        filename = `Attendance_Report_${safeSearch}${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
+      } else if (filterTag) {
+        filename = `Attendance_Report${filterTag}_${rangeStart}_to_${rangeEnd}.csv`;
       } else {
         filename = `Attendance_Report_All_Staff_${rangeStart}_to_${rangeEnd}.csv`;
       }
@@ -2094,7 +2139,77 @@ export default function HRAttendancePortalPage() {
                 </div>
               </div>
 
-              {/* Employee Selection & Dedicated Search Bar */}
+              {/* Quick Status & Shift Activity Filter Pills */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--text-muted, #64748b)', marginRight: '2px' }}>
+                  Quick Filter:
+                </span>
+                {[
+                  { id: 'all', label: `All (${rangeData.length})`, active: rangeStatusFilter === 'all' && rangePunchFilter === 'all' },
+                  { id: 'pending', label: `Pending Approval (${rangeFilterCounts.pending})`, active: rangeStatusFilter === 'Pending Approval', dot: '#d97706' },
+                  { id: 'approved', label: `Approved (${rangeFilterCounts.approved})`, active: rangeStatusFilter === 'Approved', dot: '#16a34a' },
+                  { id: 'active', label: `Shift Active (${rangeFilterCounts.active})`, active: rangePunchFilter === 'active', dot: '#2563eb' },
+                  { id: 'completed', label: `Completed (${rangeFilterCounts.completed})`, active: rangePunchFilter === 'completed', dot: '#64748b' },
+                ].map(b => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => {
+                      if (b.id === 'all') {
+                        setRangeStatusFilter('all');
+                        setRangePunchFilter('all');
+                      } else if (b.id === 'pending') {
+                        setRangeStatusFilter(prev => prev === 'Pending Approval' ? 'all' : 'Pending Approval');
+                      } else if (b.id === 'approved') {
+                        setRangeStatusFilter(prev => prev === 'Approved' ? 'all' : 'Approved');
+                      } else if (b.id === 'active') {
+                        setRangePunchFilter(prev => prev === 'active' ? 'all' : 'active');
+                      } else if (b.id === 'completed') {
+                        setRangePunchFilter(prev => prev === 'completed' ? 'all' : 'completed');
+                      }
+                    }}
+                    style={{
+                      padding: '4px 11px',
+                      fontSize: '0.76rem',
+                      fontWeight: b.active ? '700' : '500',
+                      borderRadius: '16px',
+                      border: b.active ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                      background: b.active ? '#eff6ff' : '#ffffff',
+                      color: b.active ? '#1d4ed8' : '#334155',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    {b.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: b.dot }} />}
+                    <span>{b.label}</span>
+                  </button>
+                ))}
+                {(rangeStatusFilter !== 'all' || rangePunchFilter !== 'all') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRangeStatusFilter('all');
+                      setRangePunchFilter('all');
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '0.74rem',
+                      color: '#ef4444',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '600'
+                    }}
+                  >
+                    Clear Status Filters
+                  </button>
+                )}
+              </div>
+
+              {/* Employee Selection, Status Dropdown & Dedicated Search Bar */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -2108,7 +2223,7 @@ export default function HRAttendancePortalPage() {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
               }}>
                 {/* Employee Dropdown Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '220px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '190px', flex: '1 1 190px' }}>
                   <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
                     Staff:
                   </label>
@@ -2152,8 +2267,90 @@ export default function HRAttendancePortalPage() {
                   </div>
                 </div>
 
+                {/* Approval Status Filter Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '175px', flex: '1 1 175px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
+                    Status:
+                  </label>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <ShieldIcon size={15} style={{
+                      position: 'absolute',
+                      left: '11px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748b)',
+                      pointerEvents: 'none'
+                    }} />
+                    <select
+                      className="form-control"
+                      value={rangeStatusFilter}
+                      onChange={(e) => setRangeStatusFilter(e.target.value)}
+                      style={{
+                        paddingLeft: '32px',
+                        paddingRight: '26px',
+                        paddingTop: '7px',
+                        paddingBottom: '7px',
+                        height: '38px',
+                        fontSize: '0.84rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border, #cbd5e1)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        color: 'var(--text-main, #0f172a)',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="Pending Approval">Pending Approval ({rangeFilterCounts.pending})</option>
+                      <option value="Approved">Approved ({rangeFilterCounts.approved})</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Punch / Shift Activity Filter Dropdown */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '175px', flex: '1 1 175px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: 'var(--text-main, #0f172a)', whiteSpace: 'nowrap' }}>
+                    Activity:
+                  </label>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <ClockIcon size={15} style={{
+                      position: 'absolute',
+                      left: '11px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: 'var(--text-muted, #64748b)',
+                      pointerEvents: 'none'
+                    }} />
+                    <select
+                      className="form-control"
+                      value={rangePunchFilter}
+                      onChange={(e) => setRangePunchFilter(e.target.value)}
+                      style={{
+                        paddingLeft: '32px',
+                        paddingRight: '26px',
+                        paddingTop: '7px',
+                        paddingBottom: '7px',
+                        height: '38px',
+                        fontSize: '0.84rem',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border, #cbd5e1)',
+                        background: '#ffffff',
+                        cursor: 'pointer',
+                        fontWeight: '600',
+                        color: 'var(--text-main, #0f172a)',
+                        width: '100%'
+                      }}
+                    >
+                      <option value="all">All Shifts</option>
+                      <option value="active">Shift Active ({rangeFilterCounts.active})</option>
+                      <option value="completed">Completed ({rangeFilterCounts.completed})</option>
+                    </select>
+                  </div>
+                </div>
+
                 {/* Text Search Input */}
-                <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                <div style={{ position: 'relative', flex: '2 1 200px', minWidth: '190px' }}>
                   <SearchIcon size={16} style={{
                     position: 'absolute',
                     left: '12px',
@@ -2164,7 +2361,7 @@ export default function HRAttendancePortalPage() {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Search by role, date, status, notes..."
+                    placeholder="Search role, date, status, notes..."
                     value={rangeSearch}
                     onChange={(e) => setRangeSearch(e.target.value)}
                     style={{
@@ -2205,7 +2402,7 @@ export default function HRAttendancePortalPage() {
                 </div>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #64748b)', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                  {(rangeSearch || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0) ? (
+                  {(rangeSearch || rangeEmployeeFilter !== 'all' || selectedStaffList.length > 0 || rangeStatusFilter !== 'all' || rangePunchFilter !== 'all') ? (
                     <span>Filtered: <strong>{filteredRangeData.length}</strong> of <strong>{rangeData.length}</strong></span>
                   ) : (
                     <span>Total: <strong>{rangeData.length}</strong> records</span>
@@ -2334,6 +2531,8 @@ export default function HRAttendancePortalPage() {
                       setRangeSearch('');
                       setRangeEmployeeFilter('all');
                       setSelectedStaffList([]);
+                      setRangeStatusFilter('all');
+                      setRangePunchFilter('all');
                     }}
                     style={{ marginTop: '10px' }}
                   >
